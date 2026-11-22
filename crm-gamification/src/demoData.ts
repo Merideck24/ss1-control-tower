@@ -20,6 +20,7 @@ export function seedDemoPlayers(app: App, tenant: string, n = 40) {
   }
   // deja algunos recordatorios de verificación pendientes y procesa vencimientos
   (app.clock as { advance?: (ms: number) => void }).advance?.(25 * HOUR);
-  app.policy.markRgFeedSynced(tenant);
+  // el latido del feed JR llega para todos los tenants antes de procesar vencimientos
+  for (const t of new Set([...app.tenants, tenant])) app.policy.markRgFeedSynced(t);
   app.runtime.runDue();
 }
