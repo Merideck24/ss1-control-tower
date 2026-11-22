@@ -156,6 +156,7 @@ export class JourneyRuntime {
             // re-ejecuta este mismo nodo al despertar (revalidando política otra vez)
             inst.status = 'waiting'; inst.wake_at = decision.defer_until; inst.current = node.id;
             inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: 'deferred', decision });
+            this.#effects?.recordNonDelivery({ idempotency_key: key, tenant_id: inst.tenant_id, player_id: inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, status: 'deferred', reason: `quiet_hours_until:${decision.defer_until}` });
             this.#deferred.set(inst.instance_id, node.id);
             return;
           }

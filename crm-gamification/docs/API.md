@@ -1,6 +1,6 @@
 # API REST (MVP)
 
-Base: `/api`. Sesión de desarrollo por cabeceras — **reemplazar por identidad SS1 (OIDC) antes de producción**:
+Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expone por HTTP y `browser.ts` lo ejecuta en la demo estática. Cada acción exige un permiso (`PERMISSIONS`) y devuelve `403` con los roles válidos si falta. Sesión de desarrollo por cabeceras — **reemplazar por identidad SS1 (OIDC) antes de producción**:
 
 | Cabecera | Ejemplo | Uso |
 |---|---|---|
@@ -11,6 +11,7 @@ Base: `/api`. Sesión de desarrollo por cabeceras — **reemplazar por identidad
 | Método y ruta | Descripción | Requisito |
 |---|---|---|
 | `GET /health` | Liveness | — |
+| `GET /session` | Rol, permisos efectivos y herramientas del copiloto disponibles | RBAC |
 | `GET /control-tower` | Recorridos, entregas, supresiones, fallos, presupuestos, alertas, métricas por fuente | Control Tower |
 | `POST /events` | Ingesta de un evento normalizado (`202 applied/duplicate`, `422 rejected`) | CRM-01 |
 | `GET /players?q=` | Búsqueda por player_id seudonimizado | CRM-01 |

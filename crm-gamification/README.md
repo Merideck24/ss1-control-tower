@@ -20,6 +20,13 @@ Módulo integrado al PAM, al servicio de bonos y al Control Tower de SS1. Implem
 | Auditoría | Registro append-only encadenado por hash, con datos sensibles redactados |
 | Copiloto IA | Herramientas tipadas `query_metric`, `preview_segment`, `validate_policy`, `simulate_journey` y `save_draft`. Tenant y rol salen de la sesión. Sin herramientas para enviar, publicar, otorgar premios ni cambiar restricciones. Bucle con Claude vía `@anthropic-ai/sdk` |
 
+## Demo en línea
+
+- **GitHub Pages:** https://merideck24.github.io/ss1-control-tower/ — versión estática que ejecuta el mismo dominio en el navegador con datos sintéticos (sin servidor). Se publica automáticamente desde `main` con `.github/workflows/crm-pages.yml`.
+- Generar localmente: `npm run build:static` → `dist/index.html`.
+
+La demo estática no incluye el copiloto en lenguaje natural (requiere credenciales Anthropic en el servidor); las herramientas del copiloto sí funcionan.
+
 ## Ejecutar
 
 Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
@@ -27,7 +34,7 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 26 pruebas mapeadas a criterios de aceptación
+npm test          # 28 pruebas mapeadas a criterios de aceptación
 npm run typecheck
 npm start         # http://localhost:3000 — backoffice con datos sintéticos
 ```
