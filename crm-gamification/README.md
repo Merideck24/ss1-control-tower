@@ -34,6 +34,14 @@ npm start         # http://localhost:3000 — backoffice con datos sintéticos
 
 El backoffice tiene las pantallas Control Tower, Perfil 360, Segmentos, Constructor, Aprobación, Analítica, Fidelidad (móvil), Copiloto y Auditoría. Cambia de **rol** y **tenant** en la cabecera para probar permisos y aislamiento. Por ejemplo: crea un borrador como Analista, envíalo y apruébalo como Aprobador.
 
+### Capturas
+
+| Control Tower | Perfil 360 | Fidelidad (móvil) |
+|---|---|---|
+| ![Control Tower](docs/screenshots/1-control-tower.png) | ![Perfil 360](docs/screenshots/2-perfil-360.png) | ![Fidelidad](docs/screenshots/7-fidelidad-movil.png) |
+
+Más en [docs/screenshots](docs/screenshots/): segmentos, constructor con simulación, analítica y copiloto.
+
 ### Copiloto con Claude
 
 `POST /api/copilot/ask` usa el modelo `claude-opus-5-5` (configurable con `COPILOT_MODEL`) con respaldo ante rechazos del lado del servidor (`fallbacks: "default"`). Las credenciales se leen del entorno (`ANTHROPIC_API_KEY` o un perfil `ant auth login`). Sin credenciales, las herramientas siguen disponibles en `POST /api/copilot/tools/:name`.
