@@ -1,0 +1,70 @@
+asyncapi: 3.0.0
+info:
+  title: SS1 CRM — eventos normalizados
+  version: 1.0.0
+  description: |
+    Eventos publicados por PAM, agregador, sportsbook, pagos, KYC, bonos y fidelidad.
+    Entrega al menos una vez; los consumidores deduplican por (tenant_id, event_id).
+    Partición recomendada: tenant_id + player_id. Montos en unidades mínimas + moneda ISO-4217.
+    Prohibido incluir tokens, OTP, contraseñas o enlaces secretos (se rechazan a la cola de errores).
+channels:
+  crm.events:
+    address: crm.events.{tenant_id}
+    parameters:
+      tenant_id: { description: Tenant SS1 }
+    messages:
+      playerRegistered: { $ref: '#/components/messages/playerRegistered' }
+      playerVerified: { $ref: '#/components/messages/playerVerified' }
+      consentChanged: { $ref: '#/components/messages/consentChanged' }
+      rgStatusChanged: { $ref: '#/components/messages/rgStatusChanged' }
+      depositSettled: { $ref: '#/components/messages/depositSettled' }
+      depositReversed: { $ref: '#/components/messages/depositReversed' }
+      betSettled: { $ref: '#/components/messages/betSettled' }
+      rewardGranted: { $ref: '#/components/messages/rewardGranted' }
+      loyaltyThresholdCrossed: { $ref: '#/components/messages/loyaltyThresholdCrossed' }
+operations:
+  consumeEvents:
+    action: receive
+    channel: { $ref: '#/channels/crm.events' }
+components:
+  schemas:
+    Envelope:
+      type: object
+      required: [event_id, event_type, schema_version, tenant_id, brand_id, player_id, occurred_at, source, correlation_id, payload]
+      properties:
+        event_id: { type: string, description: Único por tenant; clave de idempotencia }
+        event_type: { type: string }
+        schema_version: { type: integer, enum: [1] }
+        tenant_id: { type: string }
+        brand_id: { type: string }
+        player_id: { type: string, description: Seudonimizado }
+        occurred_at: { type: string, format: date-time, description: UTC }
+        received_at: { type: string, format: date-time }
+        source: { type: string, examples: [ss1.pam, ss1.rg, ss1.wallet, ss1.bonus, ss1.loyalty] }
+        correlation_id: { type: string }
+        aggregate_version: { type: integer }
+    Money:
+      type: object
+      required: [amount_minor, currency]
+      properties:
+        amount_minor: { type: integer }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+  messages:
+    playerRegistered:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [email_masked, country, locale, timezone], properties: { email_masked: { type: string }, country: { type: string }, locale: { type: string, enum: [es, en, pt] }, timezone: { type: string } } } } }] }
+    playerVerified:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [kyc_status], properties: { kyc_status: { type: string, enum: [pending, verified, rejected] } } } } }] }
+    consentChanged:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [purpose, channel, granted], properties: { purpose: { type: string, enum: [service, marketing] }, channel: { type: string, enum: [inapp, email, webpush] }, granted: { type: boolean } } } } }] }
+    rgStatusChanged:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [status], properties: { status: { type: string, enum: [none, cooling_off, self_excluded, limited] } } } } }] }
+    depositSettled:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [deposit_id], properties: { deposit_id: { type: string } } }] } } }] }
+    depositReversed:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [deposit_id], properties: { deposit_id: { type: string } } }] } } }] }
+    betSettled:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [bet_id, stake, product], properties: { bet_id: { type: string }, stake: { $ref: '#/components/schemas/Money' }, product: { type: string, enum: [casino, sports] } } } } }] }
+    rewardGranted:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [grant_id, reward_type, value, expires_at], properties: { grant_id: { type: string }, reward_type: { type: string, enum: [free_bet, free_spins, bonus] }, value: { $ref: '#/components/schemas/Money' }, expires_at: { type: string, format: date-time } } } } }] }
+    loyaltyThresholdCrossed:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [level, season, percent], properties: { level: { type: string }, season: { type: string }, percent: { type: integer } } } } }] }

@@ -1,0 +1,23 @@
+{
+  "name": "ss1-crm-gamification",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SS1 CRM, Gamificación e IA — MVP: perfil 360, segmentos, recorridos, políticas, recompensas idempotentes, fidelidad y copiloto con permisos acotados.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/api/server.ts",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.3"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0"
+  }
+}

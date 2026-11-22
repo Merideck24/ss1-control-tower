@@ -1,0 +1,240 @@
+import type { AuditLog } from '../audit/audit.ts';
+import type { ChannelHub, Locale } from '../channels/channels.ts';
+import type { EventEnvelope } from '../domain/events.ts';
+import { assignArm } from '../experiments/experiments.ts';
+import type { PolicyEngine, Decision } from '../policy/policyEngine.ts';
+import type { PlayerProfile } from '../profile/projection.ts';
+import type { RewardService } from '../rewards/rewards.ts';
+import { evaluate } from '../segments/segmentEngine.ts';
+import type { Clock } from '../shared/util.ts';
+import { hasIncentive, type JourneyDefinition, type JourneyNode } from './model.ts';
+import type { JourneyRegistry } from './registry.ts';
+
+export type InstanceStatus = 'running' | 'waiting' | 'completed' | 'exited' | 'cancelled' | 'held_out';
+export type TraceStep = { at: string; node: string; type: JourneyNode['type'] | 'enter' | 'exit_event'; outcome: string; decision?: Decision; detail?: Record<string, unknown> };
+export type JourneyInstance = {
+  instance_id: string;
+  tenant_id: string;
+  player_id: string;
+  journey_id: string;
+  version: number; // versión fijada (CRM-03)
+  arm: 'treatment' | 'control';
+  status: InstanceStatus;
+  current: string;
+  wake_at?: string;
+  trigger_event_id: string;
+  correlation_id: string;
+  trace: TraceStep[];
+};
+
+type ProfileSource = { get(tenant: string, player: string): PlayerProfile | undefined };
+
+export type Effects = {
+  send: ChannelHub['send'];
+  recordNonDelivery: ChannelHub['recordNonDelivery'];
+  grant: RewardService['grant'];
+};
+
+/**
+ * Ejecutor de recorridos. Instancias con versión fijada, temporizadores persistentes
+ * (wake_at), revalidación de política justo antes de cada efecto y pausa que impide
+ * nuevos efectos desde SS1. `effects: null` ⇒ modo simulación/replay sin efectos externos.
+ */
+export class JourneyRuntime {
+  #instances = new Map<string, JourneyInstance>();
+  #globalPause = new Set<string>(); // tenants con pausa general
+  #registry: JourneyRegistry;
+  #policy: PolicyEngine;
+  #profiles: ProfileSource;
+  #effects: Effects | null;
+  #audit: AuditLog;
+  #clock: Clock;
+  #skipWaits: boolean;
+  #deferred = new Map<string, string>(); // instance → message node diferido
+
+  constructor(deps: { registry: JourneyRegistry; policy: PolicyEngine; profiles: ProfileSource; effects: Effects | null; audit: AuditLog; clock: Clock; skipWaits?: boolean }) {
+    this.#registry = deps.registry; this.#policy = deps.policy; this.#profiles = deps.profiles; this.#effects = deps.effects; this.#audit = deps.audit; this.#clock = deps.clock;
+    this.#skipWaits = deps.skipWaits ?? false;
+  }
+
+  setGlobalPause(tenant: string, paused: boolean, actor: string, reason: string) {
+    paused ? this.#globalPause.add(tenant) : this.#globalPause.delete(tenant);
+    this.#audit.record(tenant, actor, paused ? 'runtime.global_pause' : 'runtime.global_resume', tenant, { reason });
+  }
+  isGloballyPaused(tenant: string) { return this.#globalPause.has(tenant); }
+
+  /** Punto de entrada para eventos ya ingeridos. */
+  onEvent(e: EventEnvelope): JourneyInstance[] {
+    const started: JourneyInstance[] = [];
+    // salidas por evento (p.ej. player.verified termina el recordatorio de verificación)
+    for (const inst of this.#instances.values()) {
+      if (inst.tenant_id !== e.tenant_id || inst.player_id !== e.player_id || !['waiting', 'running'].includes(inst.status)) continue;
+      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
+      if (def?.exit_on?.includes(e.event_type)) {
+        inst.status = 'exited'; inst.wake_at = undefined;
+        inst.trace.push({ at: this.#now(), node: inst.current, type: 'exit_event', outcome: `exit_on:${e.event_type}` });
+      }
+    }
+    // cambio de juego responsable ⇒ cancelar acciones de marketing pendientes (recorrido 5)
+    if (e.event_type === 'rg.status_changed' && (e as EventEnvelope<'rg.status_changed'>).payload.status !== 'none') {
+      for (const inst of this.#instances.values()) {
+        if (inst.tenant_id === e.tenant_id && inst.player_id === e.player_id && inst.status === 'waiting') {
+          const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
+          if (def?.purpose === 'marketing') {
+            inst.status = 'cancelled'; inst.wake_at = undefined;
+            inst.trace.push({ at: this.#now(), node: inst.current, type: 'exit_event', outcome: 'cancelled_by_rg_change' });
+            this.#audit.record(e.tenant_id, 'system', 'journey.instance_cancelled', e.player_id, { instance: inst.instance_id, reason: 'rg_status_changed' });
+          }
+        }
+      }
+    }
+    for (const def of this.#registry.live(e.tenant_id)) {
+      if (def.trigger.event_type !== e.event_type || def.brand_id !== e.brand_id) continue;
+      const instance_id = `${def.tenant_id}:${def.id}:v${def.version}:${e.player_id}:${e.event_id}`;
+      if (this.#instances.has(instance_id)) continue; // evento duplicado ⇒ una sola instancia lógica
+      if (def.status !== 'published' || this.#globalPause.has(e.tenant_id)) {
+        this.#audit.record(e.tenant_id, 'system', 'journey.entry_skipped_paused', e.player_id, { journey: def.id, version: def.version });
+        continue;
+      }
+      const arm = def.purpose === 'marketing' && def.control_group_pct ? assignArm(def.tenant_id, `${def.id}`, e.player_id, def.control_group_pct) : 'treatment';
+      const inst: JourneyInstance = { instance_id, tenant_id: e.tenant_id, player_id: e.player_id, journey_id: def.id, version: def.version, arm, status: arm === 'control' ? 'held_out' : 'running', current: def.entry, trigger_event_id: e.event_id, correlation_id: e.correlation_id, trace: [{ at: this.#now(), node: def.entry, type: 'enter', outcome: arm }] };
+      this.#instances.set(instance_id, inst);
+      if (arm === 'treatment') this.#advance(inst, def, { event: e });
+      started.push(inst);
+    }
+    return started;
+  }
+
+  /** Procesa temporizadores vencidos (llamado por un scheduler). */
+  tick(): number {
+    let n = 0;
+    const now = this.#clock.now().getTime();
+    for (const inst of this.#instances.values()) {
+      if (inst.status !== 'waiting' || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
+      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
+      if (def.status !== 'published' || this.#globalPause.has(inst.tenant_id)) continue; // en pausa: queda esperando
+      const node = def.nodes.find((x) => x.id === inst.current)! as Extract<JourneyNode, { type: 'wait' }>;
+      inst.status = 'running'; inst.wake_at = undefined; inst.current = node.next;
+      this.#advance(inst, def, {});
+      n++;
+    }
+    return n;
+  }
+
+  #now() { return this.#clock.now().toISOString(); }
+
+  #advance(inst: JourneyInstance, def: JourneyDefinition, ctx: { event?: EventEnvelope }) {
+    for (let guard = 0; guard < 100 && inst.status === 'running'; guard++) {
+      const node = def.nodes.find((n) => n.id === inst.current)!;
+      const profile = this.#profiles.get(inst.tenant_id, inst.player_id);
+      if (!profile) { inst.status = 'exited'; inst.trace.push({ at: this.#now(), node: node.id, type: node.type, outcome: 'profile_missing' }); return; }
+      switch (node.type) {
+        case 'exit':
+          inst.status = 'completed';
+          inst.trace.push({ at: this.#now(), node: node.id, type: 'exit', outcome: 'completed' });
+          return;
+        case 'condition': {
+          const ok = evaluate(node.rule, profile, this.#clock.now());
+          inst.trace.push({ at: this.#now(), node: node.id, type: 'condition', outcome: String(ok) });
+          inst.current = ok ? node.on_true : node.on_false;
+          break;
+        }
+        case 'wait':
+          if (this.#skipWaits) {
+            inst.trace.push({ at: this.#now(), node: node.id, type: 'wait', outcome: `simulated_skip ${Math.round(node.duration_ms / 3_600_000)}h` });
+            inst.current = node.next;
+            break;
+          }
+          inst.status = 'waiting';
+          inst.wake_at = new Date(this.#clock.now().getTime() + node.duration_ms).toISOString();
+          inst.trace.push({ at: this.#now(), node: node.id, type: 'wait', outcome: `until ${inst.wake_at}` });
+          return;
+        case 'message': {
+          const decision = this.#policy.decide({ profile, purpose: def.purpose, channel: node.channel });
+          const key = `${inst.instance_id}:${node.id}`;
+          if (decision.kind === 'defer' && !this.#skipWaits) {
+            // re-ejecuta este mismo nodo al despertar (revalidando política otra vez)
+            inst.status = 'waiting'; inst.wake_at = decision.defer_until; inst.current = node.id;
+            inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: 'deferred', decision });
+            this.#deferred.set(inst.instance_id, node.id);
+            return;
+          }
+          if (decision.kind === 'suppress') {
+            inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: 'suppressed', decision });
+            this.#effects?.recordNonDelivery({ idempotency_key: key, tenant_id: inst.tenant_id, player_id: inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, status: 'suppressed', reason: decision.reasons.join(',') });
+            this.#audit.record(inst.tenant_id, 'system', 'delivery.suppressed', inst.player_id, { journey: def.id, version: def.version, node: node.id, reasons: decision.reasons, policy_version: decision.policy_version });
+            inst.current = node.next;
+            break;
+          }
+          const vars = this.#vars(profile, ctx.event);
+          const receipt = this.#effects?.send({ tenant_id: inst.tenant_id, player_id: inst.player_id, address: profile.email_masked?.value ?? inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, vars, idempotency_key: key });
+          if (receipt?.status === 'accepted' && def.purpose === 'marketing') this.#policy.recordMarketingSend(profile);
+          inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: this.#effects ? receipt!.status : 'simulated_send', decision, detail: receipt ? { reason: receipt.reason } : { template: node.template, vars } });
+          inst.current = node.next;
+          break;
+        }
+        case 'grant_reward': {
+          const decision = this.#policy.decide({ profile, purpose: 'marketing', incentive: true });
+          if (decision.kind !== 'allow') {
+            inst.trace.push({ at: this.#now(), node: node.id, type: 'grant_reward', outcome: 'suppressed', decision });
+            this.#audit.record(inst.tenant_id, 'system', 'reward.suppressed', inst.player_id, { journey: def.id, version: def.version, reasons: decision.reasons, policy_version: decision.policy_version });
+          } else {
+            const g = this.#effects?.grant({ tenant_id: inst.tenant_id, player_id: inst.player_id, reward_id: node.reward_id, idempotency_key: `${inst.instance_id}:${node.id}`, actor: `journey:${def.id}@v${def.version}` });
+            inst.trace.push({ at: this.#now(), node: node.id, type: 'grant_reward', outcome: g ? g.status : 'simulated_grant', decision, detail: g ? { reason: g.reason } : { reward_id: node.reward_id } });
+          }
+          inst.current = node.next;
+          break;
+        }
+      }
+    }
+  }
+
+  /** Reanuda nodos de mensaje diferidos por horario silencioso. */
+  tickDeferred(): number {
+    let n = 0;
+    const now = this.#clock.now().getTime();
+    for (const [id, nodeId] of this.#deferred) {
+      const inst = this.#instances.get(id)!;
+      if (inst.status !== 'waiting' || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
+      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
+      if (def.status !== 'published' || this.#globalPause.has(inst.tenant_id)) continue;
+      this.#deferred.delete(id);
+      inst.status = 'running'; inst.wake_at = undefined; inst.current = nodeId;
+      this.#advance(inst, def, {});
+      n++;
+    }
+    return n;
+  }
+
+  /** Ejecuta wait-timers y diferidos. */
+  runDue(): number { return this.tickDeferred() + this.tick(); }
+
+  #vars(profile: PlayerProfile, e?: EventEnvelope): Record<string, string | number> {
+    const v: Record<string, string | number> = { player_id: profile.player_id };
+    if (e?.event_type === 'reward.granted') {
+      const p = (e as EventEnvelope<'reward.granted'>).payload;
+      v.reward_type = p.reward_type; v.amount = (p.value.amount_minor / 100).toFixed(2); v.currency = p.value.currency; v.expires_at = p.expires_at.slice(0, 10);
+    }
+    if (e?.event_type === 'loyalty.threshold_crossed') {
+      const p = (e as EventEnvelope<'loyalty.threshold_crossed'>).payload;
+      v.level = p.level; v.percent = p.percent;
+    }
+    return v;
+  }
+
+  instances(tenant: string, filter?: { player_id?: string; journey_id?: string }) {
+    return [...this.#instances.values()].filter((i) => i.tenant_id === tenant && (!filter?.player_id || i.player_id === filter.player_id) && (!filter?.journey_id || i.journey_id === filter.journey_id));
+  }
+}
+
+/**
+ * Simulación sin efectos (CRM-03): ejecuta una definición (borrador incluido) contra un
+ * perfil con efectos externos deshabilitados y esperas saltadas. Devuelve la traza.
+ */
+export function simulateJourney(def: JourneyDefinition, profile: PlayerProfile, triggerEvent: EventEnvelope, deps: { policy: PolicyEngine; audit: AuditLog; clock: Clock }): { trace: TraceStep[]; status: InstanceStatus; incentive: boolean } {
+  const asPublished = { ...def, status: 'published' as const };
+  const registry = { live: () => [asPublished], get: () => asPublished } as unknown as JourneyRegistry;
+  const rt = new JourneyRuntime({ registry, policy: deps.policy, profiles: { get: () => profile }, effects: null, audit: deps.audit, clock: deps.clock, skipWaits: true });
+  const [inst] = rt.onEvent({ ...triggerEvent, event_type: def.trigger.event_type, tenant_id: def.tenant_id, brand_id: def.brand_id, player_id: profile.player_id } as EventEnvelope);
+  return inst ? { trace: inst.trace, status: inst.status, incentive: hasIncentive(def) } : { trace: [], status: 'exited', incentive: hasIncentive(def) };
+}

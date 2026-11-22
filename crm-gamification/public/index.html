@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SS1 CRM y Fidelidad</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #18202b; --muted: #5d6878; --line: #e2e6ec;
+    --brand: #0f6b5c; --brand-ink: #ffffff; --warn: #a15c00; --bad: #b3261e; --ok: #1d7a3a; --chip: #eef2f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0f141a; --panel: #161d25; --ink: #e6ebf1; --muted: #9aa6b5; --line: #26303b; --brand: #3fb59e; --brand-ink: #062019; --chip: #1f2933; --warn: #e0a24a; --bad: #f2867f; --ok: #6fd08f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header .ctx { margin-left: auto; display: flex; gap: 8px; align-items: center; color: var(--muted); flex-wrap: wrap; }
+  select, input, textarea, button { font: inherit; color: inherit; }
+  select, input, textarea { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  button { background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  nav { display: flex; gap: 2px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  nav button { background: none; color: var(--muted); border-radius: 0; border-bottom: 2px solid transparent; padding: 10px 12px; white-space: nowrap; }
+  nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand); }
+  main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .kpi { font-size: 26px; font-weight: 650; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 99px; background: var(--chip); font-size: 12px; margin: 1px 2px 1px 0; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); } .muted { color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  pre { background: var(--chip); padding: 10px; border-radius: 8px; overflow: auto; font-size: 12px; max-height: 420px; }
+  .bar { height: 12px; background: var(--chip); border-radius: 99px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--brand); }
+  .phone { max-width: 360px; margin: 0 auto; border: 1px solid var(--line); border-radius: 24px; padding: 18px; background: var(--panel); }
+  .scroll { overflow-x: auto; }
+  @media (max-width: 640px) { main { padding: 16px; } header { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>SS1 · CRM, Gamificación e IA</h1>
+  <span class="chip">Datos sintéticos</span>
+  <div class="ctx">
+    <label>Tenant <select id="tenant"><option>tenant-rumbawin</option><option>tenant-demo-b</option></select></label>
+    <label>Rol <select id="role">
+      <option value="crm_analyst">Analista CRM</option>
+      <option value="approver">Aprobador</option>
+      <option value="support">Soporte</option>
+      <option value="rg_officer">Juego responsable</option>
+      <option value="tenant_admin">Admin de tenant</option>
+      <option value="auditor">Auditor</option>
+    </select></label>
+  </div>
+</header>
+<nav role="tablist" id="tabs"></nav>
+<main id="view" aria-live="polite"></main>
+
+<script>
+const TABS = [
+  ['tower', 'Control Tower'], ['profile', 'Perfil 360'], ['segments', 'Segmentos'], ['builder', 'Constructor'],
+  ['approval', 'Aprobación'], ['analytics', 'Analítica'], ['loyalty', 'Fidelidad (móvil)'], ['copilot', 'Copiloto'], ['audit', 'Auditoría'],
+];
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = (minor, cur = 'COP') => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, maximumFractionDigits: 0 });
+let current = 'tower';
+
+async function api(path, opts = {}) {
+  const role = $('#role').value;
+  const res = await fetch('/api' + path, {
+    method: opts.method ?? 'GET',
+    headers: { 'content-type': 'application/json', 'x-tenant-id': $('#tenant').value, 'x-roles': role, 'x-actor': role + '@ss1' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw Object.assign(new Error(data.message ?? data.error), { data });
+  return data;
+}
+
+function renderTabs() {
+  $('#tabs').innerHTML = TABS.map(([k, l]) => `<button role="tab" aria-selected="${k === current}" data-k="${k}">${l}</button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach((b) => b.onclick = () => { current = b.dataset.k; renderTabs(); show(); });
+}
+
+async function show() {
+  const v = $('#view');
+  v.innerHTML = '<p class="muted">Cargando…</p>';
+  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); }
+  catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
+}
+
+const statusChip = (s) => `<span class="chip ${s === 'published' ? 'ok' : s === 'paused' ? 'warn' : ''}">${esc(s)}</span>`;
+const kv = (o) => Object.entries(o ?? {}).map(([k, n]) => `<span class="chip">${esc(k)}: <b>${n}</b></span>`).join('') || '<span class="muted">—</span>';
+
+const VIEWS = {
+  async tower() {
+    const t = await api('/control-tower');
+    const delivered = Object.entries(t.deliveries).filter(([k]) => k.endsWith(':accepted')).reduce((s, [, n]) => s + n, 0);
+    const suppressed = Object.entries(t.deliveries).filter(([k]) => k.endsWith(':suppressed')).reduce((s, [, n]) => s + n, 0);
+    return `
+    <div class="row"><button id="tick">Procesar esperas vencidas (+24 h)</button>
+      <button class="ghost" id="gpause">${t.global_pause ? 'Reanudar' : 'Pausa general'}</button>
+      <span class="muted">Datos al ${new Date(t.as_of).toLocaleString('es-CO')}</span></div>
+    <div class="grid">
+      <div class="card"><h3>Entregas aceptadas</h3><div class="kpi">${delivered}</div></div>
+      <div class="card"><h3>Supresiones</h3><div class="kpi">${suppressed}</div></div>
+      <div class="card"><h3>Cola de errores</h3><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
+      <div class="card"><h3>Estado</h3><div class="kpi ${t.global_pause ? 'warn' : 'ok'}">${t.global_pause ? 'En pausa' : 'Operando'}</div></div>
+    </div><br>
+    <div class="card scroll"><h3>Recorridos</h3><table><tr><th>Recorrido</th><th>Versión</th><th>Estado</th><th>Propósito</th><th>Control</th><th>Instancias</th></tr>
+      ${t.journeys.map((j) => `<tr><td>${esc(j.name)}<br><span class="muted">${esc(j.id)}</span></td><td>v${j.version}</td><td>${statusChip(j.status)}</td><td>${j.purpose === 'service' ? 'Servicio' : 'Marketing'}</td><td>${j.control_group_pct}%</td><td>${kv(j.instances)}</td></tr>`).join('')}
+    </table></div><br>
+    <div class="grid">
+      <div class="card"><h3>Motivos de supresión</h3>${kv(t.suppression_reasons)}</div>
+      <div class="card"><h3>Entregas por canal</h3>${kv(t.deliveries)}</div>
+      <div class="card"><h3>Presupuestos</h3>${t.budgets.map((b) => `<div>${esc(b.reward_id)}: ${money(b.committed_minor)} / ${money(b.budget_minor)}<div class="bar"><span style="width:${Math.min(100, 100 * b.committed_minor / b.budget_minor)}%"></span></div></div>`).join('')}</div>
+      <div class="card"><h3>Alertas operativas</h3>${t.alerts.length ? t.alerts.map((a) => `<div class="warn">${esc(a.alert)} · ${esc(a.player_id)}</div>`).join('') : '<span class="muted">Sin alertas</span>'}</div>
+    </div>`;
+  },
+  async profile() {
+    const list = await api('/players');
+    return `<div class="row"><input id="pq" placeholder="Buscar player_id (seudonimizado)"><button id="pgo">Buscar</button></div>
+      <div class="grid" style="grid-template-columns: minmax(240px, 1fr) 2fr">
+        <div class="card scroll"><h3>Jugadores</h3><table>${list.map((p) => `<tr><td><a href="#" data-p="${esc(p.player_id)}">${esc(p.player_id)}</a></td><td>${esc(p.kyc)}</td><td class="${p.rg !== 'none' ? 'bad' : ''}">${esc(p.rg)}</td><td>${esc(p.level ?? '')}</td></tr>`).join('')}</table></div>
+        <div class="card" id="pdetail"><p class="muted">Selecciona un jugador.</p></div></div>`;
+  },
+  async segments() {
+    const fields = await api('/segments/fields');
+    return `<div class="card"><h3>Definición (AND/OR/NOT)</h3>
+      <p class="muted">Campos: ${fields.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</p>
+      <textarea id="rules" rows="8">${esc(JSON.stringify({ and: [{ field: 'kyc', op: 'eq', value: 'verified' }, { field: 'stats.deposit_count', op: 'gte', value: 1 }] }, null, 2))}</textarea>
+      <h3 style="margin-top:10px">Exclusiones</h3>
+      <textarea id="excl" rows="3">${esc(JSON.stringify({ field: 'rg', op: 'neq', value: 'none' }))}</textarea>
+      <div class="row" style="margin-top:10px"><button id="prev">Vista previa</button></div><div id="segout"></div></div>`;
+  },
+  async builder() {
+    const js = await api('/journeys');
+    const latest = Object.values(js.reduce((m, j) => ((m[j.id] = j), m), {}));
+    const players = await api('/players');
+    return `<div class="grid">${latest.map((j) => `
+      <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip">disparador: ${esc(j.trigger.event_type)}</span></div>
+        <ol>${j.as_list.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
+        ${j.validation.length ? `<p class="bad">${j.validation.map(esc).join(', ')}</p>` : '<p class="ok">Grafo válido</p>'}
+        <div class="row"><select data-simp="${esc(j.id)}">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select>
+          <button class="ghost" data-sim="${esc(j.id)}">Simular</button>
+          ${j.status === 'published' ? `<button class="ghost" data-pause="${esc(j.id)}">Pausar</button>` : j.status === 'paused' ? `<button class="ghost" data-resume="${esc(j.id)}">Reanudar</button>` : ''}</div>
+        <div data-simout="${esc(j.id)}"></div></div>`).join('')}</div>
+      <br><div class="card"><h3>Nuevo borrador (JSON)</h3><textarea id="draft" rows="12">${esc(JSON.stringify({ id: 'j_winback', brand_id: 'rumbawin', name: 'Depósito → aviso de progreso', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'deposit.settled' }, entry: 'wait', nodes: [{ id: 'wait', type: 'wait', duration_ms: 3600000, next: 'msg' }, { id: 'msg', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }] }, null, 2))}</textarea>
+      <div class="row" style="margin-top:8px"><button id="savedraft">Guardar borrador</button><button class="ghost" id="submit">Enviar a aprobación</button></div><div id="draftout"></div></div>`;
+  },
+  async approval() {
+    const js = await api('/journeys');
+    const pending = js.filter((j) => j.status === 'pending_approval' || j.status === 'approved');
+    return `<div class="card scroll"><h3>Pendientes</h3>${pending.length ? `<table><tr><th>Recorrido</th><th>Versión</th><th>Autor</th><th>Incentivo</th><th>Pasos</th><th></th></tr>${pending.map((j) => `<tr><td>${esc(j.name)}</td><td>v${j.version}</td><td>${esc(j.created_by)}</td><td>${j.nodes.some((n) => n.type === 'grant_reward') ? '<span class="warn">Sí, aprobación separada</span>' : 'No'}</td><td>${j.as_list.map(esc).join('<br>')}</td><td>${j.status === 'pending_approval' ? `<button data-approve="${esc(j.id)}">Aprobar</button>` : `<button data-publish="${esc(j.id)}">Publicar</button>`}</td></tr>`).join('')}</table>` : '<p class="muted">Sin solicitudes. Cambia a «Analista CRM», crea un borrador en Constructor y envíalo.</p>'}
+      <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
+  },
+  async analytics() {
+    const rs = await api('/analytics/campaigns');
+    return `<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+      ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
+        <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
+    </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
+  },
+  async loyalty() {
+    const list = await api('/players');
+    return `<div class="row"><label>Jugador <select id="lp">${list.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label></div><div id="lout"></div>`;
+  },
+  async copilot() {
+    const tools = await api('/copilot/tools');
+    return `<div class="card"><h3>Herramientas disponibles para tu rol</h3>${tools.map((t) => `<span class="chip">${esc(t.name)}</span>`).join('') || '<span class="muted">Ninguna</span>'}
+      <p class="muted">Solo lectura de agregados y borradores. Sin permisos para enviar, publicar, otorgar premios ni cambiar restricciones.</p>
+      <div class="row"><input id="q" style="flex:1" placeholder="Pregunta en lenguaje natural (requiere credenciales Anthropic en el servidor)"><button id="ask">Preguntar</button></div>
+      <h3>Llamada directa a herramienta</h3>
+      <div class="row"><select id="tool">${tools.map((t) => `<option>${esc(t.name)}</option>`).join('')}</select></div>
+      <textarea id="tin" rows="5">{"metric": "kyc_verified_rate"}</textarea>
+      <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
+  },
+  async audit() {
+    const a = await api('/audit');
+    return `<div class="card scroll"><h3>Registro de auditoría <span class="chip ${a.chain_valid ? 'ok' : 'bad'}">cadena ${a.chain_valid ? 'íntegra' : 'alterada'}</span></h3>
+      <table><tr><th>#</th><th>Fecha</th><th>Actor</th><th>Acción</th><th>Sujeto</th><th>Detalle</th></tr>${a.entries.slice().reverse().map((e) => `<tr><td>${e.seq}</td><td>${new Date(e.at).toLocaleString('es-CO')}</td><td>${esc(e.actor)}</td><td>${esc(e.action)}</td><td>${esc(e.subject)}</td><td><code>${esc(JSON.stringify(e.details))}</code></td></tr>`).join('')}</table></div>`;
+  },
+};
+
+const BIND = {
+  tower() {
+    $('#tick').onclick = async () => { await api('/runtime/tick', { method: 'POST', body: { advance_hours: 24 } }); show(); };
+    $('#gpause').onclick = async () => {
+      const t = await api('/control-tower');
+      try { await api('/runtime/pause', { method: 'POST', body: { paused: !t.global_pause, reason: 'manual desde Control Tower' } }); show(); }
+      catch (e) { alert('Requiere rol Admin de tenant o Juego responsable: ' + e.message); }
+    };
+  },
+  profile() {
+    const open = async (id) => {
+      const d = await api('/players/' + encodeURIComponent(id));
+      const p = d.profile;
+      const f = (label, x) => `<tr><th>${label}</th><td>${esc(x.value)}</td><td class="muted">${esc(x.source)} · ${x.as_of ? new Date(x.as_of).toLocaleString('es-CO') : '—'} · v${x.version}</td></tr>`;
+      const ex = d.eligibility_explanation;
+      $('#pdetail').innerHTML = `<h3>${esc(p.player_id)} · ${esc(p.brand_id)}</h3>
+        <table>${f('Email', p.contact.email)}${f('KYC', p.kyc)}${f('Juego responsable', p.rg)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
+        ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + k, v)).join('')}</table>
+        <h3 style="margin-top:12px">Por qué recibe o no marketing</h3>
+        ${Object.entries(ex.marketing).map(([c, x]) => `<div><b>${c}</b>: <span class="${x.kind === 'allow' ? 'ok' : x.kind === 'defer' ? 'warn' : 'bad'}">${x.kind}</span> <span class="muted">${x.reasons.map(esc).join(', ')} · política ${esc(x.policy_version)}</span></div>`).join('')}
+        <div><b>incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${ex.incentive.kind}</span> <span class="muted">${ex.incentive.reasons.map(esc).join(', ')}</span></div>
+        ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${d.loyalty.points} pts · ${d.loyalty.percent_to_next}% hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
+        <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${esc(g.reward_id)} · ${esc(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
+        <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(r.channel)} · ${esc(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(r.status)}</span> <span class="muted">${esc(r.reason ?? '')}</span></div>`).join('') || '<span class="muted">—</span>'}
+        <h3 style="margin-top:12px">Línea de tiempo</h3><div class="scroll"><table>${p.timeline.map((t) => `<tr><td class="muted">${new Date(t.occurred_at).toLocaleString('es-CO')}</td><td>${esc(t.event_type)}</td><td class="muted">${esc(t.source)}</td></tr>`).join('')}</table></div>`;
+    };
+    document.querySelectorAll('[data-p]').forEach((a) => a.onclick = (e) => { e.preventDefault(); open(a.dataset.p); });
+    $('#pgo').onclick = () => open($('#pq').value.trim());
+  },
+  segments() {
+    $('#prev').onclick = async () => {
+      try {
+        const excl = $('#excl').value.trim();
+        const r = await api('/segments/preview', { method: 'POST', body: { rules: JSON.parse($('#rules').value), exclusions: excl ? JSON.parse(excl) : undefined } });
+        $('#segout').innerHTML = `<div class="grid" style="margin-top:10px"><div class="card"><h3>Tamaño</h3><div class="kpi">${r.size}</div></div><div class="card"><h3>Excluidos</h3><div class="kpi">${r.excluded}</div></div><div class="card"><h3>Universo</h3><div class="kpi">${r.universe}</div></div></div><p class="muted">Snapshot ${esc(r.snapshot_hash.slice(0, 12))}. La elegibilidad se revalida al ejecutar.</p>`;
+      } catch (e) { $('#segout').innerHTML = `<p class="bad">${esc(e.message)} ${esc(JSON.stringify(e.data?.errors ?? ''))}</p>`; }
+    };
+  },
+  builder() {
+    document.querySelectorAll('[data-sim]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.sim;
+      const pid = document.querySelector(`[data-simp="${id}"]`).value;
+      const r = await api(`/journeys/${id}/simulate`, { method: 'POST', body: { player_id: pid, payload: { level: 'Plata', season: '2026-Q4', percent: 55, grant_id: 'sim', reward_type: 'free_spins', value: { amount_minor: 100000, currency: 'COP' }, expires_at: '2026-12-31T00:00:00Z' } } });
+      document.querySelector(`[data-simout="${id}"]`).innerHTML = `<pre>${esc(r.trace.map((s) => `${s.node.padEnd(14)} ${s.type.padEnd(12)} ${s.outcome}${s.decision ? '  ← ' + s.decision.reasons.join(',') : ''}`).join('\n'))}\n→ ${esc(r.status)} (sin efectos externos)</pre>`;
+    });
+    const act = (attr, action) => document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.onclick = async () => {
+      try { await api(`/journeys/${b.dataset[attr]}/${action}`, { method: 'POST', body: { reason: 'manual' } }); show(); } catch (e) { alert(e.message); }
+    });
+    act('pause', 'pause'); act('resume', 'resume');
+    $('#savedraft').onclick = async () => {
+      try { const d = await api('/journeys', { method: 'POST', body: JSON.parse($('#draft').value) }); $('#draftout').innerHTML = `<p class="ok">Borrador ${esc(d.id)} v${d.version} guardado.</p>`; }
+      catch (e) { $('#draftout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+    $('#submit').onclick = async () => {
+      try { const d = await api(`/journeys/${JSON.parse($('#draft').value).id}/submit`, { method: 'POST' }); $('#draftout').innerHTML = `<p class="ok">v${d.version} enviado a aprobación. Cambia al rol «Aprobador».</p>`; }
+      catch (e) { $('#draftout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+  },
+  approval() {
+    const act = (attr, action) => document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.onclick = async () => {
+      try { await api(`/journeys/${b.dataset[attr]}/${action}`, { method: 'POST' }); show(); } catch (e) { $('#apout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    });
+    act('approve', 'approve'); act('publish', 'publish');
+  },
+  loyalty() {
+    const load = async () => {
+      const d = await api('/players/' + encodeURIComponent($('#lp').value));
+      const l = d.loyalty;
+      $('#lout').innerHTML = `<div class="phone">
+        <div class="muted">RumbaWin · Temporada ${esc(l.season)}</div>
+        <h2 style="margin:6px 0">Nivel ${esc(l.level)}</h2>
+        <div class="bar" role="progressbar" aria-valuenow="${l.percent_to_next}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso al siguiente nivel"><span style="width:${l.percent_to_next}%"></span></div>
+        <p>${l.next_level ? `${l.percent_to_next} % hacia <b>${esc(l.next_level)}</b> · faltan ${l.points_to_next} pts` : 'Nivel máximo'}</p>
+        <h3>Recompensas</h3>${d.profile.rewards.map((r) => `<div class="card" style="margin-bottom:6px">${esc(r.reward_type)} · ${money(r.amount_minor, r.currency)}<br><span class="muted">Vence ${new Date(r.expires_at).toLocaleDateString('es-CO')}</span></div>`).join('') || '<p class="muted">Sin recompensas activas</p>'}
+        <h3>Movimientos</h3>${l.movements.slice(-6).reverse().map((m) => `<div>${m.points > 0 ? '+' : ''}${m.points} pts <span class="muted">${esc(m.reason)}</span></div>`).join('') || '<p class="muted">—</p>'}
+        <h3>Preferencias</h3><label><input type="checkbox" checked disabled> Recibir avisos de progreso</label></div>`;
+    };
+    $('#lp').onchange = load; load();
+  },
+  copilot() {
+    $('#call').onclick = async () => { try { $('#cout').textContent = JSON.stringify(await api('/copilot/tools/' + $('#tool').value, { method: 'POST', body: JSON.parse($('#tin').value) }), null, 2); } catch (e) { $('#cout').textContent = e.message; } };
+    $('#ask').onclick = async () => { $('#cout').textContent = 'Consultando…'; try { $('#cout').textContent = JSON.stringify(await api('/copilot/ask', { method: 'POST', body: { question: $('#q').value } }), null, 2); } catch (e) { $('#cout').textContent = e.message; } };
+  },
+};
+
+$('#tenant').onchange = show; $('#role').onchange = () => { renderTabs(); show(); };
+renderTabs(); show();
+</script>
+</body>
+</html>
