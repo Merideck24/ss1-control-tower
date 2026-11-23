@@ -22,6 +22,10 @@ Módulo integrado al PAM, al servicio de bonos y al Control Tower de SS1. Implem
 | Auditoría | Registro append-only encadenado por hash, con datos sensibles redactados |
 | Copiloto IA | Herramientas tipadas `query_metric`, `preview_segment`, `validate_policy`, `simulate_journey` y `save_draft`. Tenant y rol salen de la sesión. Sin herramientas para enviar, publicar, otorgar premios ni cambiar restricciones. Bucle con Claude vía `@anthropic-ai/sdk` |
 
+## Diseño
+
+La interfaz sigue el diseño del panel de administración de SS1 (plantilla Vuexy sobre Vuetify, tema oscuro): menú lateral con el logo y los iconos de sección, barra superior flotante, tarjetas #111 sobre fondo negro, acento dorado `#D5A021` con texto negro en botones, tipografía Roboto y esquinas de 6 px. Los logos están en `public/brand/` y el build estático los incrusta.
+
 ## Demo en línea
 
 - **GitHub Pages:** https://merideck24.github.io/ss1-control-tower/ — versión estática que ejecuta el mismo dominio en el navegador con datos sintéticos (sin servidor). Se publica automáticamente desde `main` con `.github/workflows/crm-pages.yml`.

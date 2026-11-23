@@ -9,7 +9,12 @@ const bundle = out.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const page = await readFile('public/index.html', 'utf8');
 const marker = '<script>\n// pestaña';
 if (!page.includes(marker)) throw new Error('main script marker not found');
-const withBundle = page.replace(marker, `<script>${bundle}</script>\n${marker}`);
+let withBundle = page.replace(marker, `<script>${bundle}</script>\n${marker}`);
+// recursos de marca incrustados (la versión estática no carga archivos sueltos)
+for (const f of ['brand/ss1-logo.webp', 'brand/ss1-icon.webp']) {
+  const uri = `data:image/webp;base64,${(await readFile(`public/${f}`)).toString('base64')}`;
+  withBundle = withBundle.split(f).join(uri);
+}
 
 await mkdir('dist', { recursive: true });
 await writeFile('dist/index.html', withBundle);

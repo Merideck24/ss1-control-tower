@@ -8,7 +8,7 @@ import { route, type AskFn } from './router.ts';
 import { OffsetClock } from '../shared/util.ts';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), '../../public');
-const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png' };
 
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
