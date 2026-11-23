@@ -105,6 +105,7 @@
   .bar > span { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
   .phone { max-width: 360px; margin: 0 auto; border: 1px solid var(--line); border-radius: 28px; padding: 20px; background: var(--panel); box-shadow: var(--shadow); }
   .scroll { overflow-x: auto; }
+  .card ol li { overflow-wrap: anywhere; }
   .perf-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 4px 0 16px; }
   .perf-head h2 { font-size: 21px; font-weight: 500; margin: 0; text-wrap: balance; color: var(--ink); }
   .kpis { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
@@ -528,8 +529,8 @@ function newDraft() {
     nodes: [{ id: 'wait_1', type: 'wait', duration_ms: 3_600_000, next: 'message_1' }, { id: 'message_1', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'exit_1' }, { id: 'exit_1', type: 'exit' }], layout: {} };
 }
 function loadDraft(j) {
-  const { id, brand_id, name, purpose, control_group_pct, trigger, exit_on, entry, nodes, layout } = structuredClone(j);
-  B.def = { id, brand_id, name, purpose, control_group_pct: control_group_pct ?? 0, trigger, exit_on: exit_on ?? [], entry, nodes, layout: layout ?? {} };
+  const { id, brand_id, name, purpose, control_group_pct, trigger, exit_on, entry, nodes, layout, overlap } = structuredClone(j);
+  B.def = { id, brand_id, name, purpose, control_group_pct: control_group_pct ?? 0, trigger, exit_on: exit_on ?? [], entry, nodes, layout: layout ?? {}, ...(overlap ? { overlap } : {}) };
   B.sel = null; B.connecting = null; B.manual = Object.keys(B.def.layout).length > 0;
 }
 const bNode = (id) => B.def.nodes.find((n) => n.id === id);
@@ -717,8 +718,16 @@ const VIEWS = {
     const players = await api('/players');
     if (can('journeys.draft')) { B.catalog ??= await api('/journeys/builder'); if (!B.def) loadDraft(newDraft()); }
     B.latest = latest;
-    return `<div class="grid">${latest.map((j) => `
-      <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip">disparador: ${esc(j.trigger.event_type)}</span></div>
+    const ov = await api('/journeys/overlap');
+    const F = ov.frequency;
+    const overlapCard = `<div class="card scroll"><h3>Solapamiento y frecuencia</h3>
+      ${ov.groups.map((g) => `<h3 style="font-size:14px">Grupo «${esc(g.group)}»</h3><table><tr><th>Prioridad</th><th>Recorrido</th><th class="num">Entradas</th><th class="num">Desplazadas</th><th class="num">Bloqueadas</th><th class="num">Enfriamiento</th></tr>
+        ${g.journeys.map((j) => `<tr><td><span class="chip brand">${j.priority}</span></td><td>${esc(j.name)}</td><td class="num">${int(j.entered)}</td><td class="num">${int(j.preempted)}</td><td class="num">${int(j.blocked)}</td><td class="num">${j.cooldown_hours ? j.cooldown_hours + ' h' : '—'}</td></tr>`).join('')}</table>`).join('') || '<p class="muted">Ningún recorrido usa grupos de solapamiento.</p>'}
+      ${ov.risks.length ? `<p class="warn">${ov.risks.map((r) => esc(r.message)).join('<br>')}</p>` : '<p class="ok">Sin colisiones: los recorridos que comparten disparador están en el mismo grupo.</p>'}
+      ${F ? `<div class="row"><span class="chip">Máx. ${F.per_day} mensajes de marketing al día</span>${F.per_week ? `<span class="chip">${F.per_week} por semana</span>` : ''}${Object.entries(F.per_channel_day).map(([c, n]) => `<span class="chip">${esc(c)}: ${n}/día</span>`).join('')}</div>` : ''}
+      <p class="muted">${esc(ov.note)} «Desplazadas»: instancias que cedieron ante una de mayor prioridad; «bloqueadas»: entradas rechazadas por otra en curso o por enfriamiento.</p></div><br>`;
+    return `${overlapCard}<div class="grid">${latest.map((j) => `
+      <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip">disparador: ${esc(j.trigger.event_type)}</span>${j.overlap ? `<span class="chip brand">${esc(j.overlap.group)} · prioridad ${j.overlap.priority}</span>` : ''}</div>
         <ol>${j.as_list.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
         ${j.validation.length ? `<p class="bad">${j.validation.map(esc).join(', ')}</p>` : '<p class="ok">Grafo válido</p>'}
         <div class="row"><select data-simp="${esc(j.id)}">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select>
@@ -733,6 +742,9 @@ const VIEWS = {
           <label>Propósito <select id="bpurpose">${['marketing', 'service'].map((v) => `<option value="${v}"${B.def.purpose === v ? ' selected' : ''}>${v === 'marketing' ? 'Marketing' : 'Servicio'}</option>`).join('')}</select></label>
           <label>Inicia con <select id="btrigger">${B.catalog.events.map((e) => `<option${B.def.trigger.event_type === e ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select></label>
           <label>Grupo de control % <input id="bcontrol" type="number" min="0" max="50" value="${B.def.control_group_pct ?? 0}" size="4"></label>
+          <label>Grupo de solapamiento <input id="bgroup" value="${esc(B.def.overlap?.group ?? '')}" size="10" placeholder="p. ej. promo"></label>
+          <label>Prioridad <input id="bprio" type="number" min="1" max="100" value="${B.def.overlap?.priority ?? 50}" size="4"></label>
+          <label>Enfriamiento h <input id="bcool" type="number" min="0" value="${B.def.overlap?.cooldown_hours ?? 0}" size="4"></label>
           <label>Sale si ocurre <select id="bexit"><option value="">— ninguno —</option>${B.catalog.events.map((e) => `<option${(B.def.exit_on ?? [])[0] === e ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select></label></div>
         <div class="row" style="margin:8px 0">${B.catalog.node_types.map((t) => `<button class="ghost" data-addn="${t.type}">+ ${esc(t.label)}</button>`).join('')}<button class="ghost" id="bauto">Ordenar</button><button class="ghost" id="bnew">Nuevo</button></div>
         <div class="bwrap"><div class="canvas-scroll" id="bcanvas-wrap"></div><div><div class="card inspector" id="binspector" style="background:var(--bg)"></div><div id="bissues"></div></div></div>
@@ -925,8 +937,10 @@ const BIND = {
     if (!$('#savedraft')) return;
     document.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => { loadDraft(B.latest.find((j) => j.id === b.dataset.edit)); show().then(() => { $('#bcard').scrollIntoView({ behavior: 'smooth' }); flash(`«${B.def.name}» abierto en el lienzo. Al guardar se crea una nueva versión que requiere aprobación.`, 'ok'); }); });
     const head = () => { B.def.id = $('#bid').value.trim(); B.def.name = $('#bname').value; B.def.purpose = $('#bpurpose').value; B.def.trigger = { event_type: $('#btrigger').value };
-      B.def.control_group_pct = B.def.purpose === 'service' ? 0 : Number($('#bcontrol').value) || 0; B.def.exit_on = $('#bexit').value ? [$('#bexit').value] : []; bChanged(); };
-    ['#bid', '#bname', '#bpurpose', '#btrigger', '#bcontrol', '#bexit'].forEach((s) => $(s).onchange = head);
+      B.def.control_group_pct = B.def.purpose === 'service' ? 0 : Number($('#bcontrol').value) || 0; B.def.exit_on = $('#bexit').value ? [$('#bexit').value] : [];
+      const g = $('#bgroup').value.trim(); if (g) B.def.overlap = { group: g, priority: Number($('#bprio').value), ...(Number($('#bcool').value) > 0 ? { cooldown_hours: Number($('#bcool').value) } : {}) }; else delete B.def.overlap;
+      bChanged(); };
+    ['#bid', '#bname', '#bpurpose', '#btrigger', '#bcontrol', '#bexit', '#bgroup', '#bprio', '#bcool'].forEach((s) => $(s).onchange = head);
     document.querySelectorAll('[data-addn]').forEach((b) => b.onclick = () => addNode(b.dataset.addn));
     $('#bauto').onclick = async () => { B.manual = false; await bReview(); };
     $('#bnew').onclick = () => { loadDraft(newDraft()); show(); };

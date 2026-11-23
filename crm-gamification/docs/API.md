@@ -50,3 +50,11 @@ Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expo
 | `POST /journeys/review` | `journeys.draft` | Revisión en vivo del borrador: `issues` (mensaje, paso, severidad), `valid`, `layout` automático y vista en lista |
 
 `layout` (posiciones por paso) es opcional en `POST /journeys` y forma parte de la versión firmada.
+
+## Solapamiento y frecuencia (D3, D4)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /journeys/overlap` | — | Grupos con prioridad, entradas, desplazadas y bloqueadas; riesgos de colisión; topes de frecuencia vigentes |
+
+Recorridos: `overlap: { group, priority (1–100), cooldown_hours? }` (solo marketing). Estados de instancia nuevos: `preempted`, `blocked_overlap`. Política: `max_marketing_per_day_by_channel`, `max_marketing_per_week`; motivos `frequency_cap_channel:<canal>` y `frequency_cap_week`.

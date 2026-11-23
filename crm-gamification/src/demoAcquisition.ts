@@ -39,6 +39,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   const r = rng(seed);
   const now = app.clock.now().getTime();
   seedDemoMissions(app, tenant, now);
+  seedDemoOverlap(app, tenant);
   // demo: bono de bienvenida con valor y presupuesto realistas para el volumen simulado
   const item = app.rewards.item(tenant, 'welcome_fs_10');
   if (item) app.rewards.addItem({ ...item, value: { amount_minor: 20_000_00, currency: 'COP' }, budget_minor: 20_000_00 * 2_000 });
@@ -168,5 +169,25 @@ export function seedDemoMissions(app: App, tenant: string, now: number) {
   if (!app.games.game(tenant, 'g_daily_wheel')) {
     app.games.saveGame(analyst, { id: 'g_daily_wheel', brand_id: 'rumbawin', name: 'Ruleta diaria', kind: 'wheel', spins_per_day: 1,
       prizes: [{ id: 'none', label: 'Sigue intentando', weight: 55, prize: {} }, { id: 'xp25', label: '25 XP', weight: 30, prize: { xp: 25 } }, { id: 'xp100', label: '100 XP', weight: 12, prize: { xp: 100 } }, { id: 'fs', label: 'Free spins', weight: 3, prize: { reward_id: 'welcome_fs_10' } }] });
+  }
+}
+
+/** Demo D3: dos recorridos de marketing que compiten por el mismo depósito, en el grupo «promo». */
+export function seedDemoOverlap(app: App, tenant: string) {
+  const author = { id: 'analyst@ss1', tenant_id: tenant, roles: ['crm_analyst' as const] };
+  const approver = { id: 'approver@ss1', tenant_id: tenant, roles: ['approver' as const] };
+  const js = [
+    { id: 'jd_deposit_progress', name: 'Depósito → aviso de progreso (12 h)', priority: 30, wait: 12 },
+    { id: 'jd_deposit_vip', name: 'Depósito → seguimiento VIP (24 h)', priority: 70, wait: 24, condition: true },
+  ];
+  for (const j of js) {
+    app.registry.saveDraft(author, {
+      id: j.id, brand_id: 'rumbawin', name: j.name, purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'deposit.settled' },
+      overlap: { group: 'promo', priority: j.priority }, entry: 'wait',
+      nodes: j.condition
+        ? [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'big' }, { id: 'big', type: 'condition', rule: { field: 'stats.deposits_minor', op: 'gte', value: 500_000_00 }, on_true: 'msg', on_false: 'end' }, { id: 'msg', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }]
+        : [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'msg' }, { id: 'msg', type: 'message', channel: 'email', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }],
+    });
+    app.registry.submit(author, j.id); app.registry.approve(approver, j.id); app.registry.publish(author, j.id);
   }
 }

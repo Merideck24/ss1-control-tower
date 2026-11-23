@@ -58,10 +58,12 @@ const MESSAGES: Record<string, (arg?: string) => string> = {
   service_journey_cannot_grant_incentives: () => 'Un recorrido de servicio no puede otorgar recompensas.',
   service_journey_cannot_have_control_group: () => 'Un recorrido de servicio no lleva grupo de control.',
   no_exit_node: () => 'Agrega al menos un paso «Salida».',
+  invalid_overlap: () => 'El grupo de solapamiento necesita nombre y una prioridad entre 1 y 100.',
+  service_journey_cannot_have_overlap: () => 'Los recorridos de servicio no compiten con otros: quita el grupo de solapamiento.',
 };
 
 /** Validación estructural + chequeos de contenido, con mensajes legibles para el lienzo. */
-export function reviewJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'purpose' | 'control_group_pct' | 'trigger' | 'name'>, ctx: BuilderContext): BuilderIssue[] {
+export function reviewJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'purpose' | 'control_group_pct' | 'trigger' | 'name' | 'overlap'>, ctx: BuilderContext): BuilderIssue[] {
   const issues: BuilderIssue[] = [];
   for (const code of validateJourney(j)) {
     const [base, arg] = code.split(':');

@@ -9,6 +9,10 @@ export type MarketPolicy = {
   market: string; // ISO country
   channels_enabled: Channel[];
   max_marketing_per_day: number;
+  /** D4: tope diario por canal (además del tope global). */
+  max_marketing_per_day_by_channel?: Partial<Record<Channel, number>>;
+  /** D4: tope de 7 días móviles entre todos los canales. */
+  max_marketing_per_week?: number;
   quiet_hours: { start: number; end: number }; // local hours, [start, end)
   incentives_allowed: boolean;
   rg_feed_max_staleness_ms: number;
@@ -37,6 +41,8 @@ export const DEFAULT_POLICY: MarketPolicy = {
   market: 'CO',
   channels_enabled: ['inapp', 'email', 'webpush'],
   max_marketing_per_day: 2,
+  max_marketing_per_day_by_channel: { email: 1, webpush: 1, inapp: 2 },
+  max_marketing_per_week: 6,
   quiet_hours: { start: 22, end: 8 },
   incentives_allowed: true,
   rg_feed_max_staleness_ms: 6 * HOUR,
@@ -63,7 +69,7 @@ function inQuiet(h: number, q: { start: number; end: number }): boolean {
 export class PolicyEngine {
   #policies = new Map<string, MarketPolicy>();
   #rgFeedSync = new Map<string, string>(); // tenant → last successful sync ISO
-  #sends = new Map<string, number[]>(); // tenant::player → marketing send timestamps
+  #sends = new Map<string, { at: number; channel?: Channel }[]>(); // tenant::player → envíos de marketing
   #alerts: { at: string; tenant_id: string; player_id: string; alert: string }[] = [];
   #clock: Clock;
   constructor(clock: Clock) { this.#clock = clock; }
@@ -75,9 +81,20 @@ export class PolicyEngine {
   markRgFeedSynced(tenant_id: string, at = this.#clock.now().toISOString()): void { this.#rgFeedSync.set(tenant_id, at); }
   alerts() { return [...this.#alerts]; }
 
-  recordMarketingSend(profile: PlayerProfile): void {
+  recordMarketingSend(profile: PlayerProfile, channel?: Channel): void {
     const k = `${profile.tenant_id}::${profile.player_id}`;
-    this.#sends.set(k, [...(this.#sends.get(k) ?? []), this.#clock.now().getTime()]);
+    const now = this.#clock.now().getTime();
+    // se conservan 7 días: lo necesario para el tope semanal
+    this.#sends.set(k, [...(this.#sends.get(k) ?? []).filter((s) => now - s.at < 7 * DAY), { at: now, channel }]);
+  }
+  /** Envíos de marketing del jugador en las últimas 24 h y 7 días, por canal. */
+  frequency(profile: PlayerProfile) {
+    const now = this.#clock.now().getTime();
+    const all = this.#sends.get(`${profile.tenant_id}::${profile.player_id}`) ?? [];
+    const day = all.filter((s) => now - s.at < DAY);
+    const by: Partial<Record<Channel, number>> = {};
+    for (const s of day) if (s.channel) by[s.channel] = (by[s.channel] ?? 0) + 1;
+    return { last_24h: day.length, last_7d: all.filter((s) => now - s.at < 7 * DAY).length, by_channel_24h: by };
   }
 
   decide(req: DecisionRequest): Decision {
@@ -116,8 +133,13 @@ export class PolicyEngine {
       if (!policy.incentives_allowed) reasons.push('incentives_not_allowed_in_market');
       if (policy.require_kyc_for_incentives && profile.kyc?.value !== 'verified') reasons.push('kyc_not_verified');
     }
-    const sent = (this.#sends.get(`${profile.tenant_id}::${profile.player_id}`) ?? []).filter((t) => now.getTime() - t < DAY);
-    if (channel && sent.length >= policy.max_marketing_per_day) reasons.push('frequency_cap');
+    if (channel) {
+      const f = this.frequency(profile);
+      if (f.last_24h >= policy.max_marketing_per_day) reasons.push('frequency_cap');
+      const perChannel = policy.max_marketing_per_day_by_channel?.[channel];
+      if (perChannel !== undefined && (f.by_channel_24h[channel] ?? 0) >= perChannel) reasons.push(`frequency_cap_channel:${channel}`);
+      if (policy.max_marketing_per_week !== undefined && f.last_7d >= policy.max_marketing_per_week) reasons.push('frequency_cap_week');
+    }
 
     if (reasons.length) return { kind: 'suppress', reasons, policy_version: v, alert: alertMsg };
 

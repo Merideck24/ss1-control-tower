@@ -10,7 +10,7 @@ import type { Clock } from '../shared/util.ts';
 import { hasIncentive, type JourneyDefinition, type JourneyNode } from './model.ts';
 import type { JourneyRegistry } from './registry.ts';
 
-export type InstanceStatus = 'running' | 'waiting' | 'completed' | 'exited' | 'cancelled' | 'held_out';
+export type InstanceStatus = 'running' | 'waiting' | 'completed' | 'exited' | 'cancelled' | 'held_out' | 'blocked_overlap' | 'preempted';
 export type TraceStep = { at: string; node: string; type: JourneyNode['type'] | 'enter' | 'exit_event'; outcome: string; decision?: Decision; detail?: Record<string, unknown> };
 export type JourneyInstance = {
   instance_id: string;
@@ -99,6 +99,30 @@ export class JourneyRuntime {
         this.#audit.record(e.tenant_id, 'system', 'journey.entry_skipped_paused', e.player_id, { journey: def.id, version: def.version });
         continue;
       }
+      // D3: anti-solapamiento — un jugador está en un solo recorrido de marketing por grupo;
+      // gana la prioridad mayor (empate: el que ya está en curso) y el perdedor queda registrado
+      const pk0 = `${e.tenant_id}::${e.player_id}`;
+      const ov = def.purpose === 'marketing' ? def.overlap : undefined;
+      if (ov) {
+        const rivals = (this.#byPlayer.get(pk0) ?? []).filter((i) => (i.status === 'running' || i.status === 'waiting') && i.journey_id !== def.id).map((i) => ({ i, d: this.#registry.get(i.tenant_id, i.journey_id, i.version) })).filter((x) => x.d?.purpose === 'marketing' && x.d.overlap?.group === ov.group);
+        const stronger = rivals.find((x) => (x.d!.overlap!.priority ?? 0) >= (ov.priority ?? 0));
+        const cooldownMs = (ov.cooldown_hours ?? 0) * 3_600_000;
+        const recent = cooldownMs > 0 && (this.#byPlayer.get(pk0) ?? []).some((i) => i.status === 'completed' && i.journey_id !== def.id && Date.parse(i.trace.at(-1)!.at) > this.#clock.now().getTime() - cooldownMs && this.#registry.get(i.tenant_id, i.journey_id, i.version)?.overlap?.group === ov.group);
+        if (stronger || recent) {
+          const blocked: JourneyInstance = { instance_id, tenant_id: e.tenant_id, player_id: e.player_id, journey_id: def.id, version: def.version, arm: 'treatment', status: 'blocked_overlap', current: def.entry, trigger_event_id: e.event_id, correlation_id: e.correlation_id,
+            trace: [{ at: this.#now(), node: def.entry, type: 'enter', outcome: stronger ? `blocked_by:${stronger.i.journey_id}` : `cooldown:${ov.group}` }] };
+          this.#instances.set(instance_id, blocked);
+          this.#byPlayer.set(pk0, [...(this.#byPlayer.get(pk0) ?? []), blocked]);
+          this.#audit.record(e.tenant_id, 'system', 'journey.entry_blocked_overlap', e.player_id, { journey: def.id, group: ov.group, by: stronger?.i.journey_id ?? 'cooldown' });
+          started.push(blocked);
+          continue;
+        }
+        for (const x of rivals) {
+          x.i.status = 'preempted'; x.i.wake_at = undefined; this.#waiting.delete(x.i); this.#deferred.delete(x.i.instance_id);
+          x.i.trace.push({ at: this.#now(), node: x.i.current, type: 'exit_event', outcome: `preempted_by:${def.id}` });
+          this.#audit.record(e.tenant_id, 'system', 'journey.instance_preempted', e.player_id, { instance: x.i.instance_id, by: def.id, group: ov.group });
+        }
+      }
       const arm = def.purpose === 'marketing' && def.control_group_pct ? assignArm(def.tenant_id, `${def.id}`, e.player_id, def.control_group_pct) : 'treatment';
       const inst: JourneyInstance = { instance_id, tenant_id: e.tenant_id, player_id: e.player_id, journey_id: def.id, version: def.version, arm, status: arm === 'control' ? 'held_out' : 'running', current: def.entry, trigger_event_id: e.event_id, correlation_id: e.correlation_id, trace: [{ at: this.#now(), node: def.entry, type: 'enter', outcome: arm }] };
       this.#instances.set(instance_id, inst);
@@ -178,7 +202,7 @@ export class JourneyRuntime {
           }
           const vars = this.#vars(profile, ctx.event);
           const receipt = this.#effects?.send({ tenant_id: inst.tenant_id, player_id: inst.player_id, address: profile.email_masked?.value ?? inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, vars, idempotency_key: key });
-          if (receipt?.status === 'accepted' && def.purpose === 'marketing') this.#policy.recordMarketingSend(profile);
+          if (receipt?.status === 'accepted' && def.purpose === 'marketing') this.#policy.recordMarketingSend(profile, node.channel);
           inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: this.#effects ? receipt!.status : 'simulated_send', decision, detail: receipt ? { reason: receipt.reason } : { template: node.template, vars } });
           inst.current = node.next;
           break;

@@ -23,6 +23,8 @@ export type JourneyDefinition = {
   entry: string;
   nodes: JourneyNode[];
   control_group_pct?: number; // solo marketing
+  /** D3: anti-solapamiento. Mismo grupo ⇒ un solo recorrido activo por jugador; gana la prioridad mayor. */
+  overlap?: { group: string; priority: number; cooldown_hours?: number };
   /** Posiciones en el lienzo del constructor visual (solo presentación). */
   layout?: Record<string, { x: number; y: number }>;
   created_by: string;
@@ -34,7 +36,7 @@ export type JourneyDefinition = {
 export const hasIncentive = (j: Pick<JourneyDefinition, 'nodes'>) => j.nodes.some((n) => n.type === 'grant_reward');
 
 /** Valida estructura del grafo: nodos alcanzables, conexiones existentes, sin ciclos. */
-export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'purpose' | 'control_group_pct'>): string[] {
+export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'purpose' | 'control_group_pct'> & { overlap?: JourneyDefinition['overlap'] }): string[] {
   const errs: string[] = [];
   const ids = new Map(j.nodes.map((n) => [n.id, n]));
   if (ids.size !== j.nodes.length) errs.push('duplicate_node_id');
@@ -54,6 +56,8 @@ export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | '
   if (j.purpose === 'service' && j.nodes.some((n) => n.type === 'grant_reward')) errs.push('service_journey_cannot_grant_incentives');
   if (j.purpose === 'service' && j.control_group_pct) errs.push('service_journey_cannot_have_control_group');
   if (!j.nodes.some((n) => n.type === 'exit')) errs.push('no_exit_node');
+  if (j.overlap && (!j.overlap.group?.trim() || !(j.overlap.priority >= 1 && j.overlap.priority <= 100))) errs.push('invalid_overlap');
+  if (j.purpose === 'service' && j.overlap) errs.push('service_journey_cannot_have_overlap');
   return [...new Set(errs)];
 }
 
