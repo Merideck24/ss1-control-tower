@@ -6,6 +6,7 @@ import { createApp, seedTenant, type App } from '../app.ts';
 import { seedAcquisitionHistory } from '../demoAcquisition.ts';
 import { route, type AskFn } from './router.ts';
 import { Ss1IdentityProvider } from '../integration/ss1Identity.ts';
+import { handleWebhook, MAX_BODY_BYTES } from '../integration/webhook.ts';
 import { OffsetClock } from '../shared/util.ts';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), '../../public');
@@ -28,7 +29,7 @@ async function loadAsk(): Promise<AskFn | undefined> {
  * Autenticación: con `Authorization: Bearer` se valida contra la API de SS1 y el servidor decide los roles.
  * Las cabeceras de desarrollo (x-roles) solo se aceptan si `devAuth` está activo (CRM_DEV_AUTH=1).
  */
-export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string } = {}) {
+export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string; webhookSecrets?: Record<string, string> } = {}) {
   return async (req: IncomingMessage, res: import('node:http').ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (!url.pathname.startsWith('/api/')) {
@@ -36,6 +37,15 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
       const data = file.startsWith(PUBLIC) ? await readFile(file).catch(() => null) : null;
       res.writeHead(data ? 200 : 404, { 'content-type': data ? MIME[extname(file)] ?? 'application/octet-stream' : 'text/plain' });
       return res.end(data ?? 'not found');
+    }
+    // Webhook máquina a máquina del PAM: se autentica con firma HMAC, no con token de usuario
+    if (url.pathname === '/api/ingest/ss1') {
+      if (req.method !== 'POST') { res.writeHead(405); return res.end(); }
+      const chunks: Buffer[] = []; let size = 0;
+      for await (const c of req) { size += (c as Buffer).length; if (size > MAX_BODY_BYTES) { res.writeHead(413, { 'content-type': 'application/json' }); return res.end('{"error":"payload_too_large"}'); } chunks.push(c as Buffer); }
+      const out = handleWebhook({ secrets: auth.webhookSecrets ?? {}, tenantHeader: req.headers['x-ss1-tenant'] as string | undefined, signatureHeader: req.headers['x-ss1-signature'] as string | undefined, rawBody: Buffer.concat(chunks).toString('utf8'), ingestor: app.ingestor });
+      res.writeHead(out.status, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify(out.body));
     }
     let parsed: Record<string, unknown> = {};
     try { parsed = await body(req); } catch { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"invalid_json"}'); }
@@ -69,5 +79,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const identity = new Ss1IdentityProvider({ apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', profilePath: process.env.SS1_PROFILE_PATH, tenantMap: process.env.CRM_TENANT_MAP ? JSON.parse(process.env.CRM_TENANT_MAP) : {} });
   const devAuth = process.env.CRM_DEV_AUTH === '1';
   const port = Number(process.env.PORT ?? 3000);
-  createServer(createHandler(app, ask, { identity, devAuth, apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com' })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
+  const webhookSecrets = process.env.CRM_WEBHOOK_SECRETS ? JSON.parse(process.env.CRM_WEBHOOK_SECRETS) as Record<string, string> : {};
+  createServer(createHandler(app, ask, { identity, devAuth, apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', webhookSecrets })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
 }

@@ -100,8 +100,35 @@ API del CRM:
 
 **A confirmar con el equipo del admin:** la ruta del listado de jugadores, los nombres de campo (tipo y estado de transacción, KYC, afiliado), los filtros de fecha (`updated_since`) y si existe un endpoint de apuestas liquidadas por jugador (para GGR real; hoy el admin expone `/admin/transactions/report/players` agregado).
 
-## 4. Pendiente (siguientes iteraciones)
+## 4. Webhook firmado para eventos en tiempo real (A4 · listo)
 
-- **A4** Webhook firmado para eventos del PAM en tiempo real.
+`POST /api/ingest/ss1` (`src/integration/webhook.ts`). Máquina a máquina: no usa token de usuario.
+
+| Cabecera | Valor |
+|---|---|
+| `X-SS1-Tenant` | Tenant del CRM; elige el secreto |
+| `X-SS1-Signature` | `t=<unix seg>,v1=<hex HMAC-SHA256(secreto, "<t>.<cuerpo crudo>")>` |
+
+- Cuerpo: un evento normalizado (ver `contracts/events.asyncapi.yaml`) o `{ "events": [ … ] }` con hasta 500 eventos; máximo 1 MB.
+- Rechazos: 401 si la firma, el tenant o el tiempo (±300 s) no son válidos; 413 si el lote es muy grande; 400 si no es JSON.
+- Cada evento debe tener `tenant_id` igual a `X-SS1-Tenant` (si no, `tenant_mismatch` para ese evento).
+- Los reenvíos son seguros: el mismo `event_id` se reporta como `duplicate` y no repite efectos.
+- Modo **live**: los eventos disparan recorridos y fidelidad.
+- Secretos: `CRM_WEBHOOK_SECRETS='{"tenant-rumbawin":"…"}'` (gestor de secretos en producción; rotación agregando el nuevo antes de retirar el anterior).
+
+Ejemplo de envío desde el backend del admin (Laravel):
+
+```php
+$body = json_encode(['events' => $events], JSON_UNESCAPED_SLASHES);
+$t = time();
+$sig = hash_hmac('sha256', "{$t}.{$body}", config('services.ss1_crm.webhook_secret'));
+Http::withHeaders([
+    'X-SS1-Tenant' => $tenant,
+    'X-SS1-Signature' => "t={$t},v1={$sig}",
+])->withBody($body, 'application/json')->retry(3, 500)->post(config('services.ss1_crm.url').'/api/ingest/ss1');
+```
+
+## 5. Pendiente (siguientes iteraciones)
+
 - **A5** Tema del tenant desde `/admin/theme-config`.
 - **A6** Kit para el repo del admin: ruta `/crm`, ítem de menú, sujetos CASL y componente contenedor.
