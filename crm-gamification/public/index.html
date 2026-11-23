@@ -528,11 +528,12 @@ const VIEWS = {
         <div class="card" id="pdetail"><p class="muted">Selecciona un jugador.</p></div></div>`;
   },
   async segments() {
-    const [fields, dist] = await Promise.all([api('/segments/fields'), api('/segments/rfm')]);
+    const [fields, dist, pers] = await Promise.all([api('/segments/fields'), api('/segments/rfm'), api('/personas')]);
     const pctOf = (n, d) => d ? pct(n / d, 0) : '—';
     const distTable = (title, rows, field, denom) => `<div class="card scroll"><h3>${title}</h3><table><tr><th>Grupo</th><th class="num">Jugadores</th><th class="num">%</th><th class="num">Depósitos netos</th><th></th></tr>
       ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${int(r.players)}</td><td class="num">${pctOf(r.players, denom)}</td><td class="num">${moneyC(r.deposits_minor)}</td><td class="num">${r.players ? `<button class="ghost" data-use='${esc(JSON.stringify({ field, op: 'eq', value: r.key }))}'>Usar</button>` : ''}</td></tr>`).join('')}</table></div>`;
     return `<div class="grid">${distTable('Ciclo de vida', dist.lifecycle, 'lifecycle', dist.total)}${distTable('Segmentos RFM (solo jugadores con depósito)', dist.rfm, 'rfm.segment', dist.depositors)}</div>
+      ${pers.k ? `<br><div class="card"><h3>Personas dinámicas</h3><div class="kpis">${pers.personas.map((x) => `<div class="kpi-card"><div class="lbl">${esc(x.id)} · ${int(x.size)} jugadores</div><div class="val" style="font-size:17px">${esc(x.name)}</div><div class="sub">${x.traits.map(esc).join(' · ')}</div><div style="margin-top:8px"><button class="ghost" data-use='${esc(JSON.stringify({ field: 'persona', op: 'eq', value: x.id }))}'>Usar</button></div></div>`).join('')}</div><p class="muted">${esc(pers.method)}</p></div>` : ''}
       <p class="muted">${esc(dist.method)} RFM se usa en segmentos; en condiciones de recorridos usa <code>lifecycle</code>, que se calcula por jugador.</p><br>
       <div class="card"><h3>Definición (AND/OR/NOT)</h3>
       <p class="muted">Campos: ${fields.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</p>
@@ -563,7 +564,7 @@ const VIEWS = {
       <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
   },
   async analytics() {
-    const [rs, md] = await Promise.all([api('/analytics/campaigns'), api('/models')]);
+    const [rs, md, nb] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary')]);
     const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
     const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
       <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
@@ -574,7 +575,10 @@ const VIEWS = {
       <tr><td>${esc(md.value.label)}</td><td class="muted">Jugadores con primer depósito</td><td class="num">—</td><td class="num">${int(md.value.validation.n)}</td><td class="num" colspan="2">MAE ${moneyC(md.value.validation.mae_minor)} <span class="muted">vs. base ${moneyC(md.value.validation.baseline_mae_minor)}</span></td><td></td><td class="muted">${esc(md.value.method)}</td></tr>
       </table>
       <div class="row" style="margin-top:12px"><span class="chip brand">${int(md.summary.high_churn)} con riesgo de abandono ≥ 60 %</span><span class="chip brand">${int(md.summary.vip_early)} VIP tempranos</span><span class="chip">${int(md.summary.not_promo_eligible)} no elegibles para promoción (juego responsable)</span><span class="muted">Usa <code>pred.churn</code>, <code>pred.deposit</code>, <code>pred.value_30d</code>, <code>pred.vip</code> y <code>pred.product</code> en Segmentos.</span></div></div><br>`;
-    return `${models}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    const nbaCard = `<div class="card scroll"><h3>Mejor acción siguiente</h3><table><tr><th>Acción recomendada</th><th class="num">Jugadores</th><th class="num">Valor esperado</th><th></th></tr>
+      ${nb.actions.map((a) => `<tr><td>${esc(a.label)}</td><td class="num">${int(a.players)}</td><td class="num">${moneyC(a.expected_value_minor)}</td><td class="num">${a.action === 'no_contact' ? '' : `<button class="ghost" data-nba='${esc(JSON.stringify({ field: 'nba.action', op: 'eq', value: a.action }))}'>Ver segmento</button>`}</td></tr>`).join('')}</table>
+      <p class="muted">${esc(nb.note)} ${int(nb.with_blocked_candidates)} jugadores tenían alguna acción bloqueada por política (consentimiento, frecuencia, juego responsable), que nunca se recomienda.</p></div><br>`;
+    return `${models}${nbaCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
         <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
@@ -600,6 +604,9 @@ const VIEWS = {
   },
 };
 
+function openSegmentWith(rule) {
+  current = 'segments'; renderTabs(); show().then(() => { $('#rules').value = JSON.stringify(rule, null, 2); $('#excl').value = ''; $('#prev').click(); });
+}
 const BIND = {
   tower() {
     if ($('#perfDays')) $('#perfDays').onchange = () => { perfDays = Number($('#perfDays').value); show(); };
@@ -636,6 +643,11 @@ const BIND = {
         <div><b>incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${ex.incentive.kind}</span> <span class="muted">${ex.incentive.reasons.map(esc).join(', ')}</span></div>
         <h3 style="margin-top:12px">Segmentación</h3>
         <div class="row"><span class="chip brand">${esc(d.segmentation.lifecycle.label)}</span>${d.segmentation.rfm ? `<span class="chip">RFM ${d.segmentation.rfm.r}-${d.segmentation.rfm.f}-${d.segmentation.rfm.m} · ${esc(d.segmentation.rfm.label)}</span><span class="muted">${d.segmentation.rfm.recency_days} d desde la última actividad · ${d.segmentation.rfm.frequency} depósitos · ${moneyC(d.segmentation.rfm.monetary_minor)}</span>` : '<span class="muted">Sin RFM: aún no deposita</span>'}</div>
+        ${d.segmentation.persona ? `<div class="row"><span class="chip">Persona ${esc(d.segmentation.persona.id)}: ${esc(d.segmentation.persona.name)}</span></div>` : ''}
+        ${d.segmentation.nba ? `<h3 style="margin-top:12px">Mejor acción siguiente</h3>
+          <div class="row"><span class="chip brand">${esc(d.segmentation.nba.chosen.label)}</span>${d.segmentation.nba.chosen.expected_value_minor ? `<span class="muted">valor esperado ${moneyC(d.segmentation.nba.chosen.expected_value_minor)}</span>` : ''}<span class="muted">${esc(d.segmentation.nba.chosen.why)}</span></div>
+          ${d.segmentation.nba.candidates.length > 1 ? `<div class="muted">Alternativas: ${d.segmentation.nba.candidates.filter((c) => c.action !== d.segmentation.nba.chosen.action).map((c) => `${esc(c.label)} (${c.allowed ? moneyC(c.expected_value_minor) : 'bloqueada: ' + esc((c.blocked_by ?? []).join(', '))})`).join(' · ')}</div>` : ''}
+          <div class="muted">${esc(d.segmentation.nba.note)}</div>` : ''}
         ${(() => { const pr = d.segmentation.predictions; if (!pr) return ''; const P = (x) => x ? pct(x.p, 0) : '—';
           return `<h3 style="margin-top:12px">Predicciones</h3>
           <div class="row">${pr.vip_early ? '<span class="chip brand">VIP temprano</span>' : ''}${pr.promo_eligible ? '' : '<span class="chip bad">No elegible para promoción (juego responsable)</span>'}
@@ -704,6 +716,9 @@ const BIND = {
         <h3>Preferencias</h3><label><input type="checkbox" checked disabled> Recibir avisos de progreso</label></div>`;
     };
     $('#lp').onchange = load; load();
+  },
+  analytics() {
+    document.querySelectorAll('[data-nba]').forEach((b) => b.onclick = () => openSegmentWith(JSON.parse(b.dataset.nba)));
   },
   copilot() {
     const samples = { query_metric: { metric: 'kyc_verified_rate' }, preview_segment: { rules: { field: 'kyc', op: 'eq', value: 'verified' }, exclusions: { field: 'rg', op: 'neq', value: 'none' } }, validate_policy: { journey: { id: 'j_demo', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] } } };

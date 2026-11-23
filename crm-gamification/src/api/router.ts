@@ -119,7 +119,9 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
           const now = app.clock.now();
           const life = lifecycleOf(p, now);
           const s = computeRfm(app.ingestor.all(T), now).get(p.player_id);
-          return { lifecycle: { key: life, label: LIFECYCLE_LABELS[life] }, rfm: s ? { ...s, label: RFM_LABELS[s.segment] } : null, predictions: app.models(T).predictions.get(p.player_id) ?? null };
+          const pid = app.personas(T).assignment.get(p.player_id);
+          return { lifecycle: { key: life, label: LIFECYCLE_LABELS[life] }, rfm: s ? { ...s, label: RFM_LABELS[s.segment] } : null, predictions: app.models(T).predictions.get(p.player_id) ?? null,
+            persona: pid ? app.personas(T).personas.find((x) => x.id === pid) ?? null : null, nba: app.nba(T, p.player_id) ?? null };
         })(),
       });
     }
@@ -131,6 +133,23 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       return ok({ as_of: m.as_of, models: m.models, value: m.value, vip_threshold_minor: m.vip_threshold_minor, notes: m.notes,
         summary: { scored: preds.length, high_churn: preds.filter((p) => (p.churn?.p ?? 0) >= 0.6).length, vip_early: preds.filter((p) => p.vip_early).length, not_promo_eligible: preds.filter((p) => !p.promo_eligible).length } });
     }
+    if (r0 === 'GET /personas') {
+      if (!can(actor, 'segments.preview')) return forbid('segments.preview');
+      const pm = app.personas(T);
+      return ok({ k: pm.k, personas: pm.personas, method: 'k-means determinista (k-means++, semilla fija) sobre variables estandarizadas: peso del casino, apuesta media, días activos y depósitos en 30 días, recencia, uso de bonos y juego nocturno. Nombre = rasgos que más distinguen al grupo.' });
+    }
+    if (r0 === 'GET /nba/summary') {
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      const rows = app.ingestor.all(T).map((p) => app.nba(T, p.player_id)!).filter(Boolean);
+      const by = new Map<string, { label: string; players: number; expected_value_minor: number }>();
+      let blocked = 0;
+      for (const r of rows) {
+        const g = by.get(r.chosen.action) ?? { label: r.chosen.label, players: 0, expected_value_minor: 0 };
+        g.players++; g.expected_value_minor += r.chosen.expected_value_minor; by.set(r.chosen.action, g);
+        if (r.candidates.some((c) => !c.allowed)) blocked++;
+      }
+      return ok({ players: rows.length, actions: [...by].map(([action, v]) => ({ action, ...v })).sort((a, b) => b.players - a.players), with_blocked_candidates: blocked, note: 'Recomendaciones; se ejecutan solo mediante recorridos aprobados. Efectos supuestos a calibrar con grupos de control.' });
+    }
     if (r0 === 'GET /segments/rfm') {
       if (!can(actor, 'segments.preview')) return forbid('segments.preview');
       return ok(distribution(app.ingestor.all(T), app.clock.now()));
@@ -140,8 +159,13 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       const b = req.body;
       const errs = [...validateRules(b.rules as never), ...(b.exclusions ? validateRules(b.exclusions as never) : [])];
       if (errs.length) return { status: 422, body: { error: 'invalid_rules', message: errs.join(', '), errors: errs } };
-      const needsPred = JSON.stringify([b.rules, b.exclusions ?? null]).includes('"pred.');
-      const out = runSegment({ id: 'preview', tenant_id: T, name: 'preview', version: 0, rules: b.rules as never, exclusions: b.exclusions as never }, app.ingestor.all(T), app.clock.now(), needsPred ? { predict: (id) => app.models(T).predictions.get(id) } : {});
+      const ruleText = JSON.stringify([b.rules, b.exclusions ?? null]);
+      const extra = {
+        ...(ruleText.includes('"pred.') ? { predict: (id: string) => app.models(T).predictions.get(id) } : {}),
+        ...(ruleText.includes('"persona"') ? { persona: (id: string) => app.personas(T).assignment.get(id) } : {}),
+        ...(ruleText.includes('"nba.action"') ? { nba: (id: string) => app.nba(T, id)?.chosen.action } : {}),
+      };
+      const out = runSegment({ id: 'preview', tenant_id: T, name: 'preview', version: 0, rules: b.rules as never, exclusions: b.exclusions as never }, app.ingestor.all(T), app.clock.now(), extra);
       return ok({ size: out.members.length, excluded: out.excluded.length, universe: out.universe, snapshot_hash: out.snapshot_hash, sample: out.members.slice(0, 10) });
     }
     if (r0 === 'GET /journeys') return ok(app.registry.list(T).map((j) => ({ ...j, as_list: journeyAsList(j), validation: validateJourney(j) })));

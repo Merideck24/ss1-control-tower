@@ -2,6 +2,9 @@ import { AuditLog } from './audit/audit.ts';
 import { PerformanceStore } from './analytics/performance.ts';
 import { KpiAlertCenter, evaluateKpiAlerts } from './analytics/kpiAlerts.ts';
 import { trainModels, type ModelBundle } from './analytics/models.ts';
+import { trainPersonas, type PersonaModel } from './analytics/personas.ts';
+import { nextBestAction } from './analytics/nba.ts';
+import { lifecycleOf } from './analytics/rfm.ts';
 import { ChannelHub, MemoryAdapter } from './channels/channels.ts';
 import { CopilotTools } from './copilot/tools.ts';
 import type { EventEnvelope } from './domain/events.ts';
@@ -71,7 +74,24 @@ export function createApp(clock: Clock = systemClock) {
     return bundle;
   }
 
-  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models };
+  const personaCache = new Map<string, { key: string; model: PersonaModel }>();
+  function personas(tenant: string): PersonaModel {
+    const key = `${ingestor.version}:${clock.now().toISOString().slice(0, 10)}`;
+    const hit = personaCache.get(tenant);
+    if (hit && hit.key === key) return hit.model;
+    const model = trainPersonas(performance.playerFacts(tenant), clock.now());
+    personaCache.set(tenant, { key, model });
+    return model;
+  }
+  /** Mejor acción siguiente de un jugador (recomendación; no ejecuta nada). */
+  function nba(tenant: string, playerId: string) {
+    const p = ingestor.get(tenant, playerId);
+    if (!p) return undefined;
+    const prog = loyalty.program(tenant, p.brand_id) ? loyalty.progress(tenant, p.brand_id, playerId) : undefined;
+    return nextBestAction(p, models(tenant).predictions.get(playerId), { lifecycle: lifecycleOf(p, clock.now()), loyaltyPct: prog?.next_level ? prog.percent_to_next : undefined, policy });
+  }
+
+  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */
