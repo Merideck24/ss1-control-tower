@@ -71,6 +71,16 @@
     .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* Modo embebido en admin.syssoft1.com: el admin pone menú lateral y barra; aquí quedan pestañas horizontales */
+  body.embedded .layout { display: block; min-height: 0; }
+  body.embedded .sidebar { position: static; height: auto; width: auto; transform: none; box-shadow: none; background: transparent; padding: 0 max(16px, env(safe-area-inset-left, 0px)); }
+  body.embedded .brandbar, body.embedded .sidebar .section, body.embedded .sidebar .foot, body.embedded .menu-btn, body.embedded header.topbar .ctx, body.embedded #pageTitle { display: none; }
+  body.embedded nav#tabs { flex-direction: row; overflow-x: auto; padding: 12px 0 0; gap: 6px; }
+  body.embedded nav#tabs button { width: auto; white-space: nowrap; padding: 8px 14px; }
+  body.embedded .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  body.embedded header.topbar { position: static; margin-top: 12px; box-shadow: none; background: transparent; padding: 0; }
+  body.embedded main { padding-top: 14px; }
+  .waiting { padding: 40px 0; text-align: center; color: var(--muted); }
 
   /* Componentes */
   .flash { padding: 11px 14px; border-radius: var(--radius); background: var(--brand-soft); border-left: 3px solid var(--brand); margin-bottom: 14px; color: var(--ink); }
@@ -374,11 +384,43 @@ function perfSection(p) {
 const money = (minor, cur = 'COP') => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, maximumFractionDigits: 0 });
 let current = 'tower';
 
+// ---------- Integración con admin.syssoft1.com (modo embebido, protocolo v1) ----------
+const CRM_CONFIG = window.SS1_CRM_CONFIG ?? {};
+const ALLOWED_ORIGINS = CRM_CONFIG.allowedOrigins ?? ['https://admin.syssoft1.com'];
+const EMBED = { active: window.parent !== window, session: null, origin: null, roles: null };
+function toParent(msg) { if (EMBED.active && EMBED.origin) window.parent.postMessage({ ...msg, version: 1 }, EMBED.origin); }
+function validSession(m) {
+  return !!m && m.type === 'ss1-crm:session' && m.version === 1 && typeof m.accessToken === 'string' && m.accessToken.length > 10
+    && typeof m.tenantId === 'string' && /^[\w.-]{1,64}$/.test(m.tenantId) && m.user && typeof m.user.id === 'string' && Array.isArray(m.abilities);
+}
+if (EMBED.active) {
+  document.body.classList.add('embedded');
+  window.addEventListener('message', (e) => {
+    if (e.source !== window.parent || !ALLOWED_ORIGINS.includes(e.origin)) return; // solo el admin
+    const m = e.data;
+    if (m?.type === 'ss1-crm:session') {
+      if (!validSession(m)) return;
+      EMBED.session = m; EMBED.origin = e.origin;
+      // En la demo estática el mapeo CASL → roles corre aquí; con servidor, el servidor lo decide (A2)
+      EMBED.roles = window.SS1_INTEGRATION ? window.SS1_INTEGRATION.abilitiesToRoles(m.abilities) : null;
+      boot();
+    } else if (m?.type === 'ss1-crm:navigate' && EMBED.session && typeof m.tab === 'string') {
+      if (TABS.some(([k, , p]) => k === m.tab && can(p))) { current = m.tab; renderTabs(); show(); }
+    }
+  });
+  for (const o of ALLOWED_ORIGINS) { try { window.parent.postMessage({ type: 'ss1-crm:ready', version: 1 }, o); } catch { /* origen distinto: el navegador lo descarta */ } }
+  if ('ResizeObserver' in window) new ResizeObserver(() => toParent({ type: 'ss1-crm:resize', height: Math.ceil(document.documentElement.scrollHeight) })).observe(document.body);
+}
+
 async function api(path, opts = {}) {
   const role = $('#role').value;
+  const s = EMBED.session;
+  const headers = s
+    ? { 'content-type': 'application/json', authorization: `Bearer ${s.accessToken}`, 'x-tenant-id': s.tenantId, 'x-actor': `ss1:${s.user.id}`, ...(EMBED.roles ? { 'x-roles': EMBED.roles.join(',') || 'none' } : {}) }
+    : { 'content-type': 'application/json', 'x-tenant-id': $('#tenant').value, 'x-roles': role, 'x-actor': role + '@ss1' };
   const res = await fetch('/api' + path, {
     method: opts.method ?? 'GET',
-    headers: { 'content-type': 'application/json', 'x-tenant-id': $('#tenant').value, 'x-roles': role, 'x-actor': role + '@ss1' },
+    headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json();
@@ -408,7 +450,7 @@ function renderTabs() {
   $('#tabs').innerHTML = TABS.filter(([, , p]) => can(p)).map(([k, l]) => `<button role="tab" aria-selected="${k === current}" data-k="${k}">${icon(k)}<span>${l}</span></button>`).join('');
   $('#tabs').querySelectorAll('button').forEach((b) => b.onclick = () => { current = b.dataset.k; flash(''); document.body.classList.remove('nav-open'); renderTabs(); show(); window.scrollTo(0, 0); });
   const t = TABS.find(([k]) => k === current);
-  if (t) { $('#pageTitle').textContent = t[1]; document.title = `${t[1]} · SS1 CRM y Fidelidad`; }
+  if (t) { $('#pageTitle').textContent = t[1]; document.title = `${t[1]} · SS1 CRM y Fidelidad`; toParent({ type: 'ss1-crm:title', title: t[1], tab: current }); }
 }
 $('#menuBtn').onclick = () => document.body.classList.toggle('nav-open');
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');
@@ -631,7 +673,11 @@ async function boot() {
 }
 if (window.SS1_STATIC) $('#mode').hidden = false;
 $('#tenant').onchange = boot; $('#role').onchange = boot;
-boot();
+if (!EMBED.active) boot();
+else {
+  $('#view').innerHTML = '<p class="waiting">Esperando la sesión de admin.syssoft1.com…</p>';
+  setTimeout(() => { if (!EMBED.session) $('#view').innerHTML = '<div class="card bad">No se recibió la sesión del admin. Abre el CRM desde admin.syssoft1.com con un usuario autorizado.</div>'; }, 8000);
+}
 </script>
 </body>
 </html>

@@ -10,15 +10,21 @@ const page = await readFile('public/index.html', 'utf8');
 const marker = '<script>\n// pestaña';
 if (!page.includes(marker)) throw new Error('main script marker not found');
 let withBundle = page.replace(marker, `<script>${bundle}</script>\n${marker}`);
+// orígenes del admin permitidos para el modo embebido: solo por configuración de despliegue
+if (process.env.CRM_ALLOWED_ORIGINS) {
+  const origins = process.env.CRM_ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter((o) => /^https?:\/\/[\w.-]+(:\d+)?$/.test(o));
+  withBundle = withBundle.replace('<script>\n// pestaña', `<script>window.SS1_CRM_CONFIG = ${JSON.stringify({ allowedOrigins: origins })};</script>\n<script>\n// pestaña`);
+}
 // recursos de marca incrustados (la versión estática no carga archivos sueltos)
 for (const f of ['brand/ss1-logo.webp', 'brand/ss1-icon.webp']) {
   const uri = `data:image/webp;base64,${(await readFile(`public/${f}`)).toString('base64')}`;
   withBundle = withBundle.split(f).join(uri);
 }
 
-await mkdir('dist', { recursive: true });
-await writeFile('dist/index.html', withBundle);
-await writeFile('dist/.nojekyll', '');
+const outDir = process.env.CRM_OUT_DIR ?? 'dist';
+await mkdir(outDir, { recursive: true });
+await writeFile(`${outDir}/index.html`, withBundle);
+await writeFile(`${outDir}/.nojekyll`, '');
 const artifact = withBundle
   .replace(/<!doctype html>\s*/i, '')
   .replace(/<html[^>]*>\s*/i, '').replace(/<\/html>\s*/i, '')
@@ -26,5 +32,5 @@ const artifact = withBundle
   .replace(/<body>\s*/i, '').replace(/<\/body>\s*/i, '')
   .replace(/<meta charset="utf-8">\s*/i, '')
   .replace(/<meta name="viewport"[^>]*>\s*/i, '');
-await writeFile('dist/artifact.html', artifact);
+await writeFile(`${outDir}/artifact.html`, artifact);
 console.log(`dist/index.html ${(withBundle.length / 1024).toFixed(0)} KB · dist/artifact.html ${(artifact.length / 1024).toFixed(0)} KB`);

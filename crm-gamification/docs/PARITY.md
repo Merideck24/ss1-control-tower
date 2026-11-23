@@ -12,7 +12,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 
 | # | Capacidad | Estado | Prioridad |
 |---|---|---|---|
-| A1 | Modo embebido: el CRM se muestra dentro del admin (sin su propio menú) y recibe sesión por `postMessage` con lista de orígenes permitidos | ⬜ | 1 |
+| A1 | Modo embebido: el CRM se muestra dentro del admin (sin su propio menú) y recibe sesión por `postMessage` con lista de orígenes permitidos | ✅ | 1 |
 | A2 | Identidad SS1: el servidor valida el token del admin contra `api.syssoft1.com` y mapea roles/permisos CASL a roles del CRM; cabeceras de desarrollo solo con bandera explícita | ⬜ | 2 |
 | A3 | Cliente de la API SS1 y conectores de sincronización (jugadores, transacciones, estadísticas, catálogo de disparadores de bonos) que generan eventos normalizados | ⬜ | 3 |
 | A4 | Webhook de ingesta firmado (HMAC) para que el PAM empuje eventos en tiempo real | ⬜ | 4 |
@@ -130,3 +130,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | Iteración | Fecha | Filas | Resultado |
 |---|---|---|---|
 | 0 | 2026-11-23 | — | Matriz creada a partir de las páginas de los tres proveedores y del bundle del admin |
+| 1 | 2026-11-23 | A1 | Modo embebido con protocolo `postMessage` v1, validación de origen, mapeo CASL → roles (`src/integration/ss1Auth.ts`), orígenes por despliegue. Prueba de dos orígenes: el admin autorizado entra, uno no autorizado es ignorado. Ver `docs/INTEGRATION.md` |
