@@ -1,12 +1,15 @@
 import type { Channel, EventType, Purpose } from '../domain/events.ts';
 import type { RuleNode } from '../segments/segmentEngine.ts';
+import type { SplitNode } from '../experiments/bandit.ts';
+import { EVENT_TYPES } from '../domain/events.ts';
 
 export type JourneyNode =
   | { id: string; type: 'condition'; rule: RuleNode; on_true: string; on_false: string }
   | { id: string; type: 'wait'; duration_ms: number; next: string }
   | { id: string; type: 'message'; channel: Channel; template: string; next: string }
   | { id: string; type: 'grant_reward'; reward_id: string; next: string }
-  | { id: string; type: 'exit' };
+  | { id: string; type: 'exit' }
+  | SplitNode;
 
 export type JourneyStatus = 'draft' | 'pending_approval' | 'approved' | 'published' | 'paused' | 'archived';
 
@@ -41,7 +44,7 @@ export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | '
   const ids = new Map(j.nodes.map((n) => [n.id, n]));
   if (ids.size !== j.nodes.length) errs.push('duplicate_node_id');
   if (!ids.has(j.entry)) errs.push('entry_not_found');
-  const nexts = (n: JourneyNode): string[] => (n.type === 'condition' ? [n.on_true, n.on_false] : n.type === 'exit' ? [] : [n.next]);
+  const nexts = (n: JourneyNode): string[] => (n.type === 'condition' ? [n.on_true, n.on_false] : n.type === 'split' ? n.variants.map((v) => v.next) : n.type === 'exit' ? [] : [n.next]);
   for (const n of j.nodes) for (const t of nexts(n)) if (!ids.has(t)) errs.push(`dangling_edge:${n.id}->${t}`);
   const state = new Map<string, 1 | 2>();
   const dfs = (id: string): void => {
@@ -56,6 +59,13 @@ export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | '
   if (j.purpose === 'service' && j.nodes.some((n) => n.type === 'grant_reward')) errs.push('service_journey_cannot_grant_incentives');
   if (j.purpose === 'service' && j.control_group_pct) errs.push('service_journey_cannot_have_control_group');
   if (!j.nodes.some((n) => n.type === 'exit')) errs.push('no_exit_node');
+  for (const n of j.nodes) if (n.type === 'split') {
+    if (!Array.isArray(n.variants) || n.variants.length < 2 || n.variants.length > 5) errs.push(`split_variants:${n.id}`);
+    else if (new Set(n.variants.map((v) => v.id)).size !== n.variants.length || n.variants.some((v) => !v.id || !v.label?.trim())) errs.push(`split_variant_ids:${n.id}`);
+    else if (n.mode === 'fixed' && !n.variants.some((v) => v.weight > 0)) errs.push(`split_weights:${n.id}`);
+    if (!n.metric || !EVENT_TYPES.includes(n.metric.event) || !(n.metric.window_hours > 0)) errs.push(`split_metric:${n.id}`);
+    if (n.mode !== 'fixed' && n.mode !== 'bandit') errs.push(`split_mode:${n.id}`);
+  }
   if (j.overlap && (!j.overlap.group?.trim() || !(j.overlap.priority >= 1 && j.overlap.priority <= 100))) errs.push('invalid_overlap');
   if (j.purpose === 'service' && j.overlap) errs.push('service_journey_cannot_have_overlap');
   return [...new Set(errs)];
@@ -70,6 +80,7 @@ export function journeyAsList(j: JourneyDefinition): string[] {
       case 'message': return `${n.id}: enviar «${n.template}» por ${n.channel} → ${n.next}`;
       case 'grant_reward': return `${n.id}: otorgar ${n.reward_id} → ${n.next}`;
       case 'exit': return `${n.id}: salida`;
+      case 'split': return `${n.id}: ${n.mode === 'bandit' ? 'A/B/n optimizado' : 'A/B/n'} por ${n.metric.event} en ${n.metric.window_hours} h → ${n.variants.map((v) => `${v.label} (${v.next})`).join(' | ')}`;
     }
   });
 }

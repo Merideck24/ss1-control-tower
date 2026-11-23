@@ -19,6 +19,7 @@ import { JourneyRuntime } from './journeys/runtime.ts';
 import { LoyaltyService } from './loyalty/loyalty.ts';
 import { DEFAULT_POLICY, PolicyEngine } from './policy/policyEngine.ts';
 import { MockBonusService, RewardService } from './rewards/rewards.ts';
+import { SplitTracker } from './experiments/bandit.ts';
 import { DAY, systemClock, type Clock } from './shared/util.ts';
 
 export type App = ReturnType<typeof createApp>;
@@ -35,8 +36,9 @@ export function createApp(clock: Clock = systemClock) {
   const rewards = new RewardService(bonus, audit, clock);
   const loyalty = new LoyaltyService(clock);
   const registry = new JourneyRegistry(audit, clock);
+  const splits = new SplitTracker();
   const runtime = new JourneyRuntime({
-    registry, policy, profiles: ingestor, audit, clock,
+    splits, registry, policy, profiles: ingestor, audit, clock,
     effects: { send: (r) => channels.send(r), recordNonDelivery: (r) => channels.recordNonDelivery(r), grant: (r) => rewards.grant(r) },
   });
   const performance = new PerformanceStore();
@@ -49,7 +51,7 @@ export function createApp(clock: Clock = systemClock) {
   const gamification = new GamificationService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
   const games = new GamesService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
   const store = new StoreService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
-  ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); games.onEvent(e, prof); store.onEvent(e, prof); runtime.onEvent(e); });
+  ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); splits.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); games.onEvent(e, prof); store.onEvent(e, prof); runtime.onEvent(e); });
   bonus.onGranted = (e) => ingestor.ingest(e);
   loyalty.onThreshold = (e) => ingestor.ingest(e);
 
@@ -113,7 +115,7 @@ export function createApp(clock: Clock = systemClock) {
     return a && { multiplier: a.multiplier, reason: a.signals.map((s) => s.code).join(',') || (a.valuable ? 'valuable' : 'ok') };
   });
 
-  return { abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  return { splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

@@ -513,14 +513,18 @@ const kv = (o) => Object.entries(o ?? {}).map(([k, n]) => `<span class="chip">${
 // ── Constructor visual de recorridos (D2): lienzo con nodos, conexiones y revisión en vivo ──
 const NW = 200, NH = 76;
 const B = { def: null, sel: null, connecting: null, catalog: null, issues: [], timer: 0, manual: false };
-const NODE_LABEL = { wait: 'Esperar', condition: 'Condición', message: 'Mensaje', grant_reward: 'Recompensa', exit: 'Salida' };
+const NODE_LABEL = { wait: 'Esperar', condition: 'Condición', message: 'Mensaje', grant_reward: 'Recompensa', split: 'A/B/n', exit: 'Salida' };
 const OPS = [['eq', '='], ['neq', '≠'], ['gt', '>'], ['gte', '≥'], ['lt', '<'], ['lte', '≤']];
-const outs = (n) => n.type === 'condition' ? [['on_true', 'sí'], ['on_false', 'no']] : n.type === 'exit' ? [] : [['next', '']];
+const outs = (n) => n.type === 'condition' ? [['on_true', 'sí'], ['on_false', 'no']] : n.type === 'split' ? n.variants.map((v, i) => [`v:${i}`, v.label]) : n.type === 'exit' ? [] : [['next', '']];
+const getOut = (n, k) => k.startsWith('v:') ? n.variants[Number(k.slice(2))]?.next : n[k];
+const setOut = (n, k, val) => { if (k.startsWith('v:')) n.variants[Number(k.slice(2))].next = val; else n[k] = val; };
+const portX = (os, i) => NW * (os.length === 1 ? 0.5 : (i + 1) / (os.length + 1));
 const durLabel = (ms) => ms % 86_400_000 === 0 ? `${ms / 86_400_000} d` : `${Math.round(ms / 3_600_000 * 10) / 10} h`;
 function nodeSummary(n) {
   if (n.type === 'wait') return `${durLabel(n.duration_ms)}`;
   if (n.type === 'message') return `${n.channel} · ${n.template}`;
   if (n.type === 'grant_reward') return n.reward_id;
+  if (n.type === 'split') return `${n.mode === 'bandit' ? 'optimizado' : 'fijo'} · ${n.variants.map((v) => v.label).join(' / ')}`;
   if (n.type === 'condition') { const r = n.rule ?? {}; return `${r.field ?? '?'} ${(OPS.find((o) => o[0] === r.op) ?? ['', r.op])[1]} ${r.value ?? ''}`; }
   return 'fin del recorrido';
 }
@@ -542,6 +546,7 @@ function addNode(type) {
     : type === 'message' ? { id, type, channel: 'inapp', template: (cat.templates.find((t) => B.def.purpose === 'marketing' || t.purpose === 'service') ?? cat.templates[0])?.key ?? '', next: '' }
     : type === 'grant_reward' ? { id, type, reward_id: (cat.rewards.find((r) => r.approved) ?? cat.rewards[0])?.id ?? '', next: '' }
     : type === 'condition' ? { id, type, rule: { field: 'kyc', op: 'eq', value: 'verified' }, on_true: '', on_false: '' }
+    : type === 'split' ? { id, type, mode: 'bandit', metric: { event: 'deposit.settled', window_hours: 72 }, min_explore_pct: 10, warmup_per_variant: 30, variants: [{ id: 'a', label: 'A', weight: 1, next: '' }, { id: 'b', label: 'B', weight: 1, next: '' }] }
     : { id, type };
   B.def.nodes.push(n);
   const sel = B.sel && B.def.layout[B.sel];
@@ -549,12 +554,12 @@ function addNode(type) {
   B.def.layout[id] = sel ? { x: sel.x + 30, y: sel.y + NH + 50 } : { x: 24, y: maxY + NH + 50 };
   // conectar automáticamente desde el paso seleccionado si tiene una salida libre
   const from = B.sel && bNode(B.sel);
-  if (from) { const free = outs(from).find(([k]) => !from[k]); if (free) from[free[0]] = id; }
+  if (from) { const free = outs(from).find(([k]) => !getOut(from, k)); if (free) setOut(from, free[0], id); }
   B.sel = id; bChanged();
 }
 function removeNode(id) {
   B.def.nodes = B.def.nodes.filter((n) => n.id !== id);
-  for (const n of B.def.nodes) for (const [k] of outs(n)) if (n[k] === id) n[k] = '';
+  for (const n of B.def.nodes) for (const [k] of outs(n)) if (getOut(n, k) === id) setOut(n, k, '');
   delete B.def.layout[id];
   if (B.def.entry === id) B.def.entry = B.def.nodes[0]?.id ?? '';
   B.sel = null; bChanged();
@@ -564,8 +569,8 @@ function bEdges() {
   for (const n of B.def.nodes) {
     const os = outs(n); const a = L[n.id]; if (!a) continue;
     os.forEach(([k, lab], i) => {
-      const b = n[k] && L[n[k]]; if (!b) return;
-      const x1 = a.x + NW * (os.length === 1 ? 0.5 : i === 0 ? 0.3 : 0.7), y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y;
+      const to = getOut(n, k); const b = to && L[to]; if (!b) return;
+      const x1 = a.x + portX(os, i), y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y;
       const dy = Math.max(40, Math.abs(y2 - y1) / 2);
       const up = y2 < y1 - 10; // destino arriba: rodear por el costado
       parts.push(up ? `<path d="M${x1},${y1} C${x1},${y1 + 60} ${Math.max(x1, x2) + NW * 0.75},${y1 + 40} ${Math.max(x1, x2) + NW * 0.75},${(y1 + y2) / 2} S${x2},${y2 - 60} ${x2},${y2 - 6}" marker-end="url(#arr)"/>` : `<path d="M${x1},${y1} C${x1},${y1 + dy} ${x2},${y2 - dy} ${x2},${y2 - 6}" marker-end="url(#arr)"/>`);
@@ -583,7 +588,7 @@ function bCanvas() {
     ${B.def.nodes.map((n) => { const p = L[n.id] ?? { x: 24, y: 24 }; const os = outs(n);
       return `<div class="jnode${B.sel === n.id ? ' sel' : ''}${bad.has(n.id) ? ' err' : ''}${B.connecting && B.connecting.id !== n.id ? ' target' : ''}" data-jn="${esc(n.id)}" style="left:${p.x}px;top:${p.y}px" role="button" tabindex="0" aria-label="${esc(NODE_LABEL[n.type])} ${esc(n.id)}">
         <div class="t"><span class="tag">${B.def.entry === n.id ? 'Inicio · ' : ''}${esc(NODE_LABEL[n.type])}</span></div><div class="t">${esc(n.id)}</div><div class="s">${esc(nodeSummary(n))}</div>
-        ${os.map(([k, lab], i) => `<button class="port${B.connecting?.id === n.id && B.connecting.key === k ? ' on' : ''}" style="left:${NW * (os.length === 1 ? 0.5 : i === 0 ? 0.3 : 0.7) - 9}px" data-port="${esc(n.id)}" data-key="${k}" title="Conectar ${lab || 'siguiente'}" aria-label="Conectar salida ${lab || 'siguiente'} de ${esc(n.id)}">${lab ? lab[0] : '↓'}</button>`).join('')}</div>`; }).join('')}</div>`;
+        ${os.map(([k, lab], i) => `<button class="port${B.connecting?.id === n.id && B.connecting.key === k ? ' on' : ''}" style="left:${portX(os, i) - 9}px" data-port="${esc(n.id)}" data-key="${k}" title="Conectar ${esc(lab || 'siguiente')}" aria-label="Conectar salida ${esc(lab || 'siguiente')} de ${esc(n.id)}">${lab ? esc(lab[0]) : '↓'}</button>`).join('')}</div>`; }).join('')}</div>`;
 }
 function bInspector() {
   const n = B.sel && bNode(B.sel); const c = B.catalog;
@@ -597,7 +602,13 @@ function bInspector() {
   if (n.type === 'grant_reward') f = `<label>Recompensa <select data-bf="reward_id">${c.rewards.map((r) => opt(r.id, n.reward_id, `${r.id} · ${r.reward_type}${r.approved ? '' : ' (sin aprobar)'}`)).join('')}</select></label>`;
   if (n.type === 'condition') f = `<label>Campo <select data-bf="field">${c.fields.map((x) => opt(x, n.rule.field)).join('')}</select></label>
     <label>Operador <select data-bf="op">${OPS.map(([v, l]) => opt(v, n.rule.op, l)).join('')}</select></label><label>Valor <input data-bf="value" value="${esc(n.rule.value)}"></label>`;
-  const conns = outs(n).map(([k, lab]) => `<label>${lab ? `Si ${lab}` : 'Siguiente'} → <select data-bc="${k}">${targets(n[k])}</select></label>`).join('');
+  if (n.type === 'split') f = `<label>Modo <select data-bf="mode">${opt('bandit', n.mode, 'Optimizado (bandit)')}${opt('fixed', n.mode, 'Fijo por pesos')}</select></label>
+    <label>Conversión = evento <select data-bf="metric_event">${c.events.map((e) => opt(e, n.metric.event)).join('')}</select></label>
+    <label>Ventana (horas) <input type="number" min="1" data-bf="window" value="${n.metric.window_hours}"></label>
+    ${n.mode === 'bandit' ? `<label>Exploración mínima % <input type="number" min="0" max="50" data-bf="explore" value="${n.min_explore_pct ?? 10}"></label>` : ''}
+    ${n.variants.map((v, i) => `<div class="row"><input data-bv="${i}" data-vk="label" value="${esc(v.label)}" size="10" aria-label="Nombre de la variante ${i + 1}">${n.mode === 'fixed' ? `<input type="number" min="0" data-bv="${i}" data-vk="weight" value="${v.weight}" size="3" aria-label="Peso">` : ''}${n.variants.length > 2 ? `<button class="ghost" data-vdel="${i}">Quitar</button>` : ''}</div>`).join('')}
+    ${n.variants.length < 5 ? '<button class="ghost" id="vadd">+ Variante</button>' : ''}`;
+  const conns = outs(n).map(([k, lab]) => `<label>${lab ? (n.type === 'split' ? `Variante ${esc(lab)}` : `Si ${lab}`) : 'Siguiente'} → <select data-bc="${k}">${targets(getOut(n, k))}</select></label>`).join('');
   return `<h3 style="margin-top:0">${esc(NODE_LABEL[n.type])} · ${esc(n.id)}</h3>${f}${conns}
     <div class="row">${B.def.entry === n.id ? '<span class="chip brand">Paso de inicio</span>' : '<button class="ghost" id="bentry">Marcar como inicio</button>'}<button class="ghost" id="bdel">Eliminar</button></div>`;
 }
@@ -625,7 +636,7 @@ function bBindCanvas() {
     const id = el.dataset.jn;
     el.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); el.onclick(); } };
     el.onclick = () => {
-      if (B.connecting) { if (B.connecting.id !== id) { bNode(B.connecting.id)[B.connecting.key] = id; } B.connecting = null; B.sel = id; bChanged(); return; }
+      if (B.connecting) { if (B.connecting.id !== id) { setOut(bNode(B.connecting.id), B.connecting.key, id); } B.connecting = null; B.sel = id; bChanged(); return; }
       B.sel = id; bDraw();
     };
     el.onpointerdown = (ev) => {
@@ -649,11 +660,17 @@ function bBindCanvas() {
     const k = inp.dataset.bf;
     if (k === 'dur' || k === 'unit') { const v = Number($('[data-bf="dur"]').value); n.duration_ms = Math.round(v * ($('[data-bf="unit"]').value === 'd' ? 86_400_000 : 3_600_000)); }
     else if (k === 'field' || k === 'op') n.rule[k] = inp.value;
+    else if (k === 'metric_event') n.metric.event = inp.value;
+    else if (k === 'window') n.metric.window_hours = Number(inp.value);
+    else if (k === 'explore') n.min_explore_pct = Number(inp.value);
     else if (k === 'value') n.rule.value = inp.value === 'true' ? true : inp.value === 'false' ? false : inp.value !== '' && !isNaN(Number(inp.value)) ? Number(inp.value) : inp.value;
     else n[k] = inp.value;
     bChanged();
   });
-  document.querySelectorAll('[data-bc]').forEach((s) => s.onchange = () => { n[s.dataset.bc] = s.value; bChanged(); });
+  document.querySelectorAll('[data-bc]').forEach((s) => s.onchange = () => { setOut(n, s.dataset.bc, s.value); bChanged(); });
+  document.querySelectorAll('[data-bv]').forEach((inp) => inp.onchange = () => { const v = n.variants[Number(inp.dataset.bv)]; v[inp.dataset.vk] = inp.dataset.vk === 'weight' ? Number(inp.value) : inp.value; bChanged(); });
+  document.querySelectorAll('[data-vdel]').forEach((b) => b.onclick = () => { n.variants.splice(Number(b.dataset.vdel), 1); bChanged(); });
+  if ($('#vadd')) $('#vadd').onclick = () => { const used = new Set(n.variants.map((v) => v.id)); const id = 'abcde'.split('').find((x) => !used.has(x)); n.variants.push({ id, label: id.toUpperCase(), weight: 1, next: '' }); bChanged(); };
   if ($('#bentry')) $('#bentry').onclick = () => { B.def.entry = n.id; bChanged(); };
   if ($('#bdel')) $('#bdel').onclick = () => removeNode(n.id);
 }
@@ -796,7 +813,7 @@ const VIEWS = {
       <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
-    const [rs, md, nb, ab] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null]);
+    const [rs, md, nb, ab, sp] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null, api('/experiments/splits')]);
     const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
     const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
       <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
@@ -823,7 +840,14 @@ const VIEWS = {
         <td>${a.review ? `<span class="${a.review.status === 'cleared' ? 'ok' : 'bad'}">${a.review.status === 'cleared' ? 'Descartado' : 'Confirmado'}</span> <span class="muted">${esc(a.review.by)} · hasta ${new Date(a.review.valid_until).toLocaleDateString('es-CO')}</span>` : ''}
           ${can('abuse.review') ? `<button class="ghost" data-abr="${esc(a.player_id)}" data-st="cleared">Descartar</button> <button class="ghost" data-abr="${esc(a.player_id)}" data-st="confirmed">Confirmar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin jugadores marcados.</td></tr>'}</table>
       <p class="muted">${esc(ab.note)} Reglas ${esc(ab.rules.version)}; una revisión vale ${ab.rules.review_valid_days} días. Usa <code>abuse.tier</code> y <code>abuse.score</code> en Segmentos.</p></div><br>`;
-    return `${models}${nbaCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    const PH = { fixed: 'Reparto fijo', warmup: 'Calentamiento', optimizing: 'Optimizando' };
+    const splitCard = !sp.splits.length ? '' : `<div class="card scroll"><h3>Experimentos A/B/n en recorridos</h3>${sp.splits.map((x) => `
+      <div class="row"><b>${esc(x.journey)}</b><span class="chip">v${x.version} · ${esc(x.node)}</span><span class="chip brand">${PH[x.phase]}</span><span class="muted">conversión: ${esc(x.metric.event)} en ${x.metric.window_hours} h${x.mode === 'bandit' ? ` · exploración mínima ${x.min_explore_pct} %` : ''}</span></div>
+      <table><tr><th>Variante</th><th class="num">Asignados</th><th class="num">Cerrados</th><th class="num">Conversiones</th><th class="num">Tasa (IC 95 %)</th><th class="num">Prob. de ser la mejor</th><th class="num">Reparto actual</th></tr>
+      ${x.variants.map((v) => `<tr><td>${esc(v.label)}</td><td class="num">${int(v.assigned)}</td><td class="num">${int(v.decided)}</td><td class="num">${int(v.conversions)}</td>
+        <td class="num">${v.rate === null ? '—' : `${pct(v.rate, 1)} <span class="muted">[${pct(v.ci95[0], 1)}; ${pct(v.ci95[1], 1)}]</span>`}</td><td class="num">${v.p_best === null ? '—' : pct(v.p_best, 0)}</td><td class="num">${pct(v.allocation, 0)}</td></tr>`).join('')}</table>
+      <p>${esc(x.decision)}</p>`).join('')}<p class="muted">${esc(sp.note)}</p></div><br>`;
+    return `${models}${nbaCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
         <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;

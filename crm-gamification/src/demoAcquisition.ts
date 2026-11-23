@@ -40,6 +40,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   const now = app.clock.now().getTime();
   seedDemoMissions(app, tenant, now);
   seedDemoOverlap(app, tenant);
+  seedDemoSplit(app, tenant);
   // demo: bono de bienvenida con valor y presupuesto realistas para el volumen simulado
   const item = app.rewards.item(tenant, 'welcome_fs_10');
   if (item) app.rewards.addItem({ ...item, value: { amount_minor: 20_000_00, currency: 'COP' }, budget_minor: 20_000_00 * 2_000 });
@@ -190,4 +191,20 @@ export function seedDemoOverlap(app: App, tenant: string) {
     });
     app.registry.submit(author, j.id); app.registry.approve(approver, j.id); app.registry.publish(author, j.id);
   }
+}
+
+/** Demo D5: bienvenida con tres variantes optimizadas por primer depósito en 72 h (datos sintéticos neutros). */
+export function seedDemoSplit(app: App, tenant: string) {
+  const author = { id: 'analyst@ss1', tenant_id: tenant, roles: ['crm_analyst' as const] };
+  const approver = { id: 'approver@ss1', tenant_id: tenant, roles: ['approver' as const] };
+  app.registry.saveDraft(author, {
+    id: 'jab_welcome_message', brand_id: 'rumbawin', name: 'Verificado → mensaje de bienvenida A/B/n', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'player.verified' }, entry: 'ab',
+    nodes: [
+      { id: 'ab', type: 'split', mode: 'bandit', metric: { event: 'deposit.settled', window_hours: 72 }, min_explore_pct: 10, warmup_per_variant: 30,
+        variants: [{ id: 'a', label: 'In-app', weight: 1, next: 'inapp' }, { id: 'b', label: 'Email', weight: 1, next: 'email' }, { id: 'c', label: 'Sin mensaje', weight: 1, next: 'end' }] },
+      { id: 'inapp', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' },
+      { id: 'email', type: 'message', channel: 'email', template: 'loyalty_halfway', next: 'end' },
+      { id: 'end', type: 'exit' }],
+  });
+  app.registry.submit(author, 'jab_welcome_message'); app.registry.approve(approver, 'jab_welcome_message'); app.registry.publish(author, 'jab_welcome_message');
 }

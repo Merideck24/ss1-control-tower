@@ -3,6 +3,7 @@ import type { CopilotSession, CopilotTools } from '../copilot/tools.ts';
 import { report } from '../experiments/experiments.ts';
 import { journeyAsList, validateJourney } from '../journeys/model.ts';
 import { autoLayout, reviewJourney } from '../journeys/builder.ts';
+import { SplitTracker } from '../experiments/bandit.ts';
 import { EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
 import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
@@ -297,7 +298,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         fields: SEGMENT_FIELDS,
         node_types: [
           { type: 'wait', label: 'Esperar' }, { type: 'condition', label: 'Condición' }, { type: 'message', label: 'Mensaje' },
-          { type: 'grant_reward', label: 'Recompensa' }, { type: 'exit', label: 'Salida' }],
+          { type: 'grant_reward', label: 'Recompensa' }, { type: 'split', label: 'A/B/n' }, { type: 'exit', label: 'Salida' }],
       });
     }
     if (r0 === 'POST /journeys/review') {
@@ -305,6 +306,24 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       if (!Array.isArray(j?.nodes)) return { status: 422, body: { error: 'invalid_journey', message: 'Falta la lista de pasos.' } };
       const issues = reviewJourney(j, { template: (k) => app.channels.template(T, k), reward: (id) => { const it = app.rewards.item(T, id); return it && { approved: Boolean(it.approved_by) }; } });
       return ok({ issues, valid: !issues.some((i) => i.severity === 'error'), layout: autoLayout(j), as_list: journeyAsList(j as never) });
+    }
+    if (r0 === 'GET /experiments/splits') {
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      const now = app.clock.now().getTime();
+      const out = [];
+      for (const j of app.registry.live(T)) for (const n of j.nodes) {
+        if (n.type !== 'split') continue;
+        const key = SplitTracker.key(T, j.id, n.id);
+        const st = app.splits.stats(key, n, now);
+        const { phase } = app.splits.allocation(key, n, now);
+        const lead = [...st].sort((a, b) => (b.p_best ?? 0) - (a.p_best ?? 0))[0];
+        const warm = n.warmup_per_variant ?? 30;
+        const decision = st.some((x) => x.decided < warm) ? `Calentamiento: faltan resultados cerrados (mínimo ${warm} por variante).`
+          : (lead.p_best ?? 0) >= 0.95 ? `«${lead.label}» es la mejor con ${Math.round(100 * lead.p_best!)} % de probabilidad: puedes fijarla como ganadora.`
+          : `Sin ganadora clara todavía (la mejor tiene ${Math.round(100 * (lead.p_best ?? 0))} % de probabilidad; se pide 95 %).`;
+        out.push({ journey_id: j.id, journey: j.name, version: j.version, node: n.id, mode: n.mode, phase, metric: n.metric, min_explore_pct: n.min_explore_pct ?? 10, variants: st, decision });
+      }
+      return ok({ splits: out, note: 'Conversión = primer evento de la métrica dentro de la ventana tras la asignación; solo cuentan casos cerrados (convirtieron o venció la ventana). Probabilidad de ser la mejor por muestreo Beta-Binomial reproducible. Cada jugador ve siempre la misma variante.' });
     }
     if (r0 === 'GET /journeys/overlap') {
       const live = app.registry.live(T).filter((j) => j.purpose === 'marketing');

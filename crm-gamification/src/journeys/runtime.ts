@@ -2,6 +2,7 @@ import type { AuditLog } from '../audit/audit.ts';
 import type { ChannelHub, Locale } from '../channels/channels.ts';
 import type { EventEnvelope } from '../domain/events.ts';
 import { assignArm } from '../experiments/experiments.ts';
+import { SplitTracker } from '../experiments/bandit.ts';
 import type { PolicyEngine, Decision } from '../policy/policyEngine.ts';
 import type { PlayerProfile } from '../profile/projection.ts';
 import type { RewardService } from '../rewards/rewards.ts';
@@ -53,8 +54,10 @@ export class JourneyRuntime {
   #clock: Clock;
   #skipWaits: boolean;
   #deferred = new Map<string, string>(); // instance → message node diferido
+  #splits: SplitTracker | null;
 
-  constructor(deps: { registry: JourneyRegistry; policy: PolicyEngine; profiles: ProfileSource; effects: Effects | null; audit: AuditLog; clock: Clock; skipWaits?: boolean }) {
+  constructor(deps: { registry: JourneyRegistry; policy: PolicyEngine; profiles: ProfileSource; effects: Effects | null; audit: AuditLog; clock: Clock; skipWaits?: boolean; splits?: SplitTracker }) {
+    this.#splits = deps.splits ?? null;
     this.#registry = deps.registry; this.#policy = deps.policy; this.#profiles = deps.profiles; this.#effects = deps.effects; this.#audit = deps.audit; this.#clock = deps.clock;
     this.#skipWaits = deps.skipWaits ?? false;
   }
@@ -168,6 +171,14 @@ export class JourneyRuntime {
           const ok = evaluate(node.rule, profile, this.#clock.now());
           inst.trace.push({ at: this.#now(), node: node.id, type: 'condition', outcome: String(ok) });
           inst.current = ok ? node.on_true : node.on_false;
+          break;
+        }
+        case 'split': {
+          // simulación sin rastreador: primera variante con peso, sin registrar asignaciones
+          const variant = this.#splits ? this.#splits.assign(inst.tenant_id, def.id, node, inst.player_id, this.#clock.now().getTime()).variant : (node.variants.find((v) => v.weight > 0) ?? node.variants[0]).id;
+          const v = node.variants.find((x) => x.id === variant)!;
+          inst.trace.push({ at: this.#now(), node: node.id, type: 'split', outcome: `variant:${v.id}`, detail: { label: v.label, mode: node.mode } });
+          inst.current = v.next;
           break;
         }
         case 'wait':

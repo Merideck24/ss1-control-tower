@@ -58,3 +58,11 @@ Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expo
 | `GET /journeys/overlap` | — | Grupos con prioridad, entradas, desplazadas y bloqueadas; riesgos de colisión; topes de frecuencia vigentes |
 
 Recorridos: `overlap: { group, priority (1–100), cooldown_hours? }` (solo marketing). Estados de instancia nuevos: `preempted`, `blocked_overlap`. Política: `max_marketing_per_day_by_channel`, `max_marketing_per_week`; motivos `frequency_cap_channel:<canal>` y `frequency_cap_week`.
+
+## Experimentos A/B/n (D5)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /experiments/splits` | `analytics.read` | Por cada paso A/B/n publicado: fase (fijo, calentamiento, optimizando), asignados, cerrados, conversiones, tasa con IC 95 %, probabilidad de ser la mejor, reparto actual y decisión |
+
+Paso `split`: `{ mode: 'fixed' \| 'bandit', metric: { event, window_hours }, variants: [{ id, label, weight, next }], min_explore_pct?, warmup_per_variant? }`.

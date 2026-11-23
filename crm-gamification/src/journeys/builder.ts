@@ -14,7 +14,7 @@ const GAP_X = 60;
 const GAP_Y = 56;
 
 export const nextsOf = (n: JourneyNode): { to: string; label?: string }[] =>
-  n.type === 'condition' ? [{ to: n.on_true, label: 'sí' }, { to: n.on_false, label: 'no' }] : n.type === 'exit' ? [] : [{ to: n.next }];
+  n.type === 'condition' ? [{ to: n.on_true, label: 'sí' }, { to: n.on_false, label: 'no' }] : n.type === 'split' ? n.variants.map((v) => ({ to: v.next, label: v.label })) : n.type === 'exit' ? [] : [{ to: n.next }];
 
 /** Capas por profundidad (camino más largo desde el inicio); ramas en columnas. Determinista. */
 export function autoLayout(j: Pick<JourneyDefinition, 'entry' | 'nodes'>): Record<string, Pos> {
@@ -58,6 +58,11 @@ const MESSAGES: Record<string, (arg?: string) => string> = {
   service_journey_cannot_grant_incentives: () => 'Un recorrido de servicio no puede otorgar recompensas.',
   service_journey_cannot_have_control_group: () => 'Un recorrido de servicio no lleva grupo de control.',
   no_exit_node: () => 'Agrega al menos un paso «Salida».',
+  split_variants: (a) => `El A/B/n «${a}» necesita entre 2 y 5 variantes.`,
+  split_variant_ids: (a) => `Las variantes de «${a}» necesitan nombre e identificador distintos.`,
+  split_weights: (a) => `En «${a}» al menos una variante debe tener peso mayor que cero.`,
+  split_metric: (a) => `Elige en «${a}» el evento que cuenta como conversión y una ventana en horas.`,
+  split_mode: (a) => `El modo de «${a}» debe ser fijo u optimizado.`,
   invalid_overlap: () => 'El grupo de solapamiento necesita nombre y una prioridad entre 1 y 100.',
   service_journey_cannot_have_overlap: () => 'Los recorridos de servicio no compiten con otros: quita el grupo de solapamiento.',
 };
@@ -72,7 +77,7 @@ export function reviewJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'pu
       issues.push({ node: from, code: 'unconnected', message: `Falta conectar una salida de «${from}».`, severity: 'error' });
       continue;
     }
-    const node = base === 'unreachable' || base === 'cycle_at' ? arg : base === 'dangling_edge' ? arg?.split('->')[0] : undefined;
+    const node = base === 'unreachable' || base === 'cycle_at' || base.startsWith('split_') ? arg : base === 'dangling_edge' ? arg?.split('->')[0] : undefined;
     issues.push({ ...(node ? { node } : {}), code: base, message: (MESSAGES[base] ?? (() => code))(arg), severity: 'error' });
   }
   if (!j.name?.trim()) issues.push({ code: 'name_required', message: 'Ponle un nombre al recorrido.', severity: 'error' });
@@ -95,6 +100,7 @@ export function reviewJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'pu
       if (n.on_true && n.on_true === n.on_false) issues.push({ node: n.id, code: 'same_branches', message: 'Las dos ramas llevan al mismo paso: la condición no cambia nada.', severity: 'warning' });
     }
   }
+  for (const n of j.nodes) if (n.type === 'split' && n.mode === 'bandit' && (n.min_explore_pct ?? 10) < 5) issues.push({ node: n.id, code: 'low_exploration', message: 'Con menos de 5 % de exploración por variante el optimizador puede fijarse en una ganadora falsa.', severity: 'warning' });
   if (j.purpose === 'marketing' && !j.control_group_pct) issues.push({ code: 'no_control_group', message: 'Sin grupo de control no se podrá medir el incremento real.', severity: 'warning' });
   return issues;
 }
