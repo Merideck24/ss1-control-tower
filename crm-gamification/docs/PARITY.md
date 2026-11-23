@@ -34,8 +34,8 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | # | Capacidad | Referencia | Estado |
 |---|---|---|---|
 | C1 | Segmentos dinámicos AND/OR/NOT con exclusiones y snapshot | FT, OPT | ✅ |
-| C2 | RFM (recencia, frecuencia, valor) | GR8 | ⬜ |
-| C3 | Etapas de ciclo de vida (nuevo, activo, en riesgo, inactivo, reactivado) | OPT, FT | ⬜ |
+| C2 | RFM (recencia, frecuencia, valor) | GR8 | ✅ |
+| C3 | Etapas de ciclo de vida (nuevo, activo, en riesgo, inactivo, reactivado) | OPT, FT | ✅ |
 | C4 | Personas dinámicas (clusters por comportamiento y producto preferido) | FT | ⬜ |
 | C5 | Segmentación por valor previsto y riesgo de abandono | OPT, GR8 | ⬜ (depende de E1–E2) |
 
@@ -136,3 +136,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 4 | 2026-11-23 | A4 | `POST /api/ingest/ss1` con firma HMAC-SHA256 por tenant, ventana de ±300 s, comparación en tiempo constante, lotes de hasta 500 eventos, aislamiento por tenant y reenvíos idempotentes; ejemplo de envío en Laravel |
 | 5 | 2026-11-23 | A5 | Tema del operador desde `/admin/theme-config` o desde la sesión, con contraste mínimo 3:1 y logos solo de dominios SS1. Corregido un fallo del build (reemplazo con `$&` en el código minificado) y añadida una prueba que ejecuta el build real y valida cada script |
 | 6 | 2026-11-23 | A6 | Kit `integrations/ss1-admin/` (puente, página Vue, ruta con enlace directo, menú, permisos). La prueba de punta a punta con el puente real encontró y corrigió una carrera: el enlace directo se perdía mientras cargaban los permisos |
+| 7 | 2026-11-23 | C2, C3 | RFM por quintiles dentro del tenant con 8 segmentos nombrados y ciclo de vida por jugador (6 etapas, con reactivación); campos `rfm.*` y `lifecycle` en segmentos, `lifecycle` también en recorridos; distribución en la pestaña Segmentos con «Usar» y bloque en Perfil 360. Corregido el desborde de Perfil 360 en móvil |

@@ -7,6 +7,7 @@ import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
 import { DomainError, HOUR } from '../shared/util.ts';
+import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
 import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
 import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
@@ -114,9 +115,19 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         receipts: app.channels.receipts(T, p.player_id),
         journeys: app.runtime.instances(T, { player_id: p.player_id }),
         grants: app.rewards.grants(T).filter((g) => g.player_id === p.player_id),
+        segmentation: (() => {
+          const now = app.clock.now();
+          const life = lifecycleOf(p, now);
+          const s = computeRfm(app.ingestor.all(T), now).get(p.player_id);
+          return { lifecycle: { key: life, label: LIFECYCLE_LABELS[life] }, rfm: s ? { ...s, label: RFM_LABELS[s.segment] } : null };
+        })(),
       });
     }
     if (r0 === 'GET /segments/fields') return ok(SEGMENT_FIELDS);
+    if (r0 === 'GET /segments/rfm') {
+      if (!can(actor, 'segments.preview')) return forbid('segments.preview');
+      return ok(distribution(app.ingestor.all(T), app.clock.now()));
+    }
     if (r0 === 'POST /segments/preview') {
       if (!can(actor, 'segments.preview')) return forbid('segments.preview');
       const b = req.body;

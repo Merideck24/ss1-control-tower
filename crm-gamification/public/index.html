@@ -80,6 +80,8 @@
   body.embedded .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   body.embedded header.topbar { position: static; margin-top: 12px; box-shadow: none; background: transparent; padding: 0; }
   body.embedded main { padding-top: 14px; }
+  .profile-grid { grid-template-columns: minmax(240px, 1fr) 2fr; }
+  @media (max-width: 760px) { .profile-grid { grid-template-columns: minmax(0, 1fr); } }
   .waiting { padding: 40px 0; text-align: center; color: var(--muted); }
 
   /* Componentes */
@@ -521,13 +523,18 @@ const VIEWS = {
   async profile() {
     const list = await api('/players');
     return `<div class="row"><input id="pq" placeholder="Buscar player_id (seudonimizado)"><button id="pgo">Buscar</button></div>
-      <div class="grid" style="grid-template-columns: minmax(240px, 1fr) 2fr">
+      <div class="grid profile-grid">
         <div class="card scroll"><h3>Jugadores</h3><table>${list.map((p) => `<tr><td><a href="#" data-p="${esc(p.player_id)}">${esc(p.player_id)}</a></td><td>${esc(p.kyc)}</td><td class="${p.rg !== 'none' ? 'bad' : ''}">${esc(p.rg)}</td><td>${esc(p.level ?? '')}</td></tr>`).join('')}</table></div>
         <div class="card" id="pdetail"><p class="muted">Selecciona un jugador.</p></div></div>`;
   },
   async segments() {
-    const fields = await api('/segments/fields');
-    return `<div class="card"><h3>Definición (AND/OR/NOT)</h3>
+    const [fields, dist] = await Promise.all([api('/segments/fields'), api('/segments/rfm')]);
+    const pctOf = (n, d) => d ? pct(n / d, 0) : '—';
+    const distTable = (title, rows, field, denom) => `<div class="card scroll"><h3>${title}</h3><table><tr><th>Grupo</th><th class="num">Jugadores</th><th class="num">%</th><th class="num">Depósitos netos</th><th></th></tr>
+      ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${int(r.players)}</td><td class="num">${pctOf(r.players, denom)}</td><td class="num">${moneyC(r.deposits_minor)}</td><td class="num">${r.players ? `<button class="ghost" data-use='${esc(JSON.stringify({ field, op: 'eq', value: r.key }))}'>Usar</button>` : ''}</td></tr>`).join('')}</table></div>`;
+    return `<div class="grid">${distTable('Ciclo de vida', dist.lifecycle, 'lifecycle', dist.total)}${distTable('Segmentos RFM (solo jugadores con depósito)', dist.rfm, 'rfm.segment', dist.depositors)}</div>
+      <p class="muted">${esc(dist.method)} RFM se usa en segmentos; en condiciones de recorridos usa <code>lifecycle</code>, que se calcula por jugador.</p><br>
+      <div class="card"><h3>Definición (AND/OR/NOT)</h3>
       <p class="muted">Campos: ${fields.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</p>
       <textarea id="rules" rows="8">${esc(JSON.stringify({ and: [{ field: 'kyc', op: 'eq', value: 'verified' }, { field: 'stats.deposit_count', op: 'gte', value: 1 }] }, null, 2))}</textarea>
       <h3 style="margin-top:10px">Exclusiones</h3>
@@ -612,11 +619,13 @@ const BIND = {
       const f = (label, x) => `<tr><th>${label}</th><td>${esc(x.value)}</td><td class="muted">${esc(x.source)} · ${x.as_of ? new Date(x.as_of).toLocaleString('es-CO') : '—'} · v${x.version}</td></tr>`;
       const ex = d.eligibility_explanation;
       $('#pdetail').innerHTML = `<h3>${esc(p.player_id)} · ${esc(p.brand_id)}</h3>
-        <table>${f('Email', p.contact.email)}${f('KYC', p.kyc)}${f('Juego responsable', p.rg)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
-        ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + k, v)).join('')}</table>
+        <div class="scroll"><table>${f('Email', p.contact.email)}${f('KYC', p.kyc)}${f('Juego responsable', p.rg)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
+        ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + k, v)).join('')}</table></div>
         <h3 style="margin-top:12px">Por qué recibe o no marketing</h3>
         ${Object.entries(ex.marketing).map(([c, x]) => `<div><b>${c}</b>: <span class="${x.kind === 'allow' ? 'ok' : x.kind === 'defer' ? 'warn' : 'bad'}">${x.kind}</span> <span class="muted">${x.reasons.map(esc).join(', ')} · política ${esc(x.policy_version)}</span></div>`).join('')}
         <div><b>incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${ex.incentive.kind}</span> <span class="muted">${ex.incentive.reasons.map(esc).join(', ')}</span></div>
+        <h3 style="margin-top:12px">Segmentación</h3>
+        <div class="row"><span class="chip brand">${esc(d.segmentation.lifecycle.label)}</span>${d.segmentation.rfm ? `<span class="chip">RFM ${d.segmentation.rfm.r}-${d.segmentation.rfm.f}-${d.segmentation.rfm.m} · ${esc(d.segmentation.rfm.label)}</span><span class="muted">${d.segmentation.rfm.recency_days} d desde la última actividad · ${d.segmentation.rfm.frequency} depósitos · ${moneyC(d.segmentation.rfm.monetary_minor)}</span>` : '<span class="muted">Sin RFM: aún no deposita</span>'}</div>
         ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${d.loyalty.points} pts · ${d.loyalty.percent_to_next}% hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
         <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${esc(g.reward_id)} · ${esc(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
         <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(r.channel)} · ${esc(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(r.status)}</span> <span class="muted">${esc(r.reason ?? '')}</span></div>`).join('') || '<span class="muted">—</span>'}
@@ -626,6 +635,10 @@ const BIND = {
     $('#pgo').onclick = () => open($('#pq').value.trim());
   },
   segments() {
+    document.querySelectorAll('[data-use]').forEach((b) => b.onclick = () => {
+      $('#rules').value = JSON.stringify(JSON.parse(b.dataset.use), null, 2);
+      $('#rules').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('#prev').click();
+    });
     $('#prev').onclick = async () => {
       try {
         const excl = $('#excl').value.trim();

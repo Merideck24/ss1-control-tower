@@ -1,4 +1,5 @@
 import type { PlayerProfile } from '../profile/projection.ts';
+import { computeRfm, lifecycleOf, type Derived } from '../analytics/rfm.ts';
 import { DomainError, sha256 } from '../shared/util.ts';
 
 /** Árbol de reglas AND/OR sobre atributos y eventos (CRM-02). */
@@ -19,7 +20,7 @@ export type SegmentDefinition = {
 };
 
 /** Campos permitidos (catálogo). Evita acceso arbitrario a la proyección. */
-const FIELDS: Record<string, (p: PlayerProfile) => unknown> = {
+const FIELDS: Record<string, (p: PlayerProfile, d: Derived) => unknown> = {
   'kyc': (p) => p.kyc?.value,
   'rg': (p) => p.rg?.value,
   'country': (p) => p.country?.value,
@@ -33,13 +34,20 @@ const FIELDS: Record<string, (p: PlayerProfile) => unknown> = {
   'consent.marketing.inapp': (p) => p.consents['marketing:inapp']?.value ?? false,
   'consent.marketing.webpush': (p) => p.consents['marketing:webpush']?.value ?? false,
   'rewards.active_count': (p) => p.rewards.length,
+  'lifecycle': (p, d) => lifecycleOf(p, d.now),
+  // RFM depende de toda la población del tenant: disponible en segmentos (runSegment), no en condiciones de recorridos
+  'rfm.r': (p, d) => d.rfm?.get(p.player_id)?.r,
+  'rfm.f': (p, d) => d.rfm?.get(p.player_id)?.f,
+  'rfm.m': (p, d) => d.rfm?.get(p.player_id)?.m,
+  'rfm.segment': (p, d) => d.rfm?.get(p.player_id)?.segment,
 };
 export const SEGMENT_FIELDS = Object.keys(FIELDS);
 
-export function evaluate(node: RuleNode, p: PlayerProfile, asOf: Date): boolean {
-  if ('and' in node) return node.and.every((n) => evaluate(n, p, asOf));
-  if ('or' in node) return node.or.some((n) => evaluate(n, p, asOf));
-  if ('not' in node) return !evaluate(node.not, p, asOf);
+export function evaluate(node: RuleNode, p: PlayerProfile, asOf: Date, derived?: Derived): boolean {
+  const d = derived ?? { now: asOf };
+  if ('and' in node) return node.and.every((n) => evaluate(n, p, asOf, d));
+  if ('or' in node) return node.or.some((n) => evaluate(n, p, asOf, d));
+  if ('not' in node) return !evaluate(node.not, p, asOf, d);
   if ('event' in node) {
     const since = asOf.getTime() - node.value * 86_400_000;
     const hit = p.timeline.some((t) => t.event_type === node.event && Date.parse(t.occurred_at) >= since && Date.parse(t.occurred_at) <= asOf.getTime());
@@ -47,7 +55,7 @@ export function evaluate(node: RuleNode, p: PlayerProfile, asOf: Date): boolean 
   }
   const getter = FIELDS[node.field];
   if (!getter) throw new DomainError('unknown_field', node.field);
-  const v = getter(p) as string | number | boolean | undefined;
+  const v = getter(p, d) as string | number | boolean | undefined;
   const n = node.value as string | number;
   switch (node.op) {
     case 'eq': return v === node.value;
@@ -71,9 +79,11 @@ export function runSegment(def: SegmentDefinition, snapshot: readonly PlayerProf
   const scoped = snapshot.filter((p) => p.tenant_id === def.tenant_id).slice().sort((a, b) => a.player_id.localeCompare(b.player_id));
   const members: string[] = [];
   const excluded: string[] = [];
+  const uses = JSON.stringify([def.rules, def.exclusions ?? null]).includes('"rfm.');
+  const derived: Derived = { now: asOf, rfm: uses ? computeRfm(scoped, asOf) : undefined };
   for (const p of scoped) {
-    if (!evaluate(def.rules, p, asOf)) continue;
-    if (def.exclusions && evaluate(def.exclusions, p, asOf)) excluded.push(p.player_id);
+    if (!evaluate(def.rules, p, asOf, derived)) continue;
+    if (def.exclusions && evaluate(def.exclusions, p, asOf, derived)) excluded.push(p.player_id);
     else members.push(p.player_id);
   }
   const snapshot_hash = sha256(JSON.stringify(scoped.map((p) => [p.player_id, p.timeline.length, p.timeline.at(-1)?.event_id])));
