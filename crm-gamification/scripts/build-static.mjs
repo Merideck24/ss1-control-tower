@@ -9,11 +9,12 @@ const bundle = out.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const page = await readFile('public/index.html', 'utf8');
 const marker = '<script>\n// pestaña';
 if (!page.includes(marker)) throw new Error('main script marker not found');
-let withBundle = page.replace(marker, `<script>${bundle}</script>\n${marker}`);
+// función de reemplazo: un texto de reemplazo interpretaría secuencias como $& dentro del código minificado
+let withBundle = page.replace(marker, () => `<script>${bundle}</script>\n${marker}`);
 // orígenes del admin permitidos para el modo embebido: solo por configuración de despliegue
 if (process.env.CRM_ALLOWED_ORIGINS) {
   const origins = process.env.CRM_ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter((o) => /^https?:\/\/[\w.-]+(:\d+)?$/.test(o));
-  withBundle = withBundle.replace('<script>\n// pestaña', `<script>window.SS1_CRM_CONFIG = ${JSON.stringify({ allowedOrigins: origins })};</script>\n<script>\n// pestaña`);
+  withBundle = withBundle.replace('<script>\n// pestaña', () => `<script>window.SS1_CRM_CONFIG = ${JSON.stringify({ allowedOrigins: origins })};</script>\n<script>\n// pestaña`);
 }
 // recursos de marca incrustados (la versión estática no carga archivos sueltos)
 for (const f of ['brand/ss1-logo.webp', 'brand/ss1-icon.webp']) {

@@ -7,6 +7,7 @@ import { seedAcquisitionHistory } from './demoAcquisition.ts';
 import { route } from './api/router.ts';
 import { OffsetClock } from './shared/util.ts';
 import { abilitiesToRoles, DEFAULT_ALLOWED_ORIGINS } from './integration/ss1Auth.ts';
+import { deriveBrandTokens, parseThemeConfig } from './integration/theme.ts';
 
 const app = createApp(new OffsetClock());
 for (const t of ['tenant-rumbawin', 'tenant-demo-b']) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
@@ -25,4 +26,4 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return new Response(JSON.stringify(out.body), { status: out.status, headers: { 'content-type': 'application/json' } });
 };
 (globalThis as { SS1_STATIC?: boolean }).SS1_STATIC = true;
-(globalThis as { SS1_INTEGRATION?: unknown }).SS1_INTEGRATION = { abilitiesToRoles, DEFAULT_ALLOWED_ORIGINS };
+(globalThis as { SS1_INTEGRATION?: unknown }).SS1_INTEGRATION = { abilitiesToRoles, DEFAULT_ALLOWED_ORIGINS, deriveBrandTokens, parseThemeConfig };

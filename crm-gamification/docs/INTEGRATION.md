@@ -128,7 +128,19 @@ Http::withHeaders([
 ])->withBody($body, 'application/json')->retry(3, 500)->post(config('services.ss1_crm.url').'/api/ingest/ss1');
 ```
 
-## 5. Pendiente (siguientes iteraciones)
+## 5. Tema del operador (A5 · listo)
 
-- **A5** Tema del tenant desde `/admin/theme-config`.
+`src/integration/theme.ts`. El CRM toma el color principal y el logo de cada operador:
+
+1. **Servidor:** `GET /api/integration/ss1/theme` lee `/admin/theme-config` con el token del usuario (caché de 5 min por tenant). Acepta `primary_color`, `primaryColor`, `colors.primary`, `theme.colors.primary`, `logo_url`, `logo`, entre otras formas.
+2. **Respaldo:** el admin puede enviar `theme: { primary, logo }` en el mensaje `ss1-crm:session`.
+
+Salvaguardas:
+- Si el color no alcanza contraste 3:1 sobre las tarjetas oscuras (`#111`), se mantiene el dorado de SS1 y se registra un aviso.
+- El color del texto sobre botones (negro o blanco) se elige por contraste.
+- El logo solo se acepta por `https` desde dominios de SS1 (`syssoft1.sfo3.digitaloceanspaces.com`, `api.syssoft1.com`, `admin.syssoft1.com`).
+- Todos los acentos (botones, pestaña activa, bordes, barras) derivan de `--brand`; las gráficas mantienen su paleta validada.
+
+## 6. Pendiente (siguientes iteraciones)
+
 - **A6** Kit para el repo del admin: ruta `/crm`, ítem de menú, sujetos CASL y componente contenedor.

@@ -9,6 +9,9 @@ import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEn
 import { DomainError, HOUR } from '../shared/util.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
 import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
+import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
+
+const THEME_CACHE = new Map<string, { until: number; body: unknown }>();
 
 export type ApiRequest = { method: string; path: string; query: URLSearchParams; headers: Record<string, string | undefined>; body: Record<string, unknown> };
 export type ApiResponse = { status: number; body: unknown };
@@ -197,6 +200,17 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         app.audit.record(T, actor.id, 'kpi_alert.config_changed', T, req.body);
         return ok(next);
       } catch (e) { return { status: 422, body: { error: 'invalid_config', message: (e as Error).message } }; }
+    }
+    if (r0 === 'GET /integration/ss1/theme') {
+      if (!opts.ss1) return { status: 409, body: { error: 'not_integrated', message: 'Sin token del admin se usa el tema por defecto de SS1.' } };
+      const hit = THEME_CACHE.get(T);
+      if (hit && hit.until > Date.now()) return ok(hit.body);
+      const client = new Ss1Client({ apiBase: opts.ss1.apiBase, token: opts.ss1.token, fetchImpl: opts.ss1.fetchImpl, retries: 1 });
+      let parsed: { primary?: string; logo?: string } = {};
+      try { parsed = parseThemeConfig(await client.get('/admin/theme-config')); } catch { /* sin tema del operador: valores de SS1 */ }
+      const body = { ...deriveBrandTokens(parsed.primary), logo: parsed.logo ?? null };
+      THEME_CACHE.set(T, { until: Date.now() + 5 * 60_000, body });
+      return ok(body);
     }
     if (r0 === 'POST /integration/ss1/sync' || r0 === 'GET /integration/ss1/trigger-catalog') {
       const perm = r0.startsWith('POST') ? 'integration.sync' : 'integration.read';
