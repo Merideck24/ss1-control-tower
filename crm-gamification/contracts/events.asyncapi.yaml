@@ -54,7 +54,7 @@ components:
         currency: { type: string, pattern: '^[A-Z]{3}$' }
   messages:
     playerRegistered:
-      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [email_masked, country, locale, timezone], properties: { email_masked: { type: string }, country: { type: string }, locale: { type: string, enum: [es, en, pt] }, timezone: { type: string }, acquisition: { type: object, required: [campaign_id], properties: { campaign_id: { type: string }, channel: { type: string } } } } } } }] }
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [email_masked, country, locale, timezone], properties: { email_masked: { type: string }, country: { type: string }, locale: { type: string, enum: [es, en, pt] }, timezone: { type: string }, acquisition: { type: object, required: [campaign_id], properties: { campaign_id: { type: string }, channel: { type: string } } }, device_hash: { type: string, description: 'Huella de dispositivo seudonimizada (hash)' } } } } }] }
     playerVerified:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [kyc_status], properties: { kyc_status: { type: string, enum: [pending, verified, rejected] } } } } }] }
     consentChanged:
@@ -62,7 +62,7 @@ components:
     rgStatusChanged:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [status], properties: { status: { type: string, enum: [none, cooling_off, self_excluded, limited] } } } } }] }
     depositSettled:
-      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [deposit_id], properties: { deposit_id: { type: string } } }] } } }] }
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [deposit_id], properties: { deposit_id: { type: string }, instrument_hash: { type: string, description: 'Hash del medio de pago tokenizado' } } }] } } }] }
     depositReversed:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [deposit_id], properties: { deposit_id: { type: string } } }] } } }] }
     betSettled:

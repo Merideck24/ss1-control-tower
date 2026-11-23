@@ -85,7 +85,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | G6 | Tienda de canjes con moneda propia, saldo y stock bajo concurrencia | GR8, OPT | ✅ |
 | G7 | Juegos de predicción con bonos por acierto | GR8 | ✅ |
 | G8 | Presupuesto y límites de gasto de recompensas | OPT | ✅ |
-| G9 | Detección de abuso de bonos y escalado por conducta | FT (Greco) | ⬜ |
+| G9 | Detección de abuso de bonos y escalado por conducta | FT (Greco) | ✅ |
 | G10 | Preferencia del jugador para desactivar gamificación (persistente) | Plan CRM-10 | ✅ |
 
 ## H. Medición
@@ -142,3 +142,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 10 | 2026-11-23 | G2, G3, G10 | Misiones de conteo, suma y racha (días de Bogotá) con XP en el libro de fidelidad o bono aprobado por otra persona; progreso idempotente y reverso compensatorio (completadas en revisión); logros únicos; preferencia de desactivar con API, permisos y auditoría; pestaña Gamificación y widget con misiones e insignias. Corregido: recompensas vencidas se mostraban como vigentes |
 | 11 | 2026-11-23 | G4, G5 | Torneos por apuestas o monto con tope por apuesta, ranking puro y reproducible con desempate por tiempo, cierre con hash, exclusión JR al cierre y premios idempotentes (bono con aprobación). Ruleta y caja de premios gratuitas con tabla de probabilidades, costo esperado, límite diario (Bogotá), idempotencia por solicitud y azar verificable por compromiso-revelación |
 | 12 | 2026-11-23 | G6, G7 | Monedas con libro propio (1 por cada COP 1.000 apostados y ajustes auditados), tienda con precio, stock y límite por jugador; canje con reserva atómica en sección crítica por artículo, idempotente y con reembolso compensatorio si la política o el presupuesto bloquean la entrega (prueba concurrente). Predicciones gratuitas con elección única, cierre, resolución por aprobador y pagos idempotentes |
+| 13 | 2026-11-23 | G9 | Reglas explicables de abuso de bonos (dependencia de bonos, apuesta baja en la vigencia, ciclo bono → retiro, juego solo con bono, cuentas que comparten dispositivo o medio de pago por hash) con puntaje 0–100 y niveles normal / vigilar / alto. Compuerta en el catálogo de recompensas: alto pausa el incentivo sin reservar presupuesto, vigilar lo reduce a la mitad y los jugadores valiosos pueden escalar hasta el tope del artículo. Revisión humana auditada (descartar o confirmar, vence a 30 días), permisos separados para ver y decidir, campos `abuse.*` en segmentos, tarjeta en Analítica y detalle en Perfil 360. Nunca bloquea depósitos, retiros ni el juego |

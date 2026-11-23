@@ -8,6 +8,7 @@ import { profileView } from '../profile/projection.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
 import { DomainError, HOUR } from '../shared/util.ts';
 import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
+import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
 import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
 import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
@@ -40,6 +41,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
+  'abuse.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'rg_officer'],
+  'abuse.review': ['approver', 'tenant_admin'],
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
 };
 
@@ -134,6 +137,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
           return { lifecycle: { key: life, label: LIFECYCLE_LABELS[life] }, rfm: s ? { ...s, label: RFM_LABELS[s.segment] } : null, predictions: app.models(T).predictions.get(p.player_id) ?? null,
             persona: pid ? app.personas(T).personas.find((x) => x.id === pid) ?? null : null, nba: app.nba(T, p.player_id) ?? null };
         })(),
+        bonus_abuse: can(actor, 'abuse.read') ? app.abuse(T, p.player_id) ?? null : undefined,
       });
     }
     if (r0 === 'GET /segments/fields') return ok(SEGMENT_FIELDS);
@@ -242,6 +246,26 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       }
       return ok({ players: rows.length, actions: [...by].map(([action, v]) => ({ action, ...v })).sort((a, b) => b.players - a.players), with_blocked_candidates: blocked, note: 'Recomendaciones; se ejecutan solo mediante recorridos aprobados. Efectos supuestos a calibrar con grupos de control.' });
     }
+    if (r0 === 'GET /risk/bonus-abuse') {
+      if (!can(actor, 'abuse.read')) return forbid('abuse.read');
+      const all = app.abuseAll(T);
+      const flagged = all.filter((a) => a.tier !== 'ok' || a.review).sort((a, b) => b.score - a.score);
+      const bySignal = new Map<string, { label: string; players: number }>();
+      for (const a of all) for (const s of a.signals) { const g = bySignal.get(s.code) ?? { label: s.label, players: 0 }; g.players++; bySignal.set(s.code, g); }
+      const held = app.rewards.grants(T).filter((g) => g.reason === 'abuse_review');
+      const scaled = app.rewards.grants(T).filter((g) => g.multiplier !== undefined && g.status === 'confirmed');
+      return ok({ as_of: app.clock.now().toISOString(), rules: ABUSE_RULES, players: all.length,
+        tiers: { ok: all.filter((a) => a.tier === 'ok').length, watch: all.filter((a) => a.tier === 'watch').length, high: all.filter((a) => a.tier === 'high').length, valuable: all.filter((a) => a.valuable).length },
+        signals: [...bySignal].map(([code, v]) => ({ code, ...v })).sort((a, b) => b.players - a.players),
+        held_grants: held.length, scaled_grants: { down: scaled.filter((g) => g.multiplier! < 1).length, up: scaled.filter((g) => g.multiplier! > 1).length },
+        flagged: flagged.slice(0, 50),
+        note: 'Reglas explicables. «Alto» pausa incentivos (bonos, misiones y tienda) hasta que una persona revise; «Vigilar» reduce el bono a la mitad. Nunca bloquea depósitos, retiros ni el juego.' });
+    }
+    if ((r = m(/^POST \/risk\/bonus-abuse\/([\w-]+)\/review$/))) {
+      if (!can(actor, 'abuse.review')) return forbid('abuse.review');
+      if (!app.ingestor.get(T, r[1])) return { status: 404, body: { error: 'not_found', message: `No existe el jugador ${r[1]}` } };
+      return ok({ review: app.abuseReviews.set(actor, r[1], String(req.body.status ?? ''), String(req.body.note ?? '')), assessment: app.abuse(T, r[1]) });
+    }
     if (r0 === 'GET /segments/rfm') {
       if (!can(actor, 'segments.preview')) return forbid('segments.preview');
       return ok(distribution(app.ingestor.all(T), app.clock.now()));
@@ -256,6 +280,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         ...(ruleText.includes('"pred.') ? { predict: (id: string) => app.models(T).predictions.get(id) } : {}),
         ...(ruleText.includes('"persona"') ? { persona: (id: string) => app.personas(T).assignment.get(id) } : {}),
         ...(ruleText.includes('"nba.action"') ? { nba: (id: string) => app.nba(T, id)?.chosen.action } : {}),
+        ...(ruleText.includes('"abuse.') ? { abuse: (id: string) => app.abuse(T, id) } : {}),
       };
       const out = runSegment({ id: 'preview', tenant_id: T, name: 'preview', version: 0, rules: b.rules as never, exclusions: b.exclusions as never }, app.ingestor.all(T), app.clock.now(), extra);
       return ok({ size: out.members.length, excluded: out.excluded.length, universe: out.universe, snapshot_hash: out.snapshot_hash, sample: out.members.slice(0, 10) });

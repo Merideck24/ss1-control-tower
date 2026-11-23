@@ -49,7 +49,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
 
   const lifecycle = (player: string, regAt: number, c: CampaignProfile | null) => {
     const prof = c ?? { ftdRate: 0.42, depositAvg: 75_000, activityDecayDays: 22, baseActivity: 0.45 } as CampaignProfile;
-    events.push(ev(tenant, player, 'player.registered', { email_masked: `u***${n}@demo.test`, country: 'CO', locale: 'es', timezone: 'America/Bogota', ...(c ? { acquisition: { campaign_id: c.id, channel: c.channel } } : {}) }, iso(regAt)));
+    events.push(ev(tenant, player, 'player.registered', { email_masked: `u***${n}@demo.test`, country: 'CO', locale: 'es', timezone: 'America/Bogota', device_hash: `dev-${player}`, ...(c ? { acquisition: { campaign_id: c.id, channel: c.channel } } : {}) }, iso(regAt)));
     events.push(ev(tenant, player, 'rg.status_changed', { status: r() < (c?.rgRisk ?? 0.03) ? 'self_excluded' : 'none' }, iso(regAt + 60_000)));
     events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: 'inapp', granted: r() < 0.85 }, iso(regAt + 60_000)));
     events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: 'email', granted: r() < 0.6 }, iso(regAt + 60_000)));
@@ -59,7 +59,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     if (ftdAt >= now) return;
     const dep = (at: number) => {
       const amount = Math.round((prof.depositAvg * (0.4 + r() * 1.4)) / 1000) * 1000 * 100;
-      events.push(ev(tenant, player, 'deposit.settled', { deposit_id: `${player}-d${events.length}`, amount_minor: amount, currency: 'COP' }, iso(at)));
+      events.push(ev(tenant, player, 'deposit.settled', { deposit_id: `${player}-d${events.length}`, amount_minor: amount, currency: 'COP', instrument_hash: `card-${player}` }, iso(at)));
       return amount;
     };
     let bankroll = dep(ftdAt);
@@ -92,6 +92,22 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     const organic = poisson(ORGANIC_PER_DAY * scale);
     for (let i = 0; i < organic; i++) lifecycle(`acq_org_${String(++n).padStart(4, '0')}`, dayStart - r() * 20 * HOUR, null);
   }
+  // demo G9: un anillo de cuentas con el mismo dispositivo que cobra bonos y retira enseguida,
+  // y algunos jugadores con un solo ciclo bono → retiro (nivel «vigilar»)
+  const abuseCase = (player: string, startAt: number, device: string, cycles: number, depositCop = 30_000) => {
+    events.push(ev(tenant, player, 'player.registered', { email_masked: `r***${player}@demo.test`, country: 'CO', locale: 'es', timezone: 'America/Bogota', device_hash: device }, iso(startAt)));
+    events.push(ev(tenant, player, 'rg.status_changed', { status: 'none' }, iso(startAt + 60_000)));
+    events.push(ev(tenant, player, 'player.verified', { kyc_status: 'verified' }, iso(startAt + HOUR)));
+    events.push(ev(tenant, player, 'deposit.settled', { deposit_id: `${player}-d`, amount_minor: depositCop * 100, currency: 'COP', instrument_hash: `card-${player}` }, iso(startAt + 2 * HOUR)));
+    for (let c = 0; c < cycles; c++) {
+      const t0 = startAt + 3 * HOUR + c * 2 * DAY;
+      events.push(ev(tenant, player, 'reward.granted', { grant_id: `${player}-bon${c}`, reward_type: 'bonus', value: { amount_minor: 20_000_00, currency: 'COP' }, expires_at: new Date(t0 + 7 * DAY).toISOString() }, iso(t0), { source: 'ss1.bonus' }));
+      events.push(ev(tenant, player, 'bet.settled', { bet_id: `${player}-bet${c}`, stake: { amount_minor: 10_000_00, currency: 'COP' }, win: { amount_minor: 18_000_00, currency: 'COP' }, product: 'casino' }, iso(t0 + HOUR)));
+      events.push(ev(tenant, player, 'withdrawal.settled', { withdrawal_id: `${player}-w${c}`, amount_minor: 35_000_00, currency: 'COP' }, iso(t0 + 4 * HOUR)));
+    }
+  };
+  for (let i = 1; i <= 5; i++) abuseCase(`ring_${String(i).padStart(2, '0')}`, now - (18 - i) * DAY, 'dev-ring-01', 2);
+  for (let i = 1; i <= 4; i++) abuseCase(`fast_wd_${String(i).padStart(2, '0')}`, now - (20 - 2 * i) * DAY, `dev-fast-${i}`, 1, 250_000);
   events.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
   // Reproduce la historia en el tiempo: el reloj avanza con los eventos y cada hora simulada
   // se procesan esperas y diferidos, así bonos y mensajes quedan con su fecha real.

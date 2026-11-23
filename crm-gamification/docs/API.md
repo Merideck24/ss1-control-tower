@@ -32,3 +32,12 @@ Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expo
 | `GET /audit` | Registro encadenado (`auditor`, `tenant_admin`, `approver`) | CRM-08 |
 | `GET /copilot/tools` · `POST /copilot/tools/:name` | Herramientas del copiloto según rol | IA |
 | `POST /copilot/ask` | Pregunta en lenguaje natural (Claude, requiere credenciales) | IA |
+
+## Riesgo: abuso de bonos (G9)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /risk/bonus-abuse` | `abuse.read` | Niveles, señales, bonos retenidos/escalados y jugadores marcados con su explicación |
+| `POST /risk/bonus-abuse/:player/review` | `abuse.review` | `{ status: 'cleared' \| 'confirmed', note }`; auditado, vence a 30 días |
+
+`GET /players/:id` incluye `bonus_abuse` solo para roles con `abuse.read`. Eventos: `player.registered.device_hash` y `deposit.settled.instrument_hash` (opcionales, siempre hash).

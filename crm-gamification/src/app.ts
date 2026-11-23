@@ -5,6 +5,7 @@ import { trainModels, type ModelBundle } from './analytics/models.ts';
 import { trainPersonas, type PersonaModel } from './analytics/personas.ts';
 import { nextBestAction } from './analytics/nba.ts';
 import { lifecycleOf } from './analytics/rfm.ts';
+import { AbuseReviews, assessPlayer, type AbuseAssessment } from './analytics/bonusAbuse.ts';
 import { GamificationService } from './gamification/missions.ts';
 import { GamesService } from './gamification/games.ts';
 import { StoreService } from './gamification/store.ts';
@@ -97,7 +98,22 @@ export function createApp(clock: Clock = systemClock) {
     return nextBestAction(p, models(tenant).predictions.get(playerId), { lifecycle: lifecycleOf(p, clock.now()), loyaltyPct: prog?.next_level ? prog.percent_to_next : undefined, policy });
   }
 
-  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  /** G9: evaluación de abuso de bonos por jugador (reglas explicables + revisión humana). */
+  const abuseReviews = new AbuseReviews(audit, clock);
+  function abuse(tenant: string, playerId: string): AbuseAssessment | undefined {
+    const f = performance.fact(tenant, playerId);
+    if (!f) return undefined;
+    return assessPlayer(f, clock.now(), performance.linkedAccounts(tenant, playerId), (id) => (performance.fact(tenant, id)?.bonuses.length ?? 0) > 0, abuseReviews.get(tenant, playerId));
+  }
+  function abuseAll(tenant: string): AbuseAssessment[] {
+    return performance.playerFacts(tenant).map((f) => abuse(tenant, f.player_id)!).filter(Boolean);
+  }
+  rewards.setGate((tenant, player) => {
+    const a = abuse(tenant, player);
+    return a && { multiplier: a.multiplier, reason: a.signals.map((s) => s.code).join(',') || (a.valuable ? 'valuable' : 'ok') };
+  });
+
+  return { abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

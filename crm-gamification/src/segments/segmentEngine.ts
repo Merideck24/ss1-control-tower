@@ -48,6 +48,9 @@ const FIELDS: Record<string, (p: PlayerProfile, d: Derived) => unknown> = {
   'pred.product': (p, d) => d.predict?.(p.player_id)?.preferences.product ?? undefined,
   'persona': (p, d) => d.persona?.(p.player_id),
   'nba.action': (p, d) => d.nba?.(p.player_id),
+  // G9: nivel de riesgo de abuso de bonos (ok | watch | high) y puntaje 0–100
+  'abuse.tier': (p, d) => d.abuse?.(p.player_id)?.tier,
+  'abuse.score': (p, d) => d.abuse?.(p.player_id)?.score,
 };
 export const SEGMENT_FIELDS = Object.keys(FIELDS);
 
@@ -83,12 +86,12 @@ export type SegmentResult = { segment_id: string; version: number; as_of: string
  * Evalúa sobre un snapshot inmutable: mismo snapshot + misma versión ⇒ mismo resultado.
  * La elegibilidad se vuelve a validar al ejecutar (ver JourneyRuntime/PolicyEngine).
  */
-export function runSegment(def: SegmentDefinition, snapshot: readonly PlayerProfile[], asOf: Date, extra: { predict?: Derived['predict']; persona?: Derived['persona']; nba?: Derived['nba'] } = {}): SegmentResult {
+export function runSegment(def: SegmentDefinition, snapshot: readonly PlayerProfile[], asOf: Date, extra: { predict?: Derived['predict']; persona?: Derived['persona']; nba?: Derived['nba']; abuse?: Derived['abuse'] } = {}): SegmentResult {
   const scoped = snapshot.filter((p) => p.tenant_id === def.tenant_id).slice().sort((a, b) => a.player_id.localeCompare(b.player_id));
   const members: string[] = [];
   const excluded: string[] = [];
   const uses = JSON.stringify([def.rules, def.exclusions ?? null]).includes('"rfm.');
-  const derived: Derived = { now: asOf, rfm: uses ? computeRfm(scoped, asOf) : undefined, predict: extra.predict, persona: extra.persona, nba: extra.nba };
+  const derived: Derived = { now: asOf, rfm: uses ? computeRfm(scoped, asOf) : undefined, predict: extra.predict, persona: extra.persona, nba: extra.nba, abuse: extra.abuse };
   for (const p of scoped) {
     if (!evaluate(def.rules, p, asOf, derived)) continue;
     if (def.exclusions && evaluate(def.exclusions, p, asOf, derived)) excluded.push(p.player_id);

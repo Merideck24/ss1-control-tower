@@ -30,11 +30,11 @@ export type KycStatus = 'pending' | 'verified' | 'rejected';
 export type Money = { amount_minor: number; currency: string };
 
 export type PayloadByType = {
-  'player.registered': { email_masked: string; country: string; locale: string; timezone: string; acquisition?: { campaign_id: string; channel?: string } };
+  'player.registered': { email_masked: string; country: string; locale: string; timezone: string; acquisition?: { campaign_id: string; channel?: string }; /** huella de dispositivo seudonimizada (hash), nunca el valor crudo */ device_hash?: string };
   'player.verified': { kyc_status: KycStatus };
   'consent.changed': { purpose: Purpose; channel: Channel; granted: boolean };
   'rg.status_changed': { status: RgStatus };
-  'deposit.settled': { deposit_id: string } & Money;
+  'deposit.settled': { deposit_id: string; /** hash del medio de pago (tokenizado por la pasarela) */ instrument_hash?: string } & Money;
   'deposit.reversed': { deposit_id: string } & Money;
   'bet.settled': { bet_id: string; stake: Money; win?: Money; product: 'casino' | 'sports' };
   'reward.granted': { grant_id: string; reward_type: 'free_bet' | 'free_spins' | 'bonus'; value: Money; expires_at: string };

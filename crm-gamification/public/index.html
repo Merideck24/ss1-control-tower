@@ -603,7 +603,7 @@ const VIEWS = {
       <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
-    const [rs, md, nb] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary')]);
+    const [rs, md, nb, ab] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null]);
     const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
     const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
       <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
@@ -617,7 +617,20 @@ const VIEWS = {
     const nbaCard = `<div class="card scroll"><h3>Mejor acción siguiente</h3><table><tr><th>Acción recomendada</th><th class="num">Jugadores</th><th class="num">Valor esperado</th><th></th></tr>
       ${nb.actions.map((a) => `<tr><td>${esc(a.label)}</td><td class="num">${int(a.players)}</td><td class="num">${moneyC(a.expected_value_minor)}</td><td class="num">${a.action === 'no_contact' ? '' : `<button class="ghost" data-nba='${esc(JSON.stringify({ field: 'nba.action', op: 'eq', value: a.action }))}'>Ver segmento</button>`}</td></tr>`).join('')}</table>
       <p class="muted">${esc(nb.note)} ${int(nb.with_blocked_candidates)} jugadores tenían alguna acción bloqueada por política (consentimiento, frecuencia, juego responsable), que nunca se recomienda.</p></div><br>`;
-    return `${models}${nbaCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    const TIER = { ok: ['ok', 'Normal'], watch: ['warn', 'Vigilar'], high: ['bad', 'Alto'] };
+    const abuseCard = !ab ? '' : `<div class="card scroll"><h3>Abuso de bonos</h3>
+      <div class="row"><span class="chip bad">${int(ab.tiers.high)} riesgo alto</span><span class="chip">${int(ab.tiers.watch)} vigilar</span><span class="chip">${int(ab.tiers.ok)} normales</span><span class="chip brand">${int(ab.tiers.valuable)} valiosos (bono escalable)</span>
+        <span class="muted">${int(ab.held_grants)} bonos retenidos para revisión · ${int(ab.scaled_grants.down)} reducidos · ${int(ab.scaled_grants.up)} escalados</span>
+        ${ab.tiers.high ? `<button class="ghost" data-nba='${esc(JSON.stringify({ field: 'abuse.tier', op: 'eq', value: 'high' }))}'>Ver segmento</button>` : ''}</div>
+      ${can('abuse.review') ? '<div class="row"><input id="abnote" style="flex:1; min-width:0" placeholder="Motivo de la revisión (obligatorio, queda en la auditoría)"></div>' : ''}
+      <table><tr><th>Jugador</th><th class="num">Puntaje</th><th>Nivel</th><th>Señales</th><th>Bono</th><th>Revisión</th></tr>
+      ${ab.flagged.map((a) => `<tr><td>${esc(a.player_id)}</td><td class="num">${a.score}</td><td><span class="${TIER[a.tier][0]}">${TIER[a.tier][1]}</span></td>
+        <td>${a.signals.map((x) => `<div><b>${esc(x.label)}</b> <span class="muted">+${x.points} · ${esc(x.detail)}</span></div>`).join('')}</td>
+        <td>${a.multiplier === 0 ? '<span class="bad">pausado</span>' : a.multiplier < 1 ? `<span class="warn">×${a.multiplier}</span>` : '×' + a.multiplier}</td>
+        <td>${a.review ? `<span class="${a.review.status === 'cleared' ? 'ok' : 'bad'}">${a.review.status === 'cleared' ? 'Descartado' : 'Confirmado'}</span> <span class="muted">${esc(a.review.by)} · hasta ${new Date(a.review.valid_until).toLocaleDateString('es-CO')}</span>` : ''}
+          ${can('abuse.review') ? `<button class="ghost" data-abr="${esc(a.player_id)}" data-st="cleared">Descartar</button> <button class="ghost" data-abr="${esc(a.player_id)}" data-st="confirmed">Confirmar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin jugadores marcados.</td></tr>'}</table>
+      <p class="muted">${esc(ab.note)} Reglas ${esc(ab.rules.version)}; una revisión vale ${ab.rules.review_valid_days} días. Usa <code>abuse.tier</code> y <code>abuse.score</code> en Segmentos.</p></div><br>`;
+    return `${models}${nbaCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
         <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
@@ -693,6 +706,9 @@ const BIND = {
             <span class="chip">Abandono ${P(pr.churn)}</span><span class="chip">Depósito en 30 d ${P(pr.deposit)}</span><span class="chip">Valor 30 d ${moneyC(pr.value_30d_minor)}</span>
             ${pr.preferences.product ? `<span class="chip">Prefiere ${esc(pr.preferences.product)}${pr.preferences.daypart ? ' · ' + esc(pr.preferences.daypart) : ''}</span>` : ''}</div>
           ${pr.churn ? `<div class="muted">Por qué ese riesgo: ${pr.churn.reasons.map(esc).join(' · ')}</div>` : ''}`; })()}
+        ${d.bonus_abuse && (d.bonus_abuse.signals.length || d.bonus_abuse.valuable) ? `<h3 style="margin-top:12px">Abuso de bonos</h3>
+          <div class="row"><span class="chip ${d.bonus_abuse.tier === 'high' ? 'bad' : d.bonus_abuse.tier === 'watch' ? '' : 'brand'}">${d.bonus_abuse.tier === 'high' ? 'Riesgo alto' : d.bonus_abuse.tier === 'watch' ? 'Vigilar' : 'Valioso'} · ${d.bonus_abuse.score}/100</span><span class="muted">Bono sugerido ×${d.bonus_abuse.multiplier}${d.bonus_abuse.review ? ' · revisión: ' + esc(d.bonus_abuse.review.status) : ''}</span></div>
+          ${d.bonus_abuse.signals.map((x) => `<div class="muted"><b>${esc(x.label)}</b>: ${esc(x.detail)}</div>`).join('')}` : ''}
         ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${d.loyalty.points} pts · ${d.loyalty.percent_to_next}% hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
         <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${esc(g.reward_id)} · ${esc(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
         <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(r.channel)} · ${esc(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(r.status)}</span> <span class="muted">${esc(r.reason ?? '')}</span></div>`).join('') || '<span class="muted">—</span>'}
@@ -813,6 +829,11 @@ const BIND = {
   },
   analytics() {
     document.querySelectorAll('[data-nba]').forEach((b) => b.onclick = () => openSegmentWith(JSON.parse(b.dataset.nba)));
+    document.querySelectorAll('[data-abr]').forEach((b) => b.onclick = async () => {
+      try { await api(`/risk/bonus-abuse/${encodeURIComponent(b.dataset.abr)}/review`, { method: 'POST', body: { status: b.dataset.st, note: $('#abnote').value } });
+        flash(`${b.dataset.abr}: ${b.dataset.st === 'cleared' ? 'marcado como falso positivo; recibe bonos normales' : 'abuso confirmado; incentivos pausados'} por 30 días.`, 'ok'); show(); }
+      catch (e) { flash(e.message, 'bad'); }
+    });
   },
   copilot() {
     const samples = { query_metric: { metric: 'kyc_verified_rate' }, preview_segment: { rules: { field: 'kyc', op: 'eq', value: 'verified' }, exclusions: { field: 'rg', op: 'neq', value: 'none' } }, validate_policy: { journey: { id: 'j_demo', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] } } };

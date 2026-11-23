@@ -82,7 +82,7 @@ export function computeRfm(profiles: readonly PlayerProfile[], now: Date): Map<s
   return out;
 }
 
-export type Derived = { rfm?: Map<string, RfmScore>; now: Date; predict?: (playerId: string) => import('./models.ts').PlayerPrediction | undefined; persona?: (playerId: string) => string | undefined; nba?: (playerId: string) => string | undefined };
+export type Derived = { rfm?: Map<string, RfmScore>; now: Date; predict?: (playerId: string) => import('./models.ts').PlayerPrediction | undefined; persona?: (playerId: string) => string | undefined; nba?: (playerId: string) => string | undefined; abuse?: (playerId: string) => { tier: string; score: number } | undefined };
 
 /** Distribución por segmento RFM y por etapa de ciclo de vida, con depósitos netos de cada grupo. */
 export function distribution(profiles: readonly PlayerProfile[], now: Date) {

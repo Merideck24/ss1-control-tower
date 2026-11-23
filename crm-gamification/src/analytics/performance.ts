@@ -62,6 +62,9 @@ export type PlayerFacts = {
   reversed: Map<string, { at: number; amount: number }>;
   bets: { at: number; stake: number; win: number; product?: 'casino' | 'sports' }[];
   bonuses: { at: number; amount: number }[];
+  withdrawals: { at: number; amount: number }[];
+  device_hash?: string;
+  instruments: string[];
   activity: Activity[];
   rg_restricted?: boolean;
 };
@@ -150,7 +153,8 @@ export class PerformanceStore {
       case 'player.registered': {
         const p = (e as EventEnvelope<'player.registered'>).payload;
         if (this.#players.has(k)) return;
-        this.#players.set(k, { tenant_id: e.tenant_id, player_id: e.player_id, registered_at: t, campaign_id: p.acquisition?.campaign_id ?? ORGANIC.campaign_id, channel: p.acquisition?.channel ?? ORGANIC.channel, deposits: new Map(), reversed: new Map(), bets: [], bonuses: [], activity: [] });
+        this.#players.set(k, { tenant_id: e.tenant_id, player_id: e.player_id, registered_at: t, campaign_id: p.acquisition?.campaign_id ?? ORGANIC.campaign_id, channel: p.acquisition?.channel ?? ORGANIC.channel, deposits: new Map(), reversed: new Map(), bets: [], bonuses: [], withdrawals: [], instruments: [], activity: [], ...(p.device_hash ? { device_hash: p.device_hash } : {}) });
+        if (p.device_hash) this.#link(e.tenant_id, `dev:${p.device_hash}`, e.player_id);
         return;
       }
     }
@@ -163,6 +167,7 @@ export class PerformanceStore {
         f.deposits.set(p.deposit_id, { at: t, amount: p.amount_minor });
         f.activity.push({ at: t, kind: 'deposit' });
         if (f.ftd_at === undefined || t < f.ftd_at) f.ftd_at = t;
+        if (p.instrument_hash && !f.instruments.includes(p.instrument_hash)) { f.instruments.push(p.instrument_hash); this.#link(e.tenant_id, `pay:${p.instrument_hash}`, e.player_id); }
         break;
       }
       case 'deposit.reversed': {
@@ -181,11 +186,34 @@ export class PerformanceStore {
         f.bonuses.push({ at: t, amount: p.value.amount_minor });
         break;
       }
+      case 'withdrawal.settled': {
+        const p = (e as EventEnvelope<'withdrawal.settled'>).payload;
+        f.withdrawals.push({ at: t, amount: p.amount_minor });
+        break;
+      }
       case 'rg.status_changed':
         f.rg_restricted = (e as EventEnvelope<'rg.status_changed'>).payload.status !== 'none';
         break;
     }
   }
+
+  #links = new Map<string, Set<string>>(); // tenant::dev|pay:hash → jugadores
+  #link(tenant: string, key: string, player: string) {
+    const k = `${tenant}::${key}`;
+    const s = this.#links.get(k) ?? new Set<string>();
+    s.add(player); this.#links.set(k, s);
+  }
+  /** Otras cuentas que comparten dispositivo o medio de pago con el jugador. */
+  linkedAccounts(tenant: string, player: string): { player_id: string; via: 'device' | 'payment' }[] {
+    const f = this.#players.get(`${tenant}::${player}`);
+    if (!f) return [];
+    const out = new Map<string, 'device' | 'payment'>();
+    const add = (key: string, via: 'device' | 'payment') => { for (const o of this.#links.get(`${tenant}::${key}`) ?? []) if (o !== player && !out.has(o)) out.set(o, via); };
+    if (f.device_hash) add(`dev:${f.device_hash}`, 'device');
+    for (const h of f.instruments) add(`pay:${h}`, 'payment');
+    return [...out].map(([player_id, via]) => ({ player_id, via }));
+  }
+  fact(tenant: string, player: string): Readonly<PlayerFacts> | undefined { return this.#players.get(`${tenant}::${player}`); }
 
   /** Hechos por jugador (solo lectura) para los modelos predictivos. */
   playerFacts(tenant: string): readonly Readonly<PlayerFacts>[] {
