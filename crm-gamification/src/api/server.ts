@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createApp, seedTenant, type App } from '../app.ts';
 import { seedAcquisitionHistory } from '../demoAcquisition.ts';
 import { route, type AskFn } from './router.ts';
+import { Ss1IdentityProvider } from '../integration/ss1Identity.ts';
 import { OffsetClock } from '../shared/util.ts';
 
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), '../../public');
@@ -23,7 +24,11 @@ async function loadAsk(): Promise<AskFn | undefined> {
   return askCopilot;
 }
 
-export function createHandler(app: App, ask?: AskFn) {
+/**
+ * Autenticación: con `Authorization: Bearer` se valida contra la API de SS1 y el servidor decide los roles.
+ * Las cabeceras de desarrollo (x-roles) solo se aceptan si `devAuth` está activo (CRM_DEV_AUTH=1).
+ */
+export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean } = {}) {
   return async (req: IncomingMessage, res: import('node:http').ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (!url.pathname.startsWith('/api/')) {
@@ -34,7 +39,17 @@ export function createHandler(app: App, ask?: AskFn) {
     }
     let parsed: Record<string, unknown> = {};
     try { parsed = await body(req); } catch { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"invalid_json"}'); }
-    const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: req.headers as Record<string, string>, body: parsed }, { ask });
+    const headers = req.headers as Record<string, string>;
+    let actor;
+    if (headers.authorization && auth.identity) {
+      const r = await auth.identity.resolve(headers.authorization, headers['x-tenant-id']);
+      if (!r.ok) { res.writeHead(r.status, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: r.error })); }
+      actor = r.actor;
+    } else if (!auth.devAuth) {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'missing_token', message: 'Abre el CRM desde admin.syssoft1.com o activa CRM_DEV_AUTH=1 para la demo local.' }));
+    }
+    const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: parsed }, { ask, actor });
     res.writeHead(out.status, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(out.body, null, 2));
   };
@@ -49,6 +64,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   heartbeat();
   setInterval(heartbeat, 60_000).unref();
   const ask = await loadAsk();
+  const identity = new Ss1IdentityProvider({ apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', profilePath: process.env.SS1_PROFILE_PATH, tenantMap: process.env.CRM_TENANT_MAP ? JSON.parse(process.env.CRM_TENANT_MAP) : {} });
+  const devAuth = process.env.CRM_DEV_AUTH === '1';
   const port = Number(process.env.PORT ?? 3000);
-  createServer(createHandler(app, ask)).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}`));
+  createServer(createHandler(app, ask, { identity, devAuth })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
 }

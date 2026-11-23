@@ -58,9 +58,27 @@ onBeforeUnmount(() => removeEventListener('message', onMessage))
 <template><iframe ref="frame" :src="`${CRM_ORIGIN}/`" :style="{ width: '100%', height: height + 'px', border: 0 }" title="CRM y gamificación" /></template>
 ```
 
-## 2. Pendiente (siguientes iteraciones)
+## 2. Identidad en el servidor (A2 · listo)
 
-- **A2** Validación del token en el servidor y roles decididos por el backend.
+`src/integration/ss1Identity.ts`. Con `Authorization: Bearer <token del admin>` el servidor:
+
+1. Llama a `GET ${SS1_API_BASE}${SS1_PROFILE_PATH}` (por defecto `https://api.syssoft1.com/admin/bootstrap`) con ese token.
+2. Extrae usuario, operador y reglas CASL. Acepta `{ data: { user, abilities } }`, `{ user, permissions: ["crm.read"] }`, `client.slug` o `client_id`, entre otras formas.
+3. Traduce el operador a tenant del CRM con `CRM_TENANT_MAP` (JSON, por ejemplo `{"rumbawin":"tenant-rumbawin"}`) y rechaza con 403 si la petición pide otro tenant.
+4. Decide los roles con la tabla CASL → roles. **Ignora `x-roles` del navegador.**
+5. Cachea el resultado 60 s por hash SHA-256 del token (nunca el token en claro) y los rechazos 10 s.
+
+| Variable | Uso | Valor por defecto |
+|---|---|---|
+| `SS1_API_BASE` | API del admin | `https://api.syssoft1.com` |
+| `SS1_PROFILE_PATH` | Endpoint que devuelve usuario, operador y permisos | `/admin/bootstrap` (**confirmar con el equipo del admin**) |
+| `CRM_TENANT_MAP` | Operador del admin → tenant del CRM | `{}` (usa el slug) |
+| `CRM_DEV_AUTH` | Acepta cabeceras de desarrollo sin token. Solo demo local | desactivado |
+
+Respuestas: 401 sin token o token inválido, 403 tenant ajeno, 502 si la API de SS1 no responde. `npm start` arranca la demo con `CRM_DEV_AUTH=1`; `npm run start:prod` exige token.
+
+## 3. Pendiente (siguientes iteraciones)
+
 - **A3** Conectores con la API del admin: `/admin/statistics/*`, `/admin/transactions/report/players`, `/admin/withdrawal-requests`, `/admin/alerts/stats`, `/admin/bonus-campaigns/trigger-catalog`.
 - **A4** Webhook firmado para eventos del PAM en tiempo real.
 - **A5** Tema del tenant desde `/admin/theme-config`.

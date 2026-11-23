@@ -40,9 +40,10 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 37 pruebas mapeadas a criterios de aceptación
+npm test          # 42 pruebas mapeadas a criterios de aceptación
 npm run typecheck
-npm start         # http://localhost:3000 — backoffice con datos sintéticos
+npm start         # http://localhost:3000 — demo con datos sintéticos (auth de desarrollo)
+npm run start:prod  # exige token del admin de SS1 (ver docs/INTEGRATION.md)
 ```
 
 El backoffice tiene las pantallas Control Tower, Perfil 360, Segmentos, Constructor, Aprobación, Analítica, Fidelidad (móvil), Copiloto y Auditoría. Cambia de **rol** y **tenant** en la cabecera para probar permisos y aislamiento. Por ejemplo: crea un borrador como Analista, envíalo y apruébalo como Aprobador.

@@ -67,8 +67,9 @@ export function controlTower(app: App, tenant: string) {
 }
 
 /** Enrutador puro: lo usan el servidor HTTP y la versión estática en navegador. */
-export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn } = {}): Promise<ApiResponse> {
-  const actor = sessionFrom(req.headers);
+export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; actor?: Actor } = {}): Promise<ApiResponse> {
+  // con identidad SS1 el servidor entrega el actor ya validado; las cabeceras solo valen en desarrollo/demo
+  const actor = opts.actor ?? sessionFrom(req.headers);
   const T = actor.tenant_id;
   const ok = (body: unknown, status = 200): ApiResponse => ({ status, body });
   let path = req.path;
