@@ -77,9 +77,31 @@ onBeforeUnmount(() => removeEventListener('message', onMessage))
 
 Respuestas: 401 sin token o token inválido, 403 tenant ajeno, 502 si la API de SS1 no responde. `npm start` arranca la demo con `CRM_DEV_AUTH=1`; `npm run start:prod` exige token.
 
-## 3. Pendiente (siguientes iteraciones)
+## 3. Conectores con la API del admin (A3 · listo)
 
-- **A3** Conectores con la API del admin: `/admin/statistics/*`, `/admin/transactions/report/players`, `/admin/withdrawal-requests`, `/admin/alerts/stats`, `/admin/bonus-campaigns/trigger-catalog`.
+`src/integration/ss1Client.ts` y `src/integration/ss1Connectors.ts`.
+
+- **Cliente:** token del usuario del admin (delegado), tiempo límite de 15 s, reintentos con espera creciente ante 429/5xx (respeta `Retry-After`), sin reintento ante 401/403/404/422. Paginación Laravel (`data`, `current_page`, `last_page`, `next_page_url`, `meta`).
+- **Montos:** decimales en texto → unidades mínimas sin coma flotante (`toMinor`), con monedas sin decimales (CLP, JPY…).
+- **Idempotencia:** `event_id = ss1:<recurso>:<id>:<tipo>`; repetir una sincronización no duplica nada.
+
+| Conector | Endpoint | Eventos generados |
+|---|---|---|
+| `players` | `/admin/players` (configurable con `SS1_PLAYERS_PATH`) | `player.registered` (email enmascarado, atribución si trae afiliado o campaña) y `player.verified` si el KYC está aprobado |
+| `financial` | `/admin/transactions/financial` | `deposit.settled`, `deposit.reversed`, `withdrawal.settled` según tipo y estado |
+| `withdrawals` | `/admin/withdrawal-requests` | `withdrawal.settled` (aprobados o pagados) |
+| catálogo | `/admin/bonus-campaigns/trigger-catalog` | Opciones de disparadores alineadas con las campañas de bonos del admin |
+
+API del CRM:
+- `POST /api/integration/ss1/sync` (solo `tenant_admin`): `{ connectors?: ["players","financial","withdrawals"], since?: ISO, mode?: "backfill" | "live" }`. Cada conector reporta leídos, ingeridos, duplicados, rechazados, omitidos (con ejemplos de motivo) y error; un conector fallido no detiene a los demás. Queda en auditoría.
+- **`backfill` (por defecto):** actualiza perfiles y métricas pero **no** dispara recorridos, mensajes, bonos ni avisos de fidelidad para hechos históricos. **`live`:** eventos nuevos con efectos.
+- `GET /api/integration/ss1/trigger-catalog` (analista, aprobador, admin).
+- Sin token del admin (demo estática o modo desarrollo) responden 409 `not_integrated`.
+
+**A confirmar con el equipo del admin:** la ruta del listado de jugadores, los nombres de campo (tipo y estado de transacción, KYC, afiliado), los filtros de fecha (`updated_since`) y si existe un endpoint de apuestas liquidadas por jugador (para GGR real; hoy el admin expone `/admin/transactions/report/players` agregado).
+
+## 4. Pendiente (siguientes iteraciones)
+
 - **A4** Webhook firmado para eventos del PAM en tiempo real.
 - **A5** Tema del tenant desde `/admin/theme-config`.
 - **A6** Kit para el repo del admin: ruta `/crm`, ítem de menú, sujetos CASL y componente contenedor.

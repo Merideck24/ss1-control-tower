@@ -3,7 +3,9 @@ import { applyEvent, emptyProfile, type PlayerProfile } from '../profile/project
 import type { Clock } from '../shared/util.ts';
 
 export type IngestResult = { status: 'applied' | 'duplicate' | 'rejected'; reason?: string; profile?: PlayerProfile };
-export type Subscriber = (e: EventEnvelope, profile: PlayerProfile | undefined) => void;
+/** `replay`: reprocesamiento histórico; los suscriptores no deben producir efectos externos. */
+export type IngestMeta = { replay: boolean };
+export type Subscriber = (e: EventEnvelope, profile: PlayerProfile | undefined, meta: IngestMeta) => void;
 
 const key = (tenant: string, player: string) => `${tenant}::${player}`;
 
@@ -22,7 +24,8 @@ export class Ingestor {
 
   subscribe(fn: Subscriber): void { this.#subs.push(fn); }
 
-  ingest(raw: unknown): IngestResult {
+  ingest(raw: unknown, opts: { replay?: boolean } = {}): IngestResult {
+    const meta: IngestMeta = { replay: opts.replay ?? false };
     const now = this.#clock.now();
     const src = String((raw as Record<string, unknown>)?.source ?? 'unknown');
     const m = this.#bySource.get(src) ?? { received: 0, applied: 0, duplicates: 0, rejected: 0, max_lag_ms: 0 };
@@ -42,14 +45,14 @@ export class Ingestor {
     m.max_lag_ms = Math.max(m.max_lag_ms, Date.parse(e.received_at!) - Date.parse(e.occurred_at));
     if (NON_PLAYER_EVENTS.includes(e.event_type)) {
       m.applied++;
-      for (const s of this.#subs) s(e, undefined);
+      for (const s of this.#subs) s(e, undefined, meta);
       return { status: 'applied' };
     }
     const k = key(e.tenant_id, e.player_id);
     const profile = applyEvent(this.#profiles.get(k) ?? emptyProfile(e.tenant_id, e.brand_id, e.player_id), e);
     this.#profiles.set(k, profile);
     m.applied++;
-    for (const s of this.#subs) s(e, profile);
+    for (const s of this.#subs) s(e, profile, meta);
     return { status: 'applied', profile };
   }
 

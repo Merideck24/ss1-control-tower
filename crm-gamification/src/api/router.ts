@@ -7,6 +7,8 @@ import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
 import { DomainError, HOUR } from '../shared/util.ts';
+import { Ss1Client } from '../integration/ss1Client.ts';
+import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
 
 export type ApiRequest = { method: string; path: string; query: URLSearchParams; headers: Record<string, string | undefined>; body: Record<string, unknown> };
 export type ApiResponse = { status: number; body: unknown };
@@ -30,6 +32,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'alerts.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'rg_officer'],
   'alerts.ack': ['crm_analyst', 'approver', 'tenant_admin', 'rg_officer'],
   'alerts.configure': ['tenant_admin'],
+  'integration.sync': ['tenant_admin'],
+  'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
 };
 
@@ -67,7 +71,10 @@ export function controlTower(app: App, tenant: string) {
 }
 
 /** Enrutador puro: lo usan el servidor HTTP y la versión estática en navegador. */
-export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; actor?: Actor } = {}): Promise<ApiResponse> {
+/** `ss1` lo entrega el servidor cuando la petición trae un token del admin ya validado. */
+export type Ss1Context = { apiBase: string; token: string; fetchImpl?: typeof fetch };
+
+export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; actor?: Actor; ss1?: Ss1Context } = {}): Promise<ApiResponse> {
   // con identidad SS1 el servidor entrega el actor ya validado; las cabeceras solo valen en desarrollo/demo
   const actor = opts.actor ?? sessionFrom(req.headers);
   const T = actor.tenant_id;
@@ -190,6 +197,22 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         app.audit.record(T, actor.id, 'kpi_alert.config_changed', T, req.body);
         return ok(next);
       } catch (e) { return { status: 422, body: { error: 'invalid_config', message: (e as Error).message } }; }
+    }
+    if (r0 === 'POST /integration/ss1/sync' || r0 === 'GET /integration/ss1/trigger-catalog') {
+      const perm = r0.startsWith('POST') ? 'integration.sync' : 'integration.read';
+      if (!can(actor, perm)) return forbid(perm);
+      if (!opts.ss1) return { status: 409, body: { error: 'not_integrated', message: 'Disponible solo con el CRM integrado a admin.syssoft1.com (token del admin).' } };
+      const client = new Ss1Client({ apiBase: opts.ss1.apiBase, token: opts.ss1.token, fetchImpl: opts.ss1.fetchImpl });
+      if (r0.startsWith('GET')) return ok({ triggers: mapTriggerCatalog(await client.get(SS1_ENDPOINTS.triggerCatalog)) });
+      const wanted = (Array.isArray(req.body.connectors) ? req.body.connectors : ['players', 'financial', 'withdrawals']).filter((c: unknown): c is 'players' | 'financial' | 'withdrawals' => c === 'players' || c === 'financial' || c === 'withdrawals');
+      const since = typeof req.body.since === 'string' && !Number.isNaN(Date.parse(req.body.since)) ? req.body.since : undefined;
+      const ctx = { tenant_id: T, brand_id: String(req.body.brand_id ?? 'rumbawin') };
+      const reports = [];
+      // backfill (por defecto): sin recorridos ni bonos para hechos históricos; live: eventos nuevos con efectos
+      const mode = req.body.mode === 'live' ? 'live' : 'backfill';
+      for (const c of wanted) reports.push(await runConnector(c, client, app.ingestor, ctx, since ? { updated_since: since } : {}, { replay: mode === 'backfill' }));
+      app.audit.record(T, actor.id, 'integration.ss1_sync', T, { connectors: wanted, mode, since: since ?? null, reports: reports.map((r) => ({ c: r.connector, fetched: r.fetched, ingested: r.ingested, error: r.error ?? null })) });
+      return ok({ mode, requests: client.requests, reports });
     }
     if (r0 === 'GET /audit') {
       if (!can(actor, 'audit.read')) return forbid('audit.read');

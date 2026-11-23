@@ -16,7 +16,7 @@ export type PlayerProfile = {
   kyc?: Tracked<KycStatus>;
   rg?: Tracked<RgStatus>;
   consents: Partial<Record<ConsentKey, Tracked<boolean>>>;
-  stats: { deposits_minor: number; deposit_count: number; bets_count: number; stake_minor: number; win_minor: number; currency?: string; first_deposit_at?: string; last_deposit_at?: string; last_bet_at?: string };
+  stats: { deposits_minor: number; deposit_count: number; withdrawals_minor: number; bets_count: number; stake_minor: number; win_minor: number; currency?: string; first_deposit_at?: string; last_deposit_at?: string; last_bet_at?: string };
   acquisition?: { campaign_id: string; channel?: string };
   rewards: { grant_id: string; reward_type: string; amount_minor: number; currency: string; expires_at: string; granted_at: string }[];
   timeline: { event_id: string; event_type: string; occurred_at: string; source: string }[];
@@ -24,7 +24,7 @@ export type PlayerProfile = {
 };
 
 export function emptyProfile(tenant_id: string, brand_id: string, player_id: string): PlayerProfile {
-  return { tenant_id, brand_id, player_id, consents: {}, stats: { deposits_minor: 0, deposit_count: 0, bets_count: 0, stake_minor: 0, win_minor: 0 }, rewards: [], timeline: [] };
+  return { tenant_id, brand_id, player_id, consents: {}, stats: { deposits_minor: 0, deposit_count: 0, withdrawals_minor: 0, bets_count: 0, stake_minor: 0, win_minor: 0 }, rewards: [], timeline: [] };
 }
 
 /** Last-writer-wins by occurred_at — tolerates out-of-order delivery. */
@@ -81,6 +81,9 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
       next.stats.deposit_count = Math.max(0, next.stats.deposit_count - 1);
       break;
     }
+    case 'withdrawal.settled':
+      next.stats.withdrawals_minor += (e as EventEnvelope<'withdrawal.settled'>).payload.amount_minor;
+      break;
     case 'bet.settled': {
       const pl = (e as EventEnvelope<'bet.settled'>).payload;
       next.stats.bets_count += 1;

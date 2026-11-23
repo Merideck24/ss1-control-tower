@@ -15,6 +15,7 @@ export const EVENT_TYPES = [
   'reward.granted',
   'loyalty.threshold_crossed',
   'marketing.spend_reported',
+  'withdrawal.settled',
 ] as const;
 
 /** Eventos que no pertenecen a un jugador (no actualizan la proyección). */
@@ -38,6 +39,7 @@ export type PayloadByType = {
   'bet.settled': { bet_id: string; stake: Money; win?: Money; product: 'casino' | 'sports' };
   'reward.granted': { grant_id: string; reward_type: 'free_bet' | 'free_spins' | 'bonus'; value: Money; expires_at: string };
   'loyalty.threshold_crossed': { level: string; season: string; percent: number };
+  'withdrawal.settled': { withdrawal_id: string } & Money;
   /** Inversión diaria agregada por campaña (fuente: plataformas de medios / afiliados). */
   'marketing.spend_reported': { campaign_id: string; campaign_name: string; channel: string; date: string; impressions: number; clicks: number; spend: Money };
 };

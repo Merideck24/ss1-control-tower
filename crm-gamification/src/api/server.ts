@@ -28,7 +28,7 @@ async function loadAsk(): Promise<AskFn | undefined> {
  * Autenticación: con `Authorization: Bearer` se valida contra la API de SS1 y el servidor decide los roles.
  * Las cabeceras de desarrollo (x-roles) solo se aceptan si `devAuth` está activo (CRM_DEV_AUTH=1).
  */
-export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean } = {}) {
+export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string } = {}) {
   return async (req: IncomingMessage, res: import('node:http').ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (!url.pathname.startsWith('/api/')) {
@@ -49,7 +49,9 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
       res.writeHead(401, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ error: 'missing_token', message: 'Abre el CRM desde admin.syssoft1.com o activa CRM_DEV_AUTH=1 para la demo local.' }));
     }
-    const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: parsed }, { ask, actor });
+    const token = actor ? /^Bearer\s+(\S+)$/i.exec(headers.authorization ?? '')?.[1] : undefined;
+    const ss1 = token && auth.identity ? { apiBase: auth.apiBase ?? 'https://api.syssoft1.com', token } : undefined;
+    const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: parsed }, { ask, actor, ss1 });
     res.writeHead(out.status, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(out.body, null, 2));
   };
@@ -67,5 +69,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const identity = new Ss1IdentityProvider({ apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', profilePath: process.env.SS1_PROFILE_PATH, tenantMap: process.env.CRM_TENANT_MAP ? JSON.parse(process.env.CRM_TENANT_MAP) : {} });
   const devAuth = process.env.CRM_DEV_AUTH === '1';
   const port = Number(process.env.PORT ?? 3000);
-  createServer(createHandler(app, ask, { identity, devAuth })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
+  createServer(createHandler(app, ask, { identity, devAuth, apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com' })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
 }

@@ -37,7 +37,8 @@ export function createApp(clock: Clock = systemClock) {
   const tenants: string[] = [];
 
   // bucle de eventos: proyección → fidelidad → recorridos
-  ingestor.subscribe((e) => { performance.onEvent(e); loyalty.onEvent(e); runtime.onEvent(e); });
+  // en reprocesamiento histórico solo se actualizan proyección y métricas: sin recorridos ni avisos
+  ingestor.subscribe((e, _p, meta) => { performance.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); runtime.onEvent(e); });
   bonus.onGranted = (e) => ingestor.ingest(e);
   loyalty.onThreshold = (e) => ingestor.ingest(e);
 

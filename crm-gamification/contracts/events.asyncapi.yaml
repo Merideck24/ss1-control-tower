@@ -23,6 +23,7 @@ channels:
       rewardGranted: { $ref: '#/components/messages/rewardGranted' }
       loyaltyThresholdCrossed: { $ref: '#/components/messages/loyaltyThresholdCrossed' }
       marketingSpendReported: { $ref: '#/components/messages/marketingSpendReported' }
+      withdrawalSettled: { $ref: '#/components/messages/withdrawalSettled' }
 operations:
   consumeEvents:
     action: receive
@@ -73,3 +74,5 @@ components:
     marketingSpendReported:
       description: Inversión diaria agregada por campaña. No pertenece a un jugador (player_id se omite). Un nuevo reporte del mismo día reemplaza al anterior.
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [campaign_id, campaign_name, channel, date, impressions, clicks, spend], properties: { campaign_id: { type: string }, campaign_name: { type: string }, channel: { type: string, examples: [google, meta, affiliate, tiktok] }, date: { type: string, format: date }, impressions: { type: integer }, clicks: { type: integer }, spend: { $ref: '#/components/schemas/Money' } } } } }] }
+    withdrawalSettled:
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [withdrawal_id], properties: { withdrawal_id: { type: string } } }] } } }] }

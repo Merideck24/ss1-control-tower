@@ -14,7 +14,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 |---|---|---|---|
 | A1 | Modo embebido: el CRM se muestra dentro del admin (sin su propio menú) y recibe sesión por `postMessage` con lista de orígenes permitidos | ✅ | 1 |
 | A2 | Identidad SS1: el servidor valida el token del admin contra `api.syssoft1.com` y mapea roles/permisos CASL a roles del CRM; cabeceras de desarrollo solo con bandera explícita | ✅ | 2 |
-| A3 | Cliente de la API SS1 y conectores de sincronización (jugadores, transacciones, estadísticas, catálogo de disparadores de bonos) que generan eventos normalizados | ⬜ | 3 |
+| A3 | Cliente de la API SS1 y conectores de sincronización (jugadores, transacciones, estadísticas, catálogo de disparadores de bonos) que generan eventos normalizados | ✅ | 3 |
 | A4 | Webhook de ingesta firmado (HMAC) para que el PAM empuje eventos en tiempo real | ⬜ | 4 |
 | A5 | Tema del tenant desde `/admin/theme-config` (color primario y logo) | ⬜ | 5 |
 | A6 | Kit de integración para el repo del admin: ruta, ítem de menú, sujeto CASL `crm` y componente contenedor Vue | ⬜ | 6 |
@@ -132,3 +132,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 0 | 2026-11-23 | — | Matriz creada a partir de las páginas de los tres proveedores y del bundle del admin |
 | 1 | 2026-11-23 | A1 | Modo embebido con protocolo `postMessage` v1, validación de origen, mapeo CASL → roles (`src/integration/ss1Auth.ts`), orígenes por despliegue. Prueba de dos orígenes: el admin autorizado entra, uno no autorizado es ignorado. Ver `docs/INTEGRATION.md` |
 | 2 | 2026-11-23 | A2 | El servidor valida el token del admin contra `api.syssoft1.com`, mapea operador → tenant y CASL → roles, ignora `x-roles` del navegador, cachea por hash del token; sin token ni `CRM_DEV_AUTH=1` responde 401. Pendiente confirmar el endpoint de perfil con el equipo del admin |
+| 3 | 2026-11-23 | A3 | Cliente de la API del admin (reintentos, paginación Laravel), conectores de jugadores, transacciones y retiros con `event_id` deterministas, nuevo evento `withdrawal.settled`, catálogo de disparadores, sincronización `backfill` sin efectos y `live`. Corregido un fallo del paquete de navegador y añadida una prueba que lo carga sin APIs de Node |
