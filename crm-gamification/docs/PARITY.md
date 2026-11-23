@@ -17,7 +17,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | A3 | Cliente de la API SS1 y conectores de sincronización (jugadores, transacciones, estadísticas, catálogo de disparadores de bonos) que generan eventos normalizados | ✅ | 3 |
 | A4 | Webhook de ingesta firmado (HMAC) para que el PAM empuje eventos en tiempo real | ✅ | 4 |
 | A5 | Tema del tenant desde `/admin/theme-config` (color primario y logo) | ✅ | 5 |
-| A6 | Kit de integración para el repo del admin: ruta, ítem de menú, sujeto CASL `crm` y componente contenedor Vue | ⬜ | 6 |
+| A6 | Kit de integración para el repo del admin: ruta, ítem de menú, sujeto CASL `crm` y componente contenedor Vue | ✅ | 6 |
 | A7 | Conexión real con datos de producción | 🔒 | requiere token de un usuario del admin y acuerdo de contratos de eventos |
 
 ## B. Datos y vista única
@@ -135,3 +135,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 3 | 2026-11-23 | A3 | Cliente de la API del admin (reintentos, paginación Laravel), conectores de jugadores, transacciones y retiros con `event_id` deterministas, nuevo evento `withdrawal.settled`, catálogo de disparadores, sincronización `backfill` sin efectos y `live`. Corregido un fallo del paquete de navegador y añadida una prueba que lo carga sin APIs de Node |
 | 4 | 2026-11-23 | A4 | `POST /api/ingest/ss1` con firma HMAC-SHA256 por tenant, ventana de ±300 s, comparación en tiempo constante, lotes de hasta 500 eventos, aislamiento por tenant y reenvíos idempotentes; ejemplo de envío en Laravel |
 | 5 | 2026-11-23 | A5 | Tema del operador desde `/admin/theme-config` o desde la sesión, con contraste mínimo 3:1 y logos solo de dominios SS1. Corregido un fallo del build (reemplazo con `$&` en el código minificado) y añadida una prueba que ejecuta el build real y valida cada script |
+| 6 | 2026-11-23 | A6 | Kit `integrations/ss1-admin/` (puente, página Vue, ruta con enlace directo, menú, permisos). La prueba de punta a punta con el puente real encontró y corrigió una carrera: el enlace directo se perdía mientras cargaban los permisos |

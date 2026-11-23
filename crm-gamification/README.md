@@ -40,7 +40,7 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 54 pruebas mapeadas a criterios de aceptación
+npm test          # 57 pruebas mapeadas a criterios de aceptación
 npm run typecheck
 npm start         # http://localhost:3000 — demo con datos sintéticos (auth de desarrollo)
 npm run start:prod  # exige token del admin de SS1 (ver docs/INTEGRATION.md)

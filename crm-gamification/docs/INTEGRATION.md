@@ -141,6 +141,12 @@ Salvaguardas:
 - El logo solo se acepta por `https` desde dominios de SS1 (`syssoft1.sfo3.digitaloceanspaces.com`, `api.syssoft1.com`, `admin.syssoft1.com`).
 - Todos los acentos (botones, pestaña activa, bordes, barras) derivan de `--brand`; las gráficas mantienen su paleta validada.
 
-## 6. Pendiente (siguientes iteraciones)
+## 6. Kit para el repo del admin (A6 · listo)
 
-- **A6** Kit para el repo del admin: ruta `/crm`, ítem de menú, sujetos CASL y componente contenedor.
+`integrations/ss1-admin/`: puente `crmBridge.ts` (protocolo v1 del lado del admin), página `CrmGamificationPage.vue`, ruta `/crm-gamification/:tab?` con enlace directo a cada pestaña, ítem de menú Vuexy, permisos CASL nuevos (`crm`, `crm-approval`, `responsible-gaming`, `crm-settings`) y guía de pasos. El componente se valida con `@vue/compiler-sfc` y el puente real se probó de punta a punta contra el CRM (sesión, tema, enlace directo, navegación, título y alto).
+
+## 7. Lo que falta para producción
+
+- Confirmar con el equipo del admin el endpoint de perfil (`SS1_PROFILE_PATH`), los campos de jugadores y transacciones, y si existe un endpoint de apuestas por jugador (GGR real).
+- Desplegar el CRM en un dominio de SS1 (por ejemplo `crm.syssoft1.com`) con persistencia (PostgreSQL) y configurar secretos.
+- Crear los permisos CASL nuevos y asignarlos a roles.

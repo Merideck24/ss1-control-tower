@@ -387,7 +387,7 @@ let current = 'tower';
 // ---------- Integración con admin.syssoft1.com (modo embebido, protocolo v1) ----------
 const CRM_CONFIG = window.SS1_CRM_CONFIG ?? {};
 const ALLOWED_ORIGINS = CRM_CONFIG.allowedOrigins ?? ['https://admin.syssoft1.com'];
-const EMBED = { active: window.parent !== window, session: null, origin: null, roles: null };
+const EMBED = { active: window.parent !== window, session: null, origin: null, roles: null, pendingTab: null, ready: false };
 function toParent(msg) { if (EMBED.active && EMBED.origin) window.parent.postMessage({ ...msg, version: 1 }, EMBED.origin); }
 function validSession(m) {
   return !!m && m.type === 'ss1-crm:session' && m.version === 1 && typeof m.accessToken === 'string' && m.accessToken.length > 10
@@ -406,6 +406,8 @@ if (EMBED.active) {
       loadTheme(m.theme);
       boot();
     } else if (m?.type === 'ss1-crm:navigate' && EMBED.session && typeof m.tab === 'string') {
+      // si los permisos de la sesión aún se están cargando, la pestaña queda pendiente
+      if (!EMBED.ready) { EMBED.pendingTab = m.tab; return; }
       if (TABS.some(([k, , p]) => k === m.tab && can(p))) { current = m.tab; renderTabs(); show(); }
     }
   });
@@ -444,6 +446,11 @@ async function api(path, opts = {}) {
 
 async function loadSession() {
   SESSION = await api('/session');
+  if (EMBED.session) {
+    EMBED.ready = true;
+    if (EMBED.pendingTab && TABS.some(([k, , p]) => k === EMBED.pendingTab && can(p))) current = EMBED.pendingTab;
+    EMBED.pendingTab = null;
+  }
   if (!TABS.some(([k, , p]) => k === current && can(p))) current = 'tower';
 }
 

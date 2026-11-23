@@ -1,0 +1,15 @@
+{
+  "descripcion": "Permisos CASL nuevos para el CRM. Los sujetos existentes del admin (bonus-campaign, telegram-campaign, player, kyc, player-limit, audit-log, report, client, all) ya conceden roles según src/integration/ss1Auth.ts.",
+  "sujetos_nuevos": [
+    { "subject": "crm", "actions": ["read", "create", "update"], "uso": "Ver el módulo (read) y operar campañas y recorridos (create/update → Analista CRM)" },
+    { "subject": "crm-approval", "actions": ["approve"], "uso": "Aprobar y publicar recorridos con incentivos (Aprobador). Separado del autor." },
+    { "subject": "responsible-gaming", "actions": ["update"], "uso": "Pausa general y alertas de juego responsable (Juego responsable)" },
+    { "subject": "crm-settings", "actions": ["manage"], "uso": "Umbrales, sincronización con el admin y configuración (Admin de tenant)" }
+  ],
+  "roles_sugeridos": {
+    "Analista CRM": [["read", "crm"], ["create", "crm"], ["update", "crm"]],
+    "Aprobador CRM": [["read", "crm"], ["approve", "crm-approval"]],
+    "Juego responsable": [["read", "crm"], ["update", "responsible-gaming"]],
+    "Auditor": [["read", "crm"], ["read", "audit-log"]]
+  }
+}
