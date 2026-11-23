@@ -141,6 +141,14 @@ export function seedDemoMissions(app: App, tenant: string, now: number) {
       prizes: [{ from: 1, to: 1, prize: { xp: 1000 } }, { from: 2, to: 3, prize: { xp: 500 } }, { from: 4, to: 10, prize: { xp: 100 } }] });
     app.games.activateTournament({ ...analyst, canApprove: false }, 't_sports_week');
   }
+  if (!app.store.items(tenant).length) {
+    app.store.saveItem(analyst, { id: 's_free_spins', name: 'Free spins de bienvenida', price_coins: 400, stock: 50, per_player_limit: 1, reward: { reward_id: 'welcome_fs_10' }, active: true });
+    app.store.saveItem(analyst, { id: 's_xp_boost', name: 'Impulso de 200 XP', price_coins: 150, stock: 1000, per_player_limit: 5, reward: { xp: 200 }, active: true });
+    app.store.saveItem(analyst, { id: 's_jersey', name: 'Camiseta oficial RumbaWin', price_coins: 2000, stock: 5, per_player_limit: 1, reward: { physical: 'camiseta' }, active: true });
+  }
+  if (!app.store.predictions(tenant).length) {
+    app.store.savePrediction(analyst, { id: 'p_final', brand_id: 'rumbawin', name: 'Final de la liga', question: '¿Quién gana la final del domingo?', options: ['Local', 'Empate', 'Visitante'], closes_at: new Date(now + 2 * DAY).toISOString(), reward: { coins: 100 } });
+  }
   if (!app.games.game(tenant, 'g_daily_wheel')) {
     app.games.saveGame(analyst, { id: 'g_daily_wheel', brand_id: 'rumbawin', name: 'Ruleta diaria', kind: 'wheel', spins_per_day: 1,
       prizes: [{ id: 'none', label: 'Sigue intentando', weight: 55, prize: {} }, { id: 'xp25', label: '25 XP', weight: 30, prize: { xp: 25 } }, { id: 'xp100', label: '100 XP', weight: 12, prize: { xp: 100 } }, { id: 'fs', label: 'Free spins', weight: 3, prize: { reward_id: 'welcome_fs_10' } }] });

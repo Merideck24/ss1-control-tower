@@ -57,6 +57,8 @@ export function sessionFrom(headers: ApiRequest['headers']): Actor {
   return { id, tenant_id, roles };
 }
 
+const moneyFmt = (minor: number) => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
 export function controlTower(app: App, tenant: string) {
   const instances = app.runtime.instances(tenant);
   const receipts = app.channels.receipts(tenant);
@@ -120,7 +122,10 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         grants: app.rewards.grants(T).filter((g) => g.player_id === p.player_id),
         gamification: { ...app.gamification.playerView(T, p.player_id),
           tournaments: app.games.tournaments(T).filter((t) => t.status === 'active' || t.status === 'finished').map((t) => { const st = app.games.standings(T, t.id); const me = st.find((x) => x.player_id === p.player_id); return { id: t.id, name: t.name, status: t.status, ends_at: t.ends_at, rank: me?.rank ?? null, score: me?.score ?? 0, participants: st.length }; }),
-          minigames: app.games.games(T).map((g) => ({ id: g.id, name: g.name, spins_left: app.games.spinsLeft(T, g.id, p.player_id) })) },
+          minigames: app.games.games(T).map((g) => ({ id: g.id, name: g.name, spins_left: app.games.spinsLeft(T, g.id, p.player_id) })),
+          coins: app.store.balance(T, p.player_id), coin_ledger: app.store.ledger(T, p.player_id).slice(-8), redemptions: app.store.redemptions(T, p.player_id),
+          store: app.store.items(T).filter((i) => i.active).map((i) => ({ id: i.id, name: i.name, price_coins: i.price_coins, stock: i.stock })),
+          predictions: app.store.predictions(T).map((x) => ({ id: x.id, name: x.name, question: x.question, options: x.options, closes_at: x.closes_at, status: x.status, resolved_option: x.resolved_option ?? null, reward: x.reward, my_pick: app.store.picks(T, x.id).get(p.player_id)?.option ?? null })) },
         segmentation: (() => {
           const now = app.clock.now();
           const life = lifecycleOf(p, now);
@@ -155,6 +160,33 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       if (r[2] === 'finalize') { if (!can(actor, 'journeys.approve') && !can(actor, 'runtime.global_pause')) return forbid('journeys.approve'); return ok(app.games.finalizeTournament(actor, r[1])); }
       if (!can(actor, 'journeys.submit') && !can(actor, 'journeys.approve')) return forbid('journeys.submit');
       return ok(app.games.activateTournament({ ...actor, canApprove: can(actor, 'journeys.approve') }, r[1]));
+    }
+    if (r0 === 'GET /gamification/store') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      const reds = app.store.redemptions(T);
+      return ok({ items: app.store.items(T).map((i) => ({ ...i, redeemed: reds.filter((r) => r.item_id === i.id && r.status === 'fulfilled').length, refunded: reds.filter((r) => r.item_id === i.id && r.status === 'refunded').length })), coin_rate: `1 moneda por cada ${moneyFmt(app.store.coinRateMinor)} apostados`,
+        predictions: app.store.predictions(T).map((p) => { const picks = [...app.store.picks(T, p.id).values()]; return { ...p, picks: picks.length, distribution: Object.fromEntries(p.options.map((o) => [o, picks.filter((x) => x.option === o).length])) }; }) });
+    }
+    if (r0 === 'POST /gamification/store/items') {
+      if (!can(actor, 'alerts.configure')) return forbid('alerts.configure');
+      return ok(app.store.saveItem(actor, req.body as never), 201);
+    }
+    if (r0 === 'POST /gamification/store/redeem') {
+      if (!can(actor, 'player.preferences')) return forbid('player.preferences'); // backoffice: soporte/admin en nombre del jugador
+      return ok(await app.store.redeem(T, String(req.body.player_id), String(req.body.item_id), String(req.body.request_id ?? '')));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/coins$/))) {
+      if (!can(actor, 'alerts.configure')) return forbid('alerts.configure');
+      return ok(app.store.adjust(actor, r[1], Number(req.body.amount), String(req.body.reason ?? ''), String(req.body.request_id ?? '')));
+    }
+    if (r0 === 'POST /gamification/predictions') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.store.savePrediction(actor, req.body as never), 201);
+    }
+    if ((r = m(/^POST \/gamification\/predictions\/([\w-]+)\/(pick|resolve)$/))) {
+      if (r[2] === 'resolve') { if (!can(actor, 'journeys.approve')) return forbid('journeys.approve'); return ok(app.store.resolve(actor, r[1], String(req.body.option))); }
+      if (!can(actor, 'player.preferences')) return forbid('player.preferences');
+      return ok(app.store.pick(T, r[1], String(req.body.player_id), String(req.body.option)));
     }
     if (r0 === 'GET /gamification/minigames') {
       if (!can(actor, 'gamification.read')) return forbid('gamification.read');
