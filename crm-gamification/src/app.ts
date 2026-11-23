@@ -1,6 +1,7 @@
 import { AuditLog } from './audit/audit.ts';
 import { PerformanceStore } from './analytics/performance.ts';
 import { KpiAlertCenter, evaluateKpiAlerts } from './analytics/kpiAlerts.ts';
+import { trainModels, type ModelBundle } from './analytics/models.ts';
 import { ChannelHub, MemoryAdapter } from './channels/channels.ts';
 import { CopilotTools } from './copilot/tools.ts';
 import type { EventEnvelope } from './domain/events.ts';
@@ -59,7 +60,18 @@ export function createApp(clock: Clock = systemClock) {
     return alertCenter.withAcks(tenant, evaluateKpiAlerts({ store: performance, tenant, now: clock.now(), config: alertCenter.config(tenant), budgets }));
   }
 
-  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts };
+  /** Modelos predictivos por tenant; se reentrenan cuando cambian los datos o cambia el día. */
+  const modelCache = new Map<string, { key: string; bundle: ModelBundle }>();
+  function models(tenant: string): ModelBundle {
+    const key = `${ingestor.version}:${clock.now().toISOString().slice(0, 10)}`;
+    const hit = modelCache.get(tenant);
+    if (hit && hit.key === key) return hit.bundle;
+    const bundle = trainModels(performance.playerFacts(tenant), clock.now(), { taxRate: performance.financeDefinition(tenant).gaming_tax_rate });
+    modelCache.set(tenant, { key, bundle });
+    return bundle;
+  }
+
+  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

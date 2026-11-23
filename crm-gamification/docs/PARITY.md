@@ -37,7 +37,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | C2 | RFM (recencia, frecuencia, valor) | GR8 | ✅ |
 | C3 | Etapas de ciclo de vida (nuevo, activo, en riesgo, inactivo, reactivado) | OPT, FT | ✅ |
 | C4 | Personas dinámicas (clusters por comportamiento y producto preferido) | FT | ⬜ |
-| C5 | Segmentación por valor previsto y riesgo de abandono | OPT, GR8 | ⬜ (depende de E1–E2) |
+| C5 | Segmentación por valor previsto y riesgo de abandono | OPT, GR8 | ✅ |
 
 ## D. Journeys y automatización
 
@@ -54,11 +54,11 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 
 | # | Capacidad | Referencia | Estado |
 |---|---|---|---|
-| E1 | Predicción de abandono (score explicable, validación temporal) | FT, OPT | ⬜ |
-| E2 | Valor previsto (LTV) y detección temprana de VIP | FT, OPT | ⬜ |
-| E3 | Propensión al depósito | FT | ⬜ |
+| E1 | Predicción de abandono (score explicable, validación temporal) | FT, OPT | ✅ |
+| E2 | Valor previsto (LTV) y detección temprana de VIP | FT, OPT | ✅ |
+| E3 | Propensión al depósito | FT | ✅ |
 | E4 | Mejor acción siguiente con opción «no contactar» y exclusión por política | FT, OPT | ⬜ |
-| E5 | Preferencias de conducta (producto y juego preferidos) | FT, OPT | ⬜ |
+| E5 | Preferencias de conducta (producto y juego preferidos) | FT, OPT | ✅ |
 | E6 | Generación de contenido con IA para plantillas (borrador) y moderación | FT, OPT | ⬜ |
 | E7 | Copiloto en lenguaje natural con herramientas tipadas | FT | ✅ |
 | E8 | Agentes que ejecutan campañas de forma autónoma | FT, OPT | 🔒 (el plan exige aprobación humana; no se habilita ejecución autónoma) |
@@ -95,7 +95,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | H1 | Grupos de control, incremento con IC 95 % | FT, OPT | ✅ |
 | H2 | ROI, CPA, costo por FTD, NGR, retención, payback por cohorte | FT, OPT | ✅ |
 | H3 | Alertas de KPI con significancia | FT | ✅ |
-| H4 | Ranking de journeys y recompensas por NGR, retención y ROI | FT | ⬜ |
+| H4 | Ranking de journeys y recompensas por NGR, retención y ROI (corregir: la métrica «has_deposit» no sirve para recorridos cuya entrada ya implica depósito, p. ej. j4) | FT | ⬜ |
 | H5 | Evaluación temprana de afiliados por calidad de jugadores | FT, OPT | ⬜ |
 | H6 | Exportación CSV de tablas | — | ⬜ |
 
@@ -137,3 +137,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 5 | 2026-11-23 | A5 | Tema del operador desde `/admin/theme-config` o desde la sesión, con contraste mínimo 3:1 y logos solo de dominios SS1. Corregido un fallo del build (reemplazo con `$&` en el código minificado) y añadida una prueba que ejecuta el build real y valida cada script |
 | 6 | 2026-11-23 | A6 | Kit `integrations/ss1-admin/` (puente, página Vue, ruta con enlace directo, menú, permisos). La prueba de punta a punta con el puente real encontró y corrigió una carrera: el enlace directo se perdía mientras cargaban los permisos |
 | 7 | 2026-11-23 | C2, C3 | RFM por quintiles dentro del tenant con 8 segmentos nombrados y ciclo de vida por jugador (6 etapas, con reactivación); campos `rfm.*` y `lifecycle` en segmentos, `lifecycle` también en recorridos; distribución en la pestaña Segmentos con «Usar» y bloque en Perfil 360. Corregido el desborde de Perfil 360 en móvil |
+| 8 | 2026-11-23 | E1, E2, E3, E5, C5 | Regresión logística L2 por tenant con validación temporal (60/30 días): abandono AUC 0,84 vs. base 0,75; propensión AUC 0,81 vs. 0,64; valor a 30 días con 22 % menos error que la base. VIP temprano (p90), preferencias, razones en lenguaje claro, sin variables de juego responsable y restringidos no elegibles para promoción. Campos `pred.*` en segmentos |

@@ -40,6 +40,12 @@ const FIELDS: Record<string, (p: PlayerProfile, d: Derived) => unknown> = {
   'rfm.f': (p, d) => d.rfm?.get(p.player_id)?.f,
   'rfm.m': (p, d) => d.rfm?.get(p.player_id)?.m,
   'rfm.segment': (p, d) => d.rfm?.get(p.player_id)?.segment,
+  // predicciones (modelos por tenant): disponibles en segmentos; valores 0–1 para probabilidades
+  'pred.churn': (p, d) => d.predict?.(p.player_id)?.churn?.p,
+  'pred.deposit': (p, d) => d.predict?.(p.player_id)?.deposit?.p,
+  'pred.value_30d': (p, d) => d.predict?.(p.player_id)?.value_30d_minor ?? undefined,
+  'pred.vip': (p, d) => d.predict?.(p.player_id)?.vip_early,
+  'pred.product': (p, d) => d.predict?.(p.player_id)?.preferences.product ?? undefined,
 };
 export const SEGMENT_FIELDS = Object.keys(FIELDS);
 
@@ -75,12 +81,12 @@ export type SegmentResult = { segment_id: string; version: number; as_of: string
  * Evalúa sobre un snapshot inmutable: mismo snapshot + misma versión ⇒ mismo resultado.
  * La elegibilidad se vuelve a validar al ejecutar (ver JourneyRuntime/PolicyEngine).
  */
-export function runSegment(def: SegmentDefinition, snapshot: readonly PlayerProfile[], asOf: Date): SegmentResult {
+export function runSegment(def: SegmentDefinition, snapshot: readonly PlayerProfile[], asOf: Date, extra: { predict?: Derived['predict'] } = {}): SegmentResult {
   const scoped = snapshot.filter((p) => p.tenant_id === def.tenant_id).slice().sort((a, b) => a.player_id.localeCompare(b.player_id));
   const members: string[] = [];
   const excluded: string[] = [];
   const uses = JSON.stringify([def.rules, def.exclusions ?? null]).includes('"rfm.');
-  const derived: Derived = { now: asOf, rfm: uses ? computeRfm(scoped, asOf) : undefined };
+  const derived: Derived = { now: asOf, rfm: uses ? computeRfm(scoped, asOf) : undefined, predict: extra.predict };
   for (const p of scoped) {
     if (!evaluate(def.rules, p, asOf, derived)) continue;
     if (def.exclusions && evaluate(def.exclusions, p, asOf, derived)) excluded.push(p.player_id);

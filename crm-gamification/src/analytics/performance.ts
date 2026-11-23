@@ -50,7 +50,7 @@ export const METRIC_DEFINITIONS: Record<string, string> = {
 
 type Spend = { date: string; campaign_id: string; campaign_name: string; channel: string; impressions: number; clicks: number; spend_minor: number; currency: string };
 type Activity = { at: number; kind: 'bet' | 'deposit' };
-type PlayerFacts = {
+export type PlayerFacts = {
   tenant_id: string;
   player_id: string;
   registered_at: number;
@@ -60,7 +60,7 @@ type PlayerFacts = {
   currency?: string;
   deposits: Map<string, { at: number; amount: number }>;
   reversed: Map<string, { at: number; amount: number }>;
-  bets: { at: number; stake: number; win: number }[];
+  bets: { at: number; stake: number; win: number; product?: 'casino' | 'sports' }[];
   bonuses: { at: number; amount: number }[];
   activity: Activity[];
   rg_restricted?: boolean;
@@ -172,7 +172,7 @@ export class PerformanceStore {
       }
       case 'bet.settled': {
         const p = (e as EventEnvelope<'bet.settled'>).payload;
-        f.bets.push({ at: t, stake: p.stake.amount_minor, win: p.win?.amount_minor ?? 0 });
+        f.bets.push({ at: t, stake: p.stake.amount_minor, win: p.win?.amount_minor ?? 0, product: p.product });
         f.activity.push({ at: t, kind: 'bet' });
         break;
       }
@@ -185,6 +185,11 @@ export class PerformanceStore {
         f.rg_restricted = (e as EventEnvelope<'rg.status_changed'>).payload.status !== 'none';
         break;
     }
+  }
+
+  /** Hechos por jugador (solo lectura) para los modelos predictivos. */
+  playerFacts(tenant: string): readonly Readonly<PlayerFacts>[] {
+    return [...this.#players.values()].filter((p) => p.tenant_id === tenant);
   }
 
   /** Última fecha con inversión reportada por campaña (calidad de datos). */

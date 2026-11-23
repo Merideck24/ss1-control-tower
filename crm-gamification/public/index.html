@@ -563,8 +563,18 @@ const VIEWS = {
       <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
   },
   async analytics() {
-    const rs = await api('/analytics/campaigns');
-    return `<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    const [rs, md] = await Promise.all([api('/analytics/campaigns'), api('/models')]);
+    const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
+    const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
+      <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
+      <table><tr><th>Modelo</th><th>Población</th><th class="num">Entrenamiento</th><th class="num">Validación</th><th class="num">AUC</th><th class="num">AUC base</th><th class="num">Brier</th><th>Variables con más peso</th></tr>
+      ${md.models.map((m) => `<tr><td>${esc(m.label)}${m.usable ? '' : '<br><span class="warn">muestra insuficiente</span>'}</td><td class="muted">${esc(m.population)}</td><td class="num">${int(m.train.n)} <span class="muted">(${int(m.train.positives)} +)</span></td><td class="num">${int(m.validation.n)} <span class="muted">(${int(m.validation.positives)} +)</span></td>
+        <td class="num"><b class="${m.validation.auc > m.validation.baseline_auc ? 'ok' : 'warn'}">${f3(m.validation.auc)}</b></td><td class="num muted" title="${esc(m.validation.baseline)}">${f3(m.validation.baseline_auc)}</td><td class="num">${f3(m.validation.brier)}</td>
+        <td>${m.coefficients.slice(0, 3).map((c) => `<span class="chip">${esc(c.label)} ${c.weight >= 0 ? '+' : '−'}</span>`).join('')}</td></tr>`).join('')}
+      <tr><td>${esc(md.value.label)}</td><td class="muted">Jugadores con primer depósito</td><td class="num">—</td><td class="num">${int(md.value.validation.n)}</td><td class="num" colspan="2">MAE ${moneyC(md.value.validation.mae_minor)} <span class="muted">vs. base ${moneyC(md.value.validation.baseline_mae_minor)}</span></td><td></td><td class="muted">${esc(md.value.method)}</td></tr>
+      </table>
+      <div class="row" style="margin-top:12px"><span class="chip brand">${int(md.summary.high_churn)} con riesgo de abandono ≥ 60 %</span><span class="chip brand">${int(md.summary.vip_early)} VIP tempranos</span><span class="chip">${int(md.summary.not_promo_eligible)} no elegibles para promoción (juego responsable)</span><span class="muted">Usa <code>pred.churn</code>, <code>pred.deposit</code>, <code>pred.value_30d</code>, <code>pred.vip</code> y <code>pred.product</code> en Segmentos.</span></div></div><br>`;
+    return `${models}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
         <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
@@ -626,6 +636,12 @@ const BIND = {
         <div><b>incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${ex.incentive.kind}</span> <span class="muted">${ex.incentive.reasons.map(esc).join(', ')}</span></div>
         <h3 style="margin-top:12px">Segmentación</h3>
         <div class="row"><span class="chip brand">${esc(d.segmentation.lifecycle.label)}</span>${d.segmentation.rfm ? `<span class="chip">RFM ${d.segmentation.rfm.r}-${d.segmentation.rfm.f}-${d.segmentation.rfm.m} · ${esc(d.segmentation.rfm.label)}</span><span class="muted">${d.segmentation.rfm.recency_days} d desde la última actividad · ${d.segmentation.rfm.frequency} depósitos · ${moneyC(d.segmentation.rfm.monetary_minor)}</span>` : '<span class="muted">Sin RFM: aún no deposita</span>'}</div>
+        ${(() => { const pr = d.segmentation.predictions; if (!pr) return ''; const P = (x) => x ? pct(x.p, 0) : '—';
+          return `<h3 style="margin-top:12px">Predicciones</h3>
+          <div class="row">${pr.vip_early ? '<span class="chip brand">VIP temprano</span>' : ''}${pr.promo_eligible ? '' : '<span class="chip bad">No elegible para promoción (juego responsable)</span>'}
+            <span class="chip">Abandono ${P(pr.churn)}</span><span class="chip">Depósito en 30 d ${P(pr.deposit)}</span><span class="chip">Valor 30 d ${moneyC(pr.value_30d_minor)}</span>
+            ${pr.preferences.product ? `<span class="chip">Prefiere ${esc(pr.preferences.product)}${pr.preferences.daypart ? ' · ' + esc(pr.preferences.daypart) : ''}</span>` : ''}</div>
+          ${pr.churn ? `<div class="muted">Por qué ese riesgo: ${pr.churn.reasons.map(esc).join(' · ')}</div>` : ''}`; })()}
         ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${d.loyalty.points} pts · ${d.loyalty.percent_to_next}% hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
         <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${esc(g.reward_id)} · ${esc(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
         <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(r.channel)} · ${esc(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(r.status)}</span> <span class="muted">${esc(r.reason ?? '')}</span></div>`).join('') || '<span class="muted">—</span>'}

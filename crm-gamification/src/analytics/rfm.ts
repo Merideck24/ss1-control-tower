@@ -82,7 +82,7 @@ export function computeRfm(profiles: readonly PlayerProfile[], now: Date): Map<s
   return out;
 }
 
-export type Derived = { rfm?: Map<string, RfmScore>; now: Date };
+export type Derived = { rfm?: Map<string, RfmScore>; now: Date; predict?: (playerId: string) => import('./models.ts').PlayerPrediction | undefined };
 
 /** Distribución por segmento RFM y por etapa de ciclo de vida, con depósitos netos de cada grupo. */
 export function distribution(profiles: readonly PlayerProfile[], now: Date) {

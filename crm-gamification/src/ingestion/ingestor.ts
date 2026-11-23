@@ -60,4 +60,6 @@ export class Ingestor {
   all(tenant_id: string): PlayerProfile[] { return [...this.#profiles.values()].filter((p) => p.tenant_id === tenant_id); }
   deadLetters() { return [...this.#dlq]; }
   sourceMetrics() { return Object.fromEntries(this.#bySource); }
+  /** Cambia con cada evento aplicado: sirve para invalidar cachés derivados (modelos). */
+  get version() { return this.#seen.size; }
 }
