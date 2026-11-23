@@ -41,3 +41,12 @@ Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expo
 | `POST /risk/bonus-abuse/:player/review` | `abuse.review` | `{ status: 'cleared' \| 'confirmed', note }`; auditado, vence a 30 días |
 
 `GET /players/:id` incluye `bonus_abuse` solo para roles con `abuse.read`. Eventos: `player.registered.device_hash` y `deposit.settled.instrument_hash` (opcionales, siempre hash).
+
+## Constructor visual (D2)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /journeys/builder` | `journeys.draft` | Catálogo para el lienzo: eventos de jugador, canales, plantillas, recompensas, campos de segmento y tipos de paso |
+| `POST /journeys/review` | `journeys.draft` | Revisión en vivo del borrador: `issues` (mensaje, paso, severidad), `valid`, `layout` automático y vista en lista |
+
+`layout` (posiciones por paso) es opcional en `POST /journeys` y forma parte de la versión firmada.

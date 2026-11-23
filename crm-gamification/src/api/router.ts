@@ -2,6 +2,8 @@ import { ev, type App } from '../app.ts';
 import type { CopilotSession, CopilotTools } from '../copilot/tools.ts';
 import { report } from '../experiments/experiments.ts';
 import { journeyAsList, validateJourney } from '../journeys/model.ts';
+import { autoLayout, reviewJourney } from '../journeys/builder.ts';
+import { EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
 import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
@@ -284,6 +286,25 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       };
       const out = runSegment({ id: 'preview', tenant_id: T, name: 'preview', version: 0, rules: b.rules as never, exclusions: b.exclusions as never }, app.ingestor.all(T), app.clock.now(), extra);
       return ok({ size: out.members.length, excluded: out.excluded.length, universe: out.universe, snapshot_hash: out.snapshot_hash, sample: out.members.slice(0, 10) });
+    }
+    if (r0 === 'GET /journeys/builder' || r0 === 'POST /journeys/review') { if (!can(actor, 'journeys.draft')) return forbid('journeys.draft'); }
+    if (r0 === 'GET /journeys/builder') {
+      return ok({
+        events: EVENT_TYPES.filter((e) => !NON_PLAYER_EVENTS.includes(e)),
+        channels: ['inapp', 'email', 'webpush'],
+        templates: app.channels.templates(T).map((t) => ({ key: t.key, purpose: t.purpose, category: t.category, subject: t.content.es?.subject ?? t.key })),
+        rewards: app.rewards.catalog(T).map((i) => ({ id: i.id, reward_type: i.reward_type, value: i.value, approved: Boolean(i.approved_by) })),
+        fields: SEGMENT_FIELDS,
+        node_types: [
+          { type: 'wait', label: 'Esperar' }, { type: 'condition', label: 'Condición' }, { type: 'message', label: 'Mensaje' },
+          { type: 'grant_reward', label: 'Recompensa' }, { type: 'exit', label: 'Salida' }],
+      });
+    }
+    if (r0 === 'POST /journeys/review') {
+      const j = req.body as never as Parameters<typeof reviewJourney>[0];
+      if (!Array.isArray(j?.nodes)) return { status: 422, body: { error: 'invalid_journey', message: 'Falta la lista de pasos.' } };
+      const issues = reviewJourney(j, { template: (k) => app.channels.template(T, k), reward: (id) => { const it = app.rewards.item(T, id); return it && { approved: Boolean(it.approved_by) }; } });
+      return ok({ issues, valid: !issues.some((i) => i.severity === 'error'), layout: autoLayout(j), as_list: journeyAsList(j as never) });
     }
     if (r0 === 'GET /journeys') return ok(app.registry.list(T).map((j) => ({ ...j, as_list: journeyAsList(j), validation: validateJourney(j) })));
     if (r0 === 'POST /journeys') {

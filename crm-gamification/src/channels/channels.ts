@@ -67,6 +67,7 @@ export class ChannelHub {
   register(a: ChannelAdapter): void { this.#adapters.set(a.channel, a); }
   addTemplate(tenant_id: string, t: Template): void { this.#templates.set(`${tenant_id}::${t.key}`, t); }
   template(tenant_id: string, key: string): Template | undefined { return this.#templates.get(`${tenant_id}::${key}`); }
+  templates(tenant_id: string): Template[] { return [...this.#templates].filter(([k]) => k.startsWith(`${tenant_id}::`)).map(([, t]) => t); }
 
   recordNonDelivery(base: Omit<Receipt, 'at' | 'attempts'>): Receipt {
     const r = { ...base, at: this.#clock.now().toISOString(), attempts: 0 };

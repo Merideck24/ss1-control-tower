@@ -23,6 +23,8 @@ export type JourneyDefinition = {
   entry: string;
   nodes: JourneyNode[];
   control_group_pct?: number; // solo marketing
+  /** Posiciones en el lienzo del constructor visual (solo presentación). */
+  layout?: Record<string, { x: number; y: number }>;
   created_by: string;
   approved_by?: string;
   approval_signature?: string;
