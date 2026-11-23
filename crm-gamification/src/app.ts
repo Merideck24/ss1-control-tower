@@ -1,5 +1,6 @@
 import { AuditLog } from './audit/audit.ts';
 import { PerformanceStore } from './analytics/performance.ts';
+import { KpiAlertCenter, evaluateKpiAlerts } from './analytics/kpiAlerts.ts';
 import { ChannelHub, MemoryAdapter } from './channels/channels.ts';
 import { CopilotTools } from './copilot/tools.ts';
 import type { EventEnvelope } from './domain/events.ts';
@@ -31,6 +32,7 @@ export function createApp(clock: Clock = systemClock) {
     effects: { send: (r) => channels.send(r), recordNonDelivery: (r) => channels.recordNonDelivery(r), grant: (r) => rewards.grant(r) },
   });
   const performance = new PerformanceStore();
+  const alertCenter = new KpiAlertCenter();
   const copilot = new CopilotTools({ registry, policy, profiles: () => [...new Set(tenants)].flatMap((t) => ingestor.all(t)), audit, clock, performance: (t, days) => performanceReport(t, days) });
   const tenants: string[] = [];
 
@@ -51,7 +53,12 @@ export function createApp(clock: Clock = systemClock) {
     });
   }
 
-  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport };
+  function kpiAlerts(tenant: string) {
+    const budgets = rewards.catalog(tenant).map((it) => ({ reward_id: it.id, ...rewards.budget(tenant, it.id)! }));
+    return alertCenter.withAcks(tenant, evaluateKpiAlerts({ store: performance, tenant, now: clock.now(), config: alertCenter.config(tenant), budgets }));
+  }
+
+  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

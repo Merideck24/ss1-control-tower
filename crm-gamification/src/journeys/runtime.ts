@@ -43,6 +43,7 @@ export type Effects = {
 export class JourneyRuntime {
   #instances = new Map<string, JourneyInstance>();
   #byPlayer = new Map<string, JourneyInstance[]>(); // tenant::player → instancias
+  #waiting = new Set<JourneyInstance>(); // instancias con temporizador pendiente
   #globalPause = new Set<string>(); // tenants con pausa general
   #registry: JourneyRegistry;
   #policy: PolicyEngine;
@@ -113,11 +114,13 @@ export class JourneyRuntime {
   tick(): number {
     let n = 0;
     const now = this.#clock.now().getTime();
-    for (const inst of this.#instances.values()) {
-      if (inst.status !== 'waiting' || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
+    for (const inst of this.#waiting) {
+      if (inst.status !== 'waiting') { this.#waiting.delete(inst); continue; }
+      if (this.#deferred.has(inst.instance_id) || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
       const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
       if (def.status !== 'published' || this.#globalPause.has(inst.tenant_id)) continue; // en pausa: queda esperando
       const node = def.nodes.find((x) => x.id === inst.current)! as Extract<JourneyNode, { type: 'wait' }>;
+      this.#waiting.delete(inst);
       inst.status = 'running'; inst.wake_at = undefined; inst.current = node.next;
       this.#advance(inst, def, {});
       n++;
@@ -150,6 +153,7 @@ export class JourneyRuntime {
             break;
           }
           inst.status = 'waiting';
+          this.#waiting.add(inst);
           inst.wake_at = new Date(this.#clock.now().getTime() + node.duration_ms).toISOString();
           inst.trace.push({ at: this.#now(), node: node.id, type: 'wait', outcome: `until ${inst.wake_at}` });
           return;
@@ -159,6 +163,7 @@ export class JourneyRuntime {
           if (decision.kind === 'defer' && !this.#skipWaits) {
             // re-ejecuta este mismo nodo al despertar (revalidando política otra vez)
             inst.status = 'waiting'; inst.wake_at = decision.defer_until; inst.current = node.id;
+            this.#waiting.add(inst);
             inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: 'deferred', decision });
             this.#effects?.recordNonDelivery({ idempotency_key: key, tenant_id: inst.tenant_id, player_id: inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, status: 'deferred', reason: `quiet_hours_until:${decision.defer_until}` });
             this.#deferred.set(inst.instance_id, node.id);
@@ -204,6 +209,7 @@ export class JourneyRuntime {
       const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
       if (def.status !== 'published' || this.#globalPause.has(inst.tenant_id)) continue;
       this.#deferred.delete(id);
+      this.#waiting.delete(inst);
       inst.status = 'running'; inst.wake_at = undefined; inst.current = nodeId;
       this.#advance(inst, def, {});
       n++;

@@ -24,6 +24,10 @@ Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expo
 | `POST /runtime/pause` | Pausa general por tenant (`tenant_admin` / `rg_officer`) | CRM-08 |
 | `GET /rewards` · `POST /rewards/reconcile` | Catálogo, presupuesto, otorgamientos y conciliación | CRM-07 |
 | `GET /performance?days=60` | Adquisición y valor por campaña: inversión, CTR, FTD %, CPA, costo por FTD, depósitos, GGR, NGR, retención D7/D30, ROI, alcance CRM y nivel Loyalty (`performance.read`) | Control Tower |
+| `GET /performance/payback?weeks=12` | Payback por cohorte semanal (campaña × semana de registro) y curvas de recuperación por campaña (`performance.read`) | Control Tower |
+| `GET /kpi-alerts` | Alertas de KPI activas, con umbrales y reconocimientos (`alerts.read`) | Control Tower |
+| `POST /kpi-alerts/:id/ack` | Marca una alerta como revisada, con nota opcional; queda en auditoría (`alerts.ack`) | Control Tower |
+| `PUT /kpi-alerts/config` | Ajusta umbrales del tenant; valida claves y valores (`alerts.configure`, solo `tenant_admin`) | Control Tower |
 | `GET /analytics/campaigns` | Tratamiento vs. control, IC 95 %, costo | CRM-09 |
 | `GET /audit` | Registro encadenado (`auditor`, `tenant_admin`, `approver`) | CRM-08 |
 | `GET /copilot/tools` · `POST /copilot/tools/:name` | Herramientas del copiloto según rol | IA |

@@ -63,6 +63,7 @@ type PlayerFacts = {
   bets: { at: number; stake: number; win: number }[];
   bonuses: { at: number; amount: number }[];
   activity: Activity[];
+  rg_restricted?: boolean;
 };
 
 export type CampaignMetrics = {
@@ -103,6 +104,16 @@ export type PerformanceReport = {
   data_quality: { spend_days_reported: number; unattributed_registrations: number; mixed_currency_excluded: number };
   definitions: Record<string, string>;
 };
+
+export type CohortPayback = {
+  campaign_id: string; campaign_name: string; channel: string;
+  week_start: string; age_days: number; registrations: number; ftd: number;
+  spend_minor: number; ngr_to_date_minor: number; recovered_to_date: number;
+  recovered_at: { d7: number | null; d14: number | null; d30: number | null; d60: number | null };
+  payback_day: number | null; projected_payback_day: number | null;
+};
+export type PaybackCurve = { campaign_id: string; campaign_name: string; channel: string; points: { day: number; recovered: number; cohorts: number }[]; payback_day: number | null };
+export type PaybackReport = { tenant_id: string; currency: string; as_of: string; weeks: number; max_day: number; finance_definition_version: string; cohorts: CohortPayback[]; curves: PaybackCurve[]; definitions: Record<string, string> };
 
 export type Enrichment = {
   crmReached?: (tenant: string, player: string) => boolean;
@@ -170,7 +181,117 @@ export class PerformanceStore {
         f.bonuses.push({ at: t, amount: p.value.amount_minor });
         break;
       }
+      case 'rg.status_changed':
+        f.rg_restricted = (e as EventEnvelope<'rg.status_changed'>).payload.status !== 'none';
+        break;
     }
+  }
+
+  /** Última fecha con inversión reportada por campaña (calidad de datos). */
+  lastSpendDates(tenant: string): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const s of this.#spend.get(tenant)?.values() ?? []) if ((out.get(s.campaign_id) ?? '') < s.date) out.set(s.campaign_id, s.date);
+    return out;
+  }
+
+  /** % de la cohorte con restricción de juego responsable, por campaña. */
+  rgShare(tenant: string, opts: { to: Date; days: number }): Map<string, { restricted: number; total: number }> {
+    const to = opts.to.getTime();
+    const from = to - opts.days * DAY;
+    const out = new Map<string, { restricted: number; total: number }>();
+    for (const p of this.#players.values()) {
+      if (p.tenant_id !== tenant || p.registered_at < from || p.registered_at > to) continue;
+      const m = out.get(p.campaign_id) ?? { restricted: 0, total: 0 };
+      m.total++; if (p.rg_restricted) m.restricted++;
+      out.set(p.campaign_id, m);
+    }
+    return out;
+  }
+
+  /**
+   * Payback por cohorte semanal (campaña × semana de registro).
+   * recuperado(t) = NGR acumulado de la cohorte hasta el día t desde el registro / inversión de esa semana.
+   * Las curvas por campaña solo usan cohortes con al menos t días de antigüedad (sin sesgo de cohortes jóvenes).
+   */
+  payback(tenant: string, opts: { to: Date; weeks: number; maxDay?: number; currency?: string }): PaybackReport {
+    const fin = this.financeDefinition(tenant);
+    const to = opts.to.getTime();
+    const maxDay = opts.maxDay ?? 90;
+    const currency = opts.currency ?? 'COP';
+    const weekStart = (t: number) => { const d = new Date(t); const dow = (d.getUTCDay() + 6) % 7; return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - dow * DAY; };
+    const firstWeek = weekStart(to) - (opts.weeks - 1) * 7 * DAY;
+    type Acc = { campaign_id: string; week: number; spend: number; players: PlayerFacts[] };
+    const cohorts = new Map<string, Acc>();
+    const acc = (c: string, w: number) => { const k = `${c}::${w}`; let a = cohorts.get(k); if (!a) { a = { campaign_id: c, week: w, spend: 0, players: [] }; cohorts.set(k, a); } return a; };
+    for (const s of this.#spend.get(tenant)?.values() ?? []) {
+      if (s.currency !== currency) continue;
+      const w = weekStart(Date.parse(s.date + 'T12:00:00Z'));
+      if (w >= firstWeek && w <= to) acc(s.campaign_id, w).spend += s.spend_minor;
+    }
+    for (const p of this.#players.values()) {
+      if (p.tenant_id !== tenant || p.campaign_id === ORGANIC.campaign_id || (p.currency && p.currency !== currency)) continue;
+      const w = weekStart(p.registered_at);
+      if (w >= firstWeek && p.registered_at <= to) acc(p.campaign_id, w).players.push(p);
+    }
+    const curveOf = (players: PlayerFacts[], ageDays: number) => {
+      const n = Math.min(maxDay, ageDays);
+      const ggr = new Array(n + 1).fill(0), bonus = new Array(n + 1).fill(0);
+      for (const p of players) {
+        for (const b of p.bets) { const d = Math.floor((b.at - p.registered_at) / DAY); if (d >= 0 && d <= n && b.at <= to) ggr[d] += b.stake - b.win; }
+        for (const b of p.bonuses) { const d = Math.floor((b.at - p.registered_at) / DAY); if (d >= 0 && d <= n && b.at <= to) bonus[d] += b.amount; }
+      }
+      const out: number[] = [];
+      let cg = 0, cb = 0;
+      for (let d = 0; d <= n; d++) { cg += ggr[d]; cb += bonus[d]; out.push(cg - cb - Math.round(Math.max(0, cg) * fin.gaming_tax_rate)); }
+      return out; // NGR acumulado por día relativo
+    };
+    const rows: CohortPayback[] = [];
+    const byCampaign = new Map<string, { age: number; spend: number; ngr: number[] }[]>();
+    for (const a of cohorts.values()) {
+      if (a.spend <= 0) continue;
+      const age = Math.floor((to - (a.week + 6 * DAY)) / DAY); // días desde el final de la semana
+      const ngr = curveOf(a.players, Math.max(0, Math.floor((to - a.week) / DAY)));
+      const at = (d: number) => (age >= d ? ngr[Math.min(d, ngr.length - 1)] / a.spend : null);
+      const toDate = ngr.at(-1) ?? 0;
+      const paidDay = ngr.findIndex((v) => v >= a.spend);
+      let projected: number | null = null;
+      if (paidDay < 0 && ngr.length > 14) {
+        const slope = (ngr.at(-1)! - ngr[ngr.length - 15]) / 14;
+        projected = slope > 0 ? Math.ceil(ngr.length - 1 + (a.spend - ngr.at(-1)!) / slope) : null;
+      }
+      const meta = this.#campaignNames.get(`${tenant}::${a.campaign_id}`);
+      rows.push({
+        campaign_id: a.campaign_id, campaign_name: meta?.name ?? a.campaign_id, channel: meta?.channel ?? 'unknown',
+        week_start: new Date(a.week).toISOString().slice(0, 10), age_days: Math.max(0, age),
+        registrations: a.players.length, ftd: a.players.filter((p) => p.ftd_at !== undefined && p.ftd_at <= to).length,
+        spend_minor: a.spend, ngr_to_date_minor: toDate, recovered_to_date: toDate / a.spend,
+        recovered_at: { d7: at(7), d14: at(14), d30: at(30), d60: at(60) },
+        payback_day: paidDay >= 0 ? paidDay : null,
+        projected_payback_day: projected !== null && projected <= 365 ? projected : null,
+      });
+      byCampaign.set(a.campaign_id, [...(byCampaign.get(a.campaign_id) ?? []), { age: Math.max(0, age), spend: a.spend, ngr }]);
+    }
+    rows.sort((x, y) => y.week_start.localeCompare(x.week_start) || x.campaign_name.localeCompare(y.campaign_name));
+    const curves: PaybackCurve[] = [...byCampaign].map(([id, cs]) => {
+      const points: { day: number; recovered: number; cohorts: number }[] = [];
+      for (let d = 0; d <= maxDay; d++) {
+        const mature = cs.filter((c) => c.age >= d && c.ngr.length > d);
+        // con menos de 2 cohortes la curva solo refleja el cambio de composición
+        if (mature.length < Math.min(2, cs.length)) break;
+        const spend = mature.reduce((s, c) => s + c.spend, 0);
+        points.push({ day: d, recovered: mature.reduce((s, c) => s + c.ngr[d], 0) / spend, cohorts: mature.length });
+      }
+      const meta = this.#campaignNames.get(`${tenant}::${id}`);
+      const pd = points.find((p) => p.recovered >= 1)?.day ?? null;
+      return { campaign_id: id, campaign_name: meta?.name ?? id, channel: meta?.channel ?? 'unknown', points, payback_day: pd };
+    }).sort((a, b) => a.campaign_id.localeCompare(b.campaign_id));
+    return { tenant_id: tenant, currency, as_of: new Date(to).toISOString(), weeks: opts.weeks, max_day: maxDay, finance_definition_version: fin.version, cohorts: rows, curves,
+      definitions: {
+        recovered: 'Recuperado = NGR acumulado de la cohorte desde el registro / inversión de la campaña en la semana de la cohorte.',
+        payback_day: 'Día de payback = primer día desde el registro en que el NGR acumulado iguala o supera la inversión.',
+        projected_payback_day: 'Proyección lineal con el ritmo de NGR de los últimos 14 días. Indicativa, no un pronóstico.',
+        curve: 'Las curvas por campaña solo incluyen cohortes con al menos t días de antigüedad en cada punto t.',
+      } };
   }
 
   report(tenant: string, opts: { to: Date; days: number; currency?: string }, enrich: Enrichment = {}): PerformanceReport {

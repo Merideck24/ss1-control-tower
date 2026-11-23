@@ -67,3 +67,26 @@
 **Modelo de cohorte.** La cohorte de una campaña son los jugadores registrados en el período con esa atribución; su valor se mide desde el registro hasta la fecha de corte. Una cohorte sin FTD con la antigüedad suficiente se muestra como «inmadura» en lugar de 0 %.
 
 **Pendiente de validar con Finanzas:** la tasa de impuesto sobre GGR (0,15 es un valor de ejemplo), si el costo de bonos se reconoce al otorgar o al convertir, retiros y ajustes de pagos, y la conciliación de monedas. La definición está versionada (`finance_definition.version`) y se muestra en el dashboard.
+
+### Payback por cohorte
+
+Cohorte = campaña × semana de registro (lunes a domingo, UTC). `recuperado(t)` = NGR acumulado de la cohorte hasta el día t desde el registro / inversión de la campaña esa semana. El día de payback es el primer t con recuperado ≥ 100 %. Las curvas por campaña promedian solo cohortes con al menos t días (contados desde el fin de la semana) y se cortan cuando quedan menos de dos, para no mostrar cambios de composición como tendencia. La proyección usa el ritmo de NGR de los últimos 14 días y es indicativa.
+
+### Alertas de KPI
+
+`src/analytics/kpiAlerts.ts` evalúa reglas deterministas en cada consulta:
+
+| Regla | Disparo | Severidad |
+|---|---|---|
+| `ctr_drop` | CTR 7 d cae ≥ 25 % vs. 28 d previos **y** z ≤ −1,96 | media / alta |
+| `ftd_rate_drop` | FTD % cae ≥ 25 % (ventanas con corte −2 d) **y** z ≤ −1,96 | alta |
+| `cpa_rise` | CPA 7 d sube ≥ 30 % vs. 28 d previos | media / alta |
+| `cost_per_ftd_above_target` | costo por FTD 30 d sobre el objetivo del tenant | media / alta |
+| `payback_overdue` / `payback_at_risk` | cohortes ≥ 60 d sin payback, o en riesgo según proyección (agrupado por campaña) | alta / media |
+| `spend_missing` | campaña activa sin reporte de inversión ≥ 2 días | alta |
+| `rg_share_high` | > 8 % de la cohorte 30 d con restricción de juego responsable (mín. 5 casos) | crítica |
+| `bonus_budget` | presupuesto de bonos ≥ 80 % / ≥ 95 % | media / alta |
+
+Todas exigen muestra mínima. Los umbrales son valores de ejemplo por tenant, editables por `tenant_admin`; cada cambio y cada reconocimiento queda en la auditoría.
+
+La demo reproduce la historia avanzando el reloj con los eventos (y procesando esperas cada hora simulada) para que bonos y mensajes queden con su fecha real.

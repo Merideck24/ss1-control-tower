@@ -14,6 +14,8 @@
 | CRM-10 (parcial) | Reverso con asiento compensatorio | `LoyaltyService.reverse` | `test/crm06_07_rewards_loyalty.test.ts` |
 | IA | Sin escrituras fuera de borradores; bloqueo entre tenants; permisos por rol; k-anonimato | `src/copilot/tools.ts`, `src/copilot/agent.ts` | `test/copilot.test.ts` |
 | Control Tower · adquisición y valor | CTR, FTD %, CPA, costo por FTD, depósitos, GGR, NGR, retención D7/D30 y ROI por campaña; enlace Marketing → CRM → Loyalty; bonos descontados una sola vez | `src/analytics/performance.ts`, evento `marketing.spend_reported`, `GET /performance` | `test/performance.test.ts` |
+| Control Tower · tendencia y payback | Inversión vs. NGR diario; payback por cohorte semanal; curvas solo con cohortes maduras; proyección indicativa | `PerformanceStore.payback`, `GET /performance/payback` | `test/kpi_alerts_payback.test.ts` |
+| Control Tower · alertas de KPI | CTR y FTD % (con prueba de significancia), CPA, costo por FTD, payback, inversión sin reportar, juego responsable y presupuesto de bonos; reconocimiento auditado y umbrales por tenant | `src/analytics/kpiAlerts.ts`, `GET/POST/PUT /kpi-alerts` | `test/kpi_alerts_payback.test.ts` |
 | Aislamiento | Dos tenants en pruebas | Claves compuestas `tenant::…` en todos los almacenes | `test/replay.test.ts` |
 
 ## Primeros recorridos del plan

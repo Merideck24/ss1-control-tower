@@ -17,6 +17,7 @@ Módulo integrado al PAM, al servicio de bonos y al Control Tower de SS1. Implem
 | Recompensas | Catálogo aprobado, presupuesto con reserva, clave de idempotencia, resultado incierto conciliado antes de reenviar, conciliación con el servicio de bonos |
 | Fidelidad | Niveles por temporada, aviso único al cruzar el 50 % entre umbrales, libro append-only con reversos compensatorios, widget móvil |
 | Adquisición y valor | En Control Tower: inversión, CTR, FTD %, CPA, costo por FTD, depósitos, GGR, NGR, retención D7/D30 y ROI por campaña, con embudo y enlace Marketing → CRM → Loyalty. Definiciones versionadas y visibles en el dashboard |
+| Tendencia, payback y alertas | Gráfica diaria de inversión frente a NGR, payback por cohorte semanal con curvas por campaña y alertas de KPI con severidad, acción sugerida, reconocimiento auditado y umbrales configurables |
 | Experimentos | Grupo de control estable por hash, reporte con denominador, ventana, costo, conversión observada e incremento estimado con IC 95 % |
 | Auditoría | Registro append-only encadenado por hash, con datos sensibles redactados |
 | Copiloto IA | Herramientas tipadas `query_metric`, `preview_segment`, `validate_policy`, `simulate_journey` y `save_draft`. Tenant y rol salen de la sesión. Sin herramientas para enviar, publicar, otorgar premios ni cambiar restricciones. Bucle con Claude vía `@anthropic-ai/sdk` |
@@ -35,7 +36,7 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 33 pruebas mapeadas a criterios de aceptación
+npm test          # 37 pruebas mapeadas a criterios de aceptación
 npm run typecheck
 npm start         # http://localhost:3000 — backoffice con datos sintéticos
 ```

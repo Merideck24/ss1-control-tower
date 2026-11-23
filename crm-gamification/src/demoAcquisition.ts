@@ -16,6 +16,8 @@ function rng(seed: number) {
 
 type CampaignProfile = {
   id: string; name: string; channel: string;
+  /** Escenarios de demo para las alertas de KPI. */
+  ctrLast7?: number; stopsReportingDays?: number; rgRisk?: number;
   impressions: number; ctr: number; clickToReg: number; ftdRate: number;
   costPerClick: number; depositAvg: number; activityDecayDays: number; baseActivity: number;
 };
@@ -23,9 +25,9 @@ type CampaignProfile = {
 /** Campañas sintéticas con calidades distintas (no son cifras reales de mercado). */
 const CAMPAIGNS: CampaignProfile[] = [
   { id: 'google_search_brand', name: 'Google Search · Marca', channel: 'google', impressions: 420, ctr: 0.085, clickToReg: 0.13, ftdRate: 0.56, costPerClick: 4_200, depositAvg: 80_000, activityDecayDays: 32, baseActivity: 0.5 },
-  { id: 'meta_prospecting', name: 'Meta · Prospección', channel: 'meta', impressions: 5_200, ctr: 0.012, clickToReg: 0.065, ftdRate: 0.38, costPerClick: 3_400, depositAvg: 70_000, activityDecayDays: 16, baseActivity: 0.42 },
-  { id: 'afiliados_cpa', name: 'Afiliados · CPA', channel: 'affiliate', impressions: 1_300, ctr: 0.021, clickToReg: 0.09, ftdRate: 0.47, costPerClick: 6_200, depositAvg: 80_000, activityDecayDays: 20, baseActivity: 0.45 },
-  { id: 'tiktok_awareness', name: 'TikTok · Alcance', channel: 'tiktok', impressions: 9_000, ctr: 0.0055, clickToReg: 0.032, ftdRate: 0.2, costPerClick: 2_600, depositAvg: 45_000, activityDecayDays: 6, baseActivity: 0.32 },
+  { id: 'meta_prospecting', name: 'Meta · Prospección', channel: 'meta', ctrLast7: 0.55, impressions: 5_200, ctr: 0.012, clickToReg: 0.065, ftdRate: 0.38, costPerClick: 3_400, depositAvg: 70_000, activityDecayDays: 16, baseActivity: 0.42 },
+  { id: 'afiliados_cpa', name: 'Afiliados · CPA', channel: 'affiliate', stopsReportingDays: 3, impressions: 1_300, ctr: 0.021, clickToReg: 0.09, ftdRate: 0.47, costPerClick: 6_200, depositAvg: 80_000, activityDecayDays: 20, baseActivity: 0.45 },
+  { id: 'tiktok_awareness', name: 'TikTok · Alcance', channel: 'tiktok', rgRisk: 0.12, impressions: 9_000, ctr: 0.0055, clickToReg: 0.032, ftdRate: 0.2, costPerClick: 2_600, depositAvg: 45_000, activityDecayDays: 6, baseActivity: 0.32 },
 ];
 const ORGANIC_PER_DAY = 1.6;
 
@@ -47,7 +49,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   const lifecycle = (player: string, regAt: number, c: CampaignProfile | null) => {
     const prof = c ?? { ftdRate: 0.42, depositAvg: 75_000, activityDecayDays: 22, baseActivity: 0.45 } as CampaignProfile;
     events.push(ev(tenant, player, 'player.registered', { email_masked: `u***${n}@demo.test`, country: 'CO', locale: 'es', timezone: 'America/Bogota', ...(c ? { acquisition: { campaign_id: c.id, channel: c.channel } } : {}) }, iso(regAt)));
-    events.push(ev(tenant, player, 'rg.status_changed', { status: r() < 0.03 ? 'self_excluded' : 'none' }, iso(regAt + 60_000)));
+    events.push(ev(tenant, player, 'rg.status_changed', { status: r() < (c?.rgRisk ?? 0.03) ? 'self_excluded' : 'none' }, iso(regAt + 60_000)));
     events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: 'inapp', granted: r() < 0.85 }, iso(regAt + 60_000)));
     events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: 'email', granted: r() < 0.6 }, iso(regAt + 60_000)));
     if (r() < 0.82) events.push(ev(tenant, player, 'player.verified', { kyc_status: 'verified' }, iso(regAt + (2 + r() * 30) * HOUR)));
@@ -80,9 +82,9 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     const date = new Date(dayStart).toISOString().slice(0, 10);
     for (const c of CAMPAIGNS) {
       const impressions = Math.round(c.impressions * scale * (0.75 + r() * 0.5));
-      const clicks = Math.round(impressions * c.ctr * (0.8 + r() * 0.4));
+      const clicks = Math.round(impressions * c.ctr * (d < 7 && c.ctrLast7 ? c.ctrLast7 : 1) * (0.8 + r() * 0.4));
       const spend = Math.round((clicks * c.costPerClick * (0.9 + r() * 0.2)) / 100) * 100 * 100;
-      events.push(ev(tenant, '', 'marketing.spend_reported', { campaign_id: c.id, campaign_name: c.name, channel: c.channel, date, impressions, clicks, spend: { amount_minor: spend, currency: 'COP' } }, iso(dayStart), { source: `ads.${c.channel}` }));
+      if (!(c.stopsReportingDays && d < c.stopsReportingDays)) events.push(ev(tenant, '', 'marketing.spend_reported', { campaign_id: c.id, campaign_name: c.name, channel: c.channel, date, impressions, clicks, spend: { amount_minor: spend, currency: 'COP' } }, iso(dayStart), { source: `ads.${c.channel}` }));
       const regs = poisson(clicks * c.clickToReg);
       for (let i = 0; i < regs; i++) lifecycle(`acq_${c.channel}_${String(++n).padStart(4, '0')}`, dayStart - r() * 20 * HOUR, c);
     }
@@ -90,6 +92,29 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     for (let i = 0; i < organic; i++) lifecycle(`acq_org_${String(++n).padStart(4, '0')}`, dayStart - r() * 20 * HOUR, null);
   }
   events.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
-  for (const e of events) app.ingestor.ingest(e);
+  // Reproduce la historia en el tiempo: el reloj avanza con los eventos y cada hora simulada
+  // se procesan esperas y diferidos, así bonos y mensajes quedan con su fecha real.
+  const clock = app.clock as { advance?: (ms: number) => void; now(): Date };
+  const replay = typeof clock.advance === 'function' && events.length > 0;
+  if (replay) clock.advance!(Date.parse(events[0].occurred_at) - clock.now().getTime());
+  let lastHour = -1;
+  for (const e of events) {
+    if (replay) {
+      const delta = Date.parse(e.occurred_at) - clock.now().getTime();
+      if (delta > 0) clock.advance!(delta);
+      const hour = Math.floor(clock.now().getTime() / HOUR);
+      if (hour !== lastHour) { lastHour = hour; for (const t of app.tenants) app.policy.markRgFeedSynced(t); app.runtime.runDue(); }
+    }
+    app.ingestor.ingest(e);
+  }
+  if (replay) {
+    clock.advance!(now - clock.now().getTime());
+    for (const t of app.tenants) app.policy.markRgFeedSynced(t);
+    app.runtime.runDue();
+  }
+  // demo: presupuesto de bonos calibrado para quedar cerca del umbral de alerta
+  const b = app.rewards.budget(tenant, 'welcome_fs_10');
+  const it = app.rewards.item(tenant, 'welcome_fs_10');
+  if (b && it && b.committed_minor > 0) app.rewards.addItem({ ...it, budget_minor: Math.round(b.committed_minor / 0.86 / 100) * 100 });
   return { events: events.length, players: n };
 }

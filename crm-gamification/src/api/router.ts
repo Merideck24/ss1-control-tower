@@ -27,6 +27,9 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'rewards.reconcile': ['tenant_admin', 'approver'],
   'analytics.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'performance.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
+  'alerts.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'rg_officer'],
+  'alerts.ack': ['crm_analyst', 'approver', 'tenant_admin', 'rg_officer'],
+  'alerts.configure': ['tenant_admin'],
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
 };
 
@@ -68,7 +71,9 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn } = {
   const actor = sessionFrom(req.headers);
   const T = actor.tenant_id;
   const ok = (body: unknown, status = 200): ApiResponse => ({ status, body });
-  const r0 = `${req.method} ${req.path}`;
+  let path = req.path;
+  try { path = decodeURIComponent(req.path); } catch { /* ruta mal codificada: se usa tal cual */ }
+  const r0 = `${req.method} ${path}`;
   const m = (pattern: RegExp) => r0.match(pattern);
   let r: RegExpMatchArray | null;
   try {
@@ -158,6 +163,32 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn } = {
       if (!can(actor, 'performance.read')) return forbid('performance.read');
       const days = Math.min(365, Math.max(1, Number(req.query.get('days') ?? 30)));
       return ok(app.performanceReport(T, days));
+    }
+    if (r0 === 'GET /performance/payback') {
+      if (!can(actor, 'performance.read')) return forbid('performance.read');
+      const weeks = Math.min(26, Math.max(1, Number(req.query.get('weeks') ?? 12)));
+      return ok(app.performance.payback(T, { to: app.clock.now(), weeks }));
+    }
+    if (r0 === 'GET /kpi-alerts') {
+      if (!can(actor, 'alerts.read')) return forbid('alerts.read');
+      return ok({ as_of: app.clock.now().toISOString(), config: app.alertCenter.config(T), alerts: app.kpiAlerts(T) });
+    }
+    if ((r = m(/^POST \/kpi-alerts\/([\w:.-]+)\/ack$/))) {
+      if (!can(actor, 'alerts.ack')) return forbid('alerts.ack');
+      const id = r[1];
+      if (!app.kpiAlerts(T).some((a) => a.id === id)) return { status: 404, body: { error: 'not_found', message: 'La alerta ya no está activa' } };
+      const at = app.clock.now().toISOString();
+      app.alertCenter.acknowledge(T, id, actor.id, at, req.body.note ? String(req.body.note).slice(0, 280) : undefined);
+      app.audit.record(T, actor.id, 'kpi_alert.acknowledged', id, { note: req.body.note ?? null });
+      return ok({ id, acknowledged: { by: actor.id, at } });
+    }
+    if (r0 === 'PUT /kpi-alerts/config') {
+      if (!can(actor, 'alerts.configure')) return forbid('alerts.configure');
+      try {
+        const next = app.alertCenter.setConfig(T, req.body as never);
+        app.audit.record(T, actor.id, 'kpi_alert.config_changed', T, req.body);
+        return ok(next);
+      } catch (e) { return { status: 422, body: { error: 'invalid_config', message: (e as Error).message } }; }
     }
     if (r0 === 'GET /audit') {
       if (!can(actor, 'audit.read')) return forbid('audit.read');

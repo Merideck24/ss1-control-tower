@@ -43,8 +43,11 @@ export const DEFAULT_POLICY: MarketPolicy = {
   require_kyc_for_incentives: true,
 };
 
+const HOUR_FMT = new Map<string, Intl.DateTimeFormat>();
 function localHour(d: Date, tz: string): number {
-  const h = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }).format(d);
+  let f = HOUR_FMT.get(tz);
+  if (!f) { f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' }); HOUR_FMT.set(tz, f); }
+  const h = f.format(d);
   return Number(h) % 24;
 }
 

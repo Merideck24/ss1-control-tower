@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp, seedTenant, type App } from '../app.ts';
-import { seedDemoPlayers } from '../demoData.ts';
 import { seedAcquisitionHistory } from '../demoAcquisition.ts';
 import { route, type AskFn } from './router.ts';
 import { OffsetClock } from '../shared/util.ts';
@@ -44,7 +43,7 @@ export function createHandler(app: App, ask?: AskFn) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createApp(new OffsetClock());
   const demoTenants = ['tenant-rumbawin', 'tenant-demo-b'];
-  for (const t of demoTenants) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); seedDemoPlayers(app, t, t === 'tenant-rumbawin' ? 40 : 12); }
+  for (const t of demoTenants) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
   // demo: simula el latido del feed de juego responsable (en producción lo publica la fuente)
   const heartbeat = () => demoTenants.forEach((t) => app.policy.markRgFeedSynced(t));
   heartbeat();

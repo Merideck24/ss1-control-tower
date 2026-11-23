@@ -35,9 +35,13 @@ function track<T>(current: Tracked<T> | undefined, value: T, e: EventEnvelope): 
 
 /** Pure reducer: applies one (already deduplicated) event to the projection. */
 export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
-  const next: PlayerProfile = structuredClone(p);
-  next.timeline.push({ event_id: e.event_id, event_type: e.event_type, occurred_at: e.occurred_at, source: e.source });
-  next.timeline.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at) || a.event_id.localeCompare(b.event_id));
+  // copia superficial: los campos Tracked se reemplazan, nunca se mutan
+  const next: PlayerProfile = { ...p, consents: { ...p.consents }, stats: { ...p.stats }, rewards: [...p.rewards], timeline: [...p.timeline] };
+  const item = { event_id: e.event_id, event_type: e.event_type, occurred_at: e.occurred_at, source: e.source };
+  const cmp = (a: PlayerProfile['timeline'][number], b: PlayerProfile['timeline'][number]) => a.occurred_at.localeCompare(b.occurred_at) || a.event_id.localeCompare(b.event_id);
+  let i = next.timeline.length;
+  while (i > 0 && cmp(next.timeline[i - 1], item) > 0) i--; // casi siempre llega en orden: O(1)
+  next.timeline.splice(i, 0, item);
   switch (e.event_type) {
     case 'player.registered': {
       const pl = (e as EventEnvelope<'player.registered'>).payload;

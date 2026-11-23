@@ -3,13 +3,12 @@
  * e intercepta fetch('/api/…') con el enrutador puro. Sin servidor ni red.
  */
 import { createApp, seedTenant } from './app.ts';
-import { seedDemoPlayers } from './demoData.ts';
 import { seedAcquisitionHistory } from './demoAcquisition.ts';
 import { route } from './api/router.ts';
 import { OffsetClock } from './shared/util.ts';
 
 const app = createApp(new OffsetClock());
-for (const t of ['tenant-rumbawin', 'tenant-demo-b']) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); seedDemoPlayers(app, t, t === 'tenant-rumbawin' ? 40 : 12); }
+for (const t of ['tenant-rumbawin', 'tenant-demo-b']) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
 for (const t of app.tenants) app.policy.markRgFeedSynced(t);
 setInterval(() => app.tenants.forEach((t) => app.policy.markRgFeedSynced(t)), 60_000);
 
