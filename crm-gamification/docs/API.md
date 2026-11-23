@@ -23,6 +23,7 @@ Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expo
 | `POST /runtime/tick` | Procesa temporizadores vencidos (demo: `{advance_hours}`) | CRM-03 |
 | `POST /runtime/pause` | Pausa general por tenant (`tenant_admin` / `rg_officer`) | CRM-08 |
 | `GET /rewards` · `POST /rewards/reconcile` | Catálogo, presupuesto, otorgamientos y conciliación | CRM-07 |
+| `GET /performance?days=60` | Adquisición y valor por campaña: inversión, CTR, FTD %, CPA, costo por FTD, depósitos, GGR, NGR, retención D7/D30, ROI, alcance CRM y nivel Loyalty (`performance.read`) | Control Tower |
 | `GET /analytics/campaigns` | Tratamiento vs. control, IC 95 %, costo | CRM-09 |
 | `GET /audit` | Registro encadenado (`auditor`, `tenant_admin`, `approver`) | CRM-08 |
 | `GET /copilot/tools` · `POST /copilot/tools/:name` | Herramientas del copiloto según rol | IA |

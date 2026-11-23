@@ -1,9 +1,9 @@
-import { validateEnvelope, type EventEnvelope } from '../domain/events.ts';
+import { NON_PLAYER_EVENTS, validateEnvelope, type EventEnvelope } from '../domain/events.ts';
 import { applyEvent, emptyProfile, type PlayerProfile } from '../profile/projection.ts';
 import type { Clock } from '../shared/util.ts';
 
 export type IngestResult = { status: 'applied' | 'duplicate' | 'rejected'; reason?: string; profile?: PlayerProfile };
-export type Subscriber = (e: EventEnvelope, profile: PlayerProfile) => void;
+export type Subscriber = (e: EventEnvelope, profile: PlayerProfile | undefined) => void;
 
 const key = (tenant: string, player: string) => `${tenant}::${player}`;
 
@@ -40,6 +40,11 @@ export class Ingestor {
     if (this.#seen.has(dedupKey)) { m.duplicates++; return { status: 'duplicate', profile: this.get(e.tenant_id, e.player_id) }; }
     this.#seen.add(dedupKey);
     m.max_lag_ms = Math.max(m.max_lag_ms, Date.parse(e.received_at!) - Date.parse(e.occurred_at));
+    if (NON_PLAYER_EVENTS.includes(e.event_type)) {
+      m.applied++;
+      for (const s of this.#subs) s(e, undefined);
+      return { status: 'applied' };
+    }
     const k = key(e.tenant_id, e.player_id);
     const profile = applyEvent(this.#profiles.get(k) ?? emptyProfile(e.tenant_id, e.brand_id, e.player_id), e);
     this.#profiles.set(k, profile);

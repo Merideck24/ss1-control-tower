@@ -1,4 +1,5 @@
 import { AuditLog } from './audit/audit.ts';
+import { PerformanceStore } from './analytics/performance.ts';
 import { ChannelHub, MemoryAdapter } from './channels/channels.ts';
 import { CopilotTools } from './copilot/tools.ts';
 import type { EventEnvelope } from './domain/events.ts';
@@ -29,15 +30,28 @@ export function createApp(clock: Clock = systemClock) {
     registry, policy, profiles: ingestor, audit, clock,
     effects: { send: (r) => channels.send(r), recordNonDelivery: (r) => channels.recordNonDelivery(r), grant: (r) => rewards.grant(r) },
   });
-  const copilot = new CopilotTools({ registry, policy, profiles: () => [...new Set(tenants)].flatMap((t) => ingestor.all(t)), audit, clock });
+  const performance = new PerformanceStore();
+  const copilot = new CopilotTools({ registry, policy, profiles: () => [...new Set(tenants)].flatMap((t) => ingestor.all(t)), audit, clock, performance: (t, days) => performanceReport(t, days) });
   const tenants: string[] = [];
 
   // bucle de eventos: proyección → fidelidad → recorridos
-  ingestor.subscribe((e) => { loyalty.onEvent(e); runtime.onEvent(e); });
+  ingestor.subscribe((e) => { performance.onEvent(e); loyalty.onEvent(e); runtime.onEvent(e); });
   bonus.onGranted = (e) => ingestor.ingest(e);
   loyalty.onThreshold = (e) => ingestor.ingest(e);
 
-  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants };
+  /** Rendimiento enriquecido con CRM (alcance) y Loyalty (nivel). */
+  function performanceReport(tenant: string, days: number) {
+    return performance.report(tenant, { to: clock.now(), days }, {
+      crmReached: (t, p) => channels.receipts(t, p).some((r) => r.status === 'accepted'),
+      loyaltyLevelRank: (t, p) => {
+        const prof = ingestor.get(t, p);
+        const prog = prof && loyalty.program(t, prof.brand_id);
+        return prog ? prog.levels.findIndex((l) => l.name === loyalty.progress(t, prof!.brand_id, p).level) : 0;
+      },
+    });
+  }
+
+  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

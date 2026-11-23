@@ -42,6 +42,7 @@ export type Effects = {
  */
 export class JourneyRuntime {
   #instances = new Map<string, JourneyInstance>();
+  #byPlayer = new Map<string, JourneyInstance[]>(); // tenant::player → instancias
   #globalPause = new Set<string>(); // tenants con pausa general
   #registry: JourneyRegistry;
   #policy: PolicyEngine;
@@ -67,8 +68,9 @@ export class JourneyRuntime {
   onEvent(e: EventEnvelope): JourneyInstance[] {
     const started: JourneyInstance[] = [];
     // salidas por evento (p.ej. player.verified termina el recordatorio de verificación)
-    for (const inst of this.#instances.values()) {
-      if (inst.tenant_id !== e.tenant_id || inst.player_id !== e.player_id || !['waiting', 'running'].includes(inst.status)) continue;
+    const mine = this.#byPlayer.get(`${e.tenant_id}::${e.player_id}`) ?? [];
+    for (const inst of mine) {
+      if (!['waiting', 'running'].includes(inst.status)) continue;
       const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
       if (def?.exit_on?.includes(e.event_type)) {
         inst.status = 'exited'; inst.wake_at = undefined;
@@ -77,8 +79,8 @@ export class JourneyRuntime {
     }
     // cambio de juego responsable ⇒ cancelar acciones de marketing pendientes (recorrido 5)
     if (e.event_type === 'rg.status_changed' && (e as EventEnvelope<'rg.status_changed'>).payload.status !== 'none') {
-      for (const inst of this.#instances.values()) {
-        if (inst.tenant_id === e.tenant_id && inst.player_id === e.player_id && inst.status === 'waiting') {
+      for (const inst of mine) {
+        if (inst.status === 'waiting') {
           const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
           if (def?.purpose === 'marketing') {
             inst.status = 'cancelled'; inst.wake_at = undefined;
@@ -99,6 +101,8 @@ export class JourneyRuntime {
       const arm = def.purpose === 'marketing' && def.control_group_pct ? assignArm(def.tenant_id, `${def.id}`, e.player_id, def.control_group_pct) : 'treatment';
       const inst: JourneyInstance = { instance_id, tenant_id: e.tenant_id, player_id: e.player_id, journey_id: def.id, version: def.version, arm, status: arm === 'control' ? 'held_out' : 'running', current: def.entry, trigger_event_id: e.event_id, correlation_id: e.correlation_id, trace: [{ at: this.#now(), node: def.entry, type: 'enter', outcome: arm }] };
       this.#instances.set(instance_id, inst);
+      const pk = `${e.tenant_id}::${e.player_id}`;
+      this.#byPlayer.set(pk, [...(this.#byPlayer.get(pk) ?? []), inst]);
       if (arm === 'treatment') this.#advance(inst, def, { event: e });
       started.push(inst);
     }

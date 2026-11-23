@@ -14,6 +14,7 @@ export type Progress = { season: string; points: number; level: string; next_lev
 export class LoyaltyService {
   #programs = new Map<string, LoyaltyProgram>();
   #ledger: LedgerEntry[] = [];
+  #balances = new Map<string, number>(); // tenant::player::season → saldo acumulado
   #refs = new Set<string>();
   #notified = new Set<string>(); // tenant::player::season::level
   #optOut = new Set<string>();
@@ -31,7 +32,7 @@ export class LoyaltyService {
   isOptedOut(tenant: string, player: string) { return this.#optOut.has(`${tenant}::${player}`); }
 
   balance(tenant: string, player: string, season: string): number {
-    return this.#ledger.filter((e) => e.tenant_id === tenant && e.player_id === player && e.season === season).reduce((s, e) => s + e.points, 0);
+    return this.#balances.get(`${tenant}::${player}::${season}`) ?? 0;
   }
 
   /** Cálculo del 50 %: entre el umbral del nivel actual y el siguiente. */
@@ -53,6 +54,8 @@ export class LoyaltyService {
     const before = this.progress(e.tenant_id, brand, e.player_id);
     const entry = { ...e, at: this.#clock.now().toISOString() };
     this.#ledger.push(entry);
+    const bk = `${e.tenant_id}::${e.player_id}::${e.season}`;
+    this.#balances.set(bk, (this.#balances.get(bk) ?? 0) + e.points);
     const after = this.progress(e.tenant_id, brand, e.player_id);
     const crossedHalf = after.next_level && after.percent_to_next >= 50 && (before.level !== after.level || before.percent_to_next < 50);
     const nk = `${e.tenant_id}::${e.player_id}::${after.season}::${after.level}`;

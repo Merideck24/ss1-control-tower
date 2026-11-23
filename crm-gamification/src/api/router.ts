@@ -26,6 +26,7 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'segments.preview': ['crm_analyst', 'approver', 'tenant_admin'],
   'rewards.reconcile': ['tenant_admin', 'approver'],
   'analytics.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
+  'performance.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
 };
 
@@ -152,6 +153,11 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn } = {
         const cost = app.rewards.grants(T).filter((g) => g.status === 'confirmed' && g.idempotency_key.includes(`:${j.id}:`)).reduce((s, g) => s + g.value.amount_minor, 0);
         return report({ campaign: j.id, window: { from: j.updated_at, to: app.clock.now().toISOString() }, primary_metric: 'has_deposit', treatment: { n: inst.filter((i) => i.arm === 'treatment').length, conversions: conv('treatment') }, control: { n: inst.filter((i) => i.arm === 'control').length, conversions: conv('control') }, cost_minor: cost, currency: 'COP' });
       }));
+    }
+    if (r0 === 'GET /performance') {
+      if (!can(actor, 'performance.read')) return forbid('performance.read');
+      const days = Math.min(365, Math.max(1, Number(req.query.get('days') ?? 30)));
+      return ok(app.performanceReport(T, days));
     }
     if (r0 === 'GET /audit') {
       if (!can(actor, 'audit.read')) return forbid('audit.read');

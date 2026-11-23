@@ -14,7 +14,11 @@ export const EVENT_TYPES = [
   'bet.settled',
   'reward.granted',
   'loyalty.threshold_crossed',
+  'marketing.spend_reported',
 ] as const;
+
+/** Eventos que no pertenecen a un jugador (no actualizan la proyección). */
+export const NON_PLAYER_EVENTS: readonly EventType[] = ['marketing.spend_reported'];
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export type Channel = 'inapp' | 'email' | 'webpush';
@@ -25,15 +29,17 @@ export type KycStatus = 'pending' | 'verified' | 'rejected';
 export type Money = { amount_minor: number; currency: string };
 
 export type PayloadByType = {
-  'player.registered': { email_masked: string; country: string; locale: string; timezone: string };
+  'player.registered': { email_masked: string; country: string; locale: string; timezone: string; acquisition?: { campaign_id: string; channel?: string } };
   'player.verified': { kyc_status: KycStatus };
   'consent.changed': { purpose: Purpose; channel: Channel; granted: boolean };
   'rg.status_changed': { status: RgStatus };
   'deposit.settled': { deposit_id: string } & Money;
   'deposit.reversed': { deposit_id: string } & Money;
-  'bet.settled': { bet_id: string; stake: Money; product: 'casino' | 'sports' };
+  'bet.settled': { bet_id: string; stake: Money; win?: Money; product: 'casino' | 'sports' };
   'reward.granted': { grant_id: string; reward_type: 'free_bet' | 'free_spins' | 'bonus'; value: Money; expires_at: string };
   'loyalty.threshold_crossed': { level: string; season: string; percent: number };
+  /** Inversión diaria agregada por campaña (fuente: plataformas de medios / afiliados). */
+  'marketing.spend_reported': { campaign_id: string; campaign_name: string; channel: string; date: string; impressions: number; clicks: number; spend: Money };
 };
 
 export type EventEnvelope<T extends EventType = EventType> = {
@@ -60,7 +66,8 @@ const FORBIDDEN_KEYS = /token|secret|password|otp|magic_link|reset_link/i;
 
 export function validateEnvelope(e: unknown): asserts e is EventEnvelope {
   const ev = e as Record<string, unknown>;
-  const required = ['event_id', 'event_type', 'schema_version', 'tenant_id', 'brand_id', 'player_id', 'occurred_at', 'source', 'correlation_id', 'payload'];
+  const required = ['event_id', 'event_type', 'schema_version', 'tenant_id', 'brand_id', 'occurred_at', 'source', 'correlation_id', 'payload'];
+  if (!NON_PLAYER_EVENTS.includes(ev?.event_type as EventType)) required.push('player_id');
   for (const k of required) {
     if (ev?.[k] === undefined || ev[k] === null || ev[k] === '') throw new DomainError('invalid_event', `missing field: ${k}`);
   }
@@ -79,7 +86,7 @@ export function validateEnvelope(e: unknown): asserts e is EventEnvelope {
   };
   scan(ev.payload, 'payload.');
   const p = ev.payload as Record<string, unknown>;
-  for (const m of [p, p.stake, p.value]) {
+  for (const m of [p, p.stake, p.value, p.win, p.spend]) {
     if (m && typeof m === 'object' && 'amount_minor' in m) {
       const mm = m as Money;
       if (!Number.isInteger(mm.amount_minor)) throw new DomainError('invalid_money', 'amount_minor must be integer');

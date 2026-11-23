@@ -16,14 +16,15 @@ export type PlayerProfile = {
   kyc?: Tracked<KycStatus>;
   rg?: Tracked<RgStatus>;
   consents: Partial<Record<ConsentKey, Tracked<boolean>>>;
-  stats: { deposits_minor: number; deposit_count: number; bets_count: number; stake_minor: number; currency?: string; last_deposit_at?: string; last_bet_at?: string };
+  stats: { deposits_minor: number; deposit_count: number; bets_count: number; stake_minor: number; win_minor: number; currency?: string; first_deposit_at?: string; last_deposit_at?: string; last_bet_at?: string };
+  acquisition?: { campaign_id: string; channel?: string };
   rewards: { grant_id: string; reward_type: string; amount_minor: number; currency: string; expires_at: string; granted_at: string }[];
   timeline: { event_id: string; event_type: string; occurred_at: string; source: string }[];
   registered_at?: string;
 };
 
 export function emptyProfile(tenant_id: string, brand_id: string, player_id: string): PlayerProfile {
-  return { tenant_id, brand_id, player_id, consents: {}, stats: { deposits_minor: 0, deposit_count: 0, bets_count: 0, stake_minor: 0 }, rewards: [], timeline: [] };
+  return { tenant_id, brand_id, player_id, consents: {}, stats: { deposits_minor: 0, deposit_count: 0, bets_count: 0, stake_minor: 0, win_minor: 0 }, rewards: [], timeline: [] };
 }
 
 /** Last-writer-wins by occurred_at — tolerates out-of-order delivery. */
@@ -45,6 +46,7 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
       next.locale = track(next.locale, pl.locale, e);
       next.timezone = track(next.timezone, pl.timezone, e);
       next.registered_at ??= e.occurred_at;
+      if (pl.acquisition) next.acquisition ??= pl.acquisition;
       next.kyc ??= { value: 'pending', source: e.source, occurred_at: e.occurred_at, event_id: e.event_id, version: 1 };
       break;
     }
@@ -65,6 +67,7 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
       next.stats.deposits_minor += pl.amount_minor;
       next.stats.deposit_count += 1;
       next.stats.currency ??= pl.currency;
+      if (!next.stats.first_deposit_at || e.occurred_at < next.stats.first_deposit_at) next.stats.first_deposit_at = e.occurred_at;
       if (!next.stats.last_deposit_at || e.occurred_at > next.stats.last_deposit_at) next.stats.last_deposit_at = e.occurred_at;
       break;
     }
@@ -78,6 +81,7 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
       const pl = (e as EventEnvelope<'bet.settled'>).payload;
       next.stats.bets_count += 1;
       next.stats.stake_minor += pl.stake.amount_minor;
+      next.stats.win_minor += pl.win?.amount_minor ?? 0;
       if (!next.stats.last_bet_at || e.occurred_at > next.stats.last_bet_at) next.stats.last_bet_at = e.occurred_at;
       break;
     }

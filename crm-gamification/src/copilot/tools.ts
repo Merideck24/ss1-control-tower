@@ -7,6 +7,7 @@ import { emptyProfile, type PlayerProfile } from '../profile/projection.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS, type RuleNode } from '../segments/segmentEngine.ts';
 import type { AuditLog } from '../audit/audit.ts';
 import type { Clock } from '../shared/util.ts';
+import type { PerformanceReport } from '../analytics/performance.ts';
 import { DomainError } from '../shared/util.ts';
 
 /** Sesión del copiloto: tenant y rol los fija el backend, nunca el modelo. */
@@ -22,8 +23,8 @@ const bucket = (n: number) => (n > 0 && n < K_MIN ? `<${K_MIN}` : n);
 export const TOOL_DEFS: ToolDef[] = [
   {
     name: 'query_metric',
-    description: 'Devuelve una métrica agregada del catálogo para el tenant de la sesión. Nunca devuelve datos individuales. Métricas: players_total, kyc_verified_rate, deposits_total, rg_restricted_count, marketing_email_optin_rate, suppressions_by_reason.',
-    input_schema: { type: 'object', properties: { metric: { type: 'string', enum: ['players_total', 'kyc_verified_rate', 'deposits_total', 'rg_restricted_count', 'marketing_email_optin_rate', 'suppressions_by_reason'] } }, required: ['metric'], additionalProperties: false },
+    description: 'Devuelve una métrica agregada del catálogo para el tenant de la sesión. Nunca devuelve datos individuales. Métricas: players_total, kyc_verified_rate, deposits_total, rg_restricted_count, marketing_email_optin_rate, suppressions_by_reason, campaign_performance (inversión, CTR, FTD %, CPA, costo por FTD, depósitos, GGR, NGR, retención D7/D30 y ROI por campaña; usa days para el período).',
+    input_schema: { type: 'object', properties: { metric: { type: 'string', enum: ['players_total', 'kyc_verified_rate', 'deposits_total', 'rg_restricted_count', 'marketing_email_optin_rate', 'suppressions_by_reason', 'campaign_performance'] }, days: { type: 'integer', minimum: 1, maximum: 365 } }, required: ['metric'], additionalProperties: false },
     roles: ['crm_analyst', 'approver', 'auditor'], writes: 'none',
   },
   {
@@ -61,7 +62,7 @@ function referencesOtherTenant(v: unknown, tenant: string): boolean {
 
 export type ToolResult = { ok: true; data: unknown; data_as_of: string; tool: string } | { ok: false; error: string; tool: string };
 
-type Deps = { registry: JourneyRegistry; policy: PolicyEngine; profiles: () => readonly PlayerProfile[]; audit: AuditLog; clock: Clock };
+type Deps = { registry: JourneyRegistry; policy: PolicyEngine; profiles: () => readonly PlayerProfile[]; audit: AuditLog; clock: Clock; performance?: (tenant: string, days: number) => PerformanceReport };
 
 /**
  * Despachador de herramientas: valida nombre, rol, esquema y fronteras de tenant
@@ -118,6 +119,13 @@ export class CopilotTools {
         }
         if (metric === 'rg_restricted_count') value = bucket(ps.filter((p) => p.rg && p.rg.value !== 'none').length);
         if (metric === 'marketing_email_optin_rate') value = n < K_MIN ? 'insufficient_data' : +(ps.filter((p) => p.consents['marketing:email']?.value).length / n).toFixed(3);
+        if (metric === 'campaign_performance') {
+          if (!this.#d.performance) throw new DomainError('metric_unavailable', metric);
+          const days = Math.min(365, Math.max(1, Number(input.days ?? 30)));
+          const r = this.#d.performance(s.tenant_id, days);
+          const pick = (c: PerformanceReport['totals']) => ({ campaign: c.campaign_name, spend_minor: c.spend_minor, ctr: c.ctr, registrations: bucket(c.registrations), ftd: bucket(c.ftd), ftd_rate: c.registrations < K_MIN ? 'insufficient_data' : c.ftd_rate, cpa_minor: c.cpa_minor, cost_per_ftd_minor: c.cost_per_ftd_minor, deposits_minor: c.deposits_minor, ggr_minor: c.ggr_minor, ngr_minor: c.ngr_minor, retention_d7: c.retention_d7.eligible < K_MIN ? 'insufficient_data' : c.retention_d7.rate, retention_d30: c.retention_d30.eligible < K_MIN ? 'insufficient_data' : c.retention_d30.rate, roi: c.roi });
+          return { metric, definition: 'Ver definitions', window: r.window, currency: r.currency, finance_definition_version: r.finance_definition.version, totals: pick(r.totals), campaigns: r.campaigns.map(pick), definitions: r.definitions };
+        }
         if (metric === 'suppressions_by_reason') {
           const counts: Record<string, number> = {};
           for (const e of this.#d.audit.list(s.tenant_id, { action: 'delivery.suppressed' })) for (const r of (e.details.reasons as string[]) ?? []) counts[r] = (counts[r] ?? 0) + 1;

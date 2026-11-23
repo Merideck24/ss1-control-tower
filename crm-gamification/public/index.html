@@ -48,6 +48,21 @@
   .bar > span { display: block; height: 100%; background: var(--brand); }
   .phone { max-width: 360px; margin: 0 auto; border: 1px solid var(--line); border-radius: 24px; padding: 18px; background: var(--panel); }
   .scroll { overflow-x: auto; }
+  .perf-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .perf-head h2 { font-size: 18px; margin: 0; text-wrap: balance; }
+  .kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .kpi-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .kpi-card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+  .kpi-card .val { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .kpi-card .sub { font-size: 12px; color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 650; border-top: 2px solid var(--line); }
+  .funnel-row { display: grid; grid-template-columns: 130px 1fr 110px; gap: 10px; align-items: center; margin: 6px 0; }
+  .funnel-row .bar { height: 14px; }
+  details summary { cursor: pointer; color: var(--brand); }
+  dl.defs { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: 4px 12px; margin: 10px 0 0; }
+  dl.defs dt { font-weight: 600; } dl.defs dd { margin: 0; color: var(--muted); }
+  @media (max-width: 620px) { .funnel-row { grid-template-columns: 90px 1fr 80px; } .grid > [style*="span 2"] { grid-column: auto !important; } }
 </style>
 </head>
 <body>
@@ -84,6 +99,61 @@ function flash(msg, kind = '') {
 }
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const moneyC = (minor, cur = 'COP') => minor === null || minor === undefined ? '—' : (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, notation: 'compact', maximumFractionDigits: 1 });
+const pct = (x, d = 1) => x === null || x === undefined ? '—' : (x * 100).toLocaleString('es-CO', { maximumFractionDigits: d, minimumFractionDigits: d }) + ' %';
+const int = (n) => (n ?? 0).toLocaleString('es-CO');
+let perfDays = 60;
+const CHANNEL = { google: 'Google', meta: 'Meta', affiliate: 'Afiliados', tiktok: 'TikTok', organic: 'Orgánico', all: '' };
+const ret = (r) => r.eligible === 0 ? '<span class="muted" title="Ningún FTD tiene aún la antigüedad necesaria">inmadura</span>' : `${pct(r.rate)} <span class="muted">(${r.retained}/${r.eligible})</span>`;
+const roiCell = (x) => x === null ? '—' : `<span class="${x >= 0 ? 'ok' : 'bad'}">${x >= 0 ? '+' : ''}${pct(x, 0)}</span>`;
+
+function perfSection(p) {
+  const t = p.totals;
+  const tile = (lbl, val, sub = '') => `<div class="kpi-card"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+  const f = p.funnel;
+  const steps = [['Impresiones', f.impressions, null], ['Clics', f.clicks, f.impressions], ['Registros', f.registrations, f.clicks], ['FTD', f.ftd, f.registrations], ['Retenidos D30', f.retained_d30, t.retention_d30.eligible || null]];
+  const rows = [...p.campaigns, { ...t, campaign_name: 'Total' }];
+  return `
+  <section aria-labelledby="perf-h">
+    <div class="perf-head"><h2 id="perf-h">Adquisición y valor</h2>
+      <label>Período <select id="perfDays">${[30, 60, 90].map((d) => `<option value="${d}" ${d === perfDays ? 'selected' : ''}>Últimos ${d} días</option>`).join('')}</select></label>
+      <span class="muted">Cohortes registradas en el período · valor hasta hoy · ${esc(p.currency)}</span></div>
+    <div class="kpis">
+      ${tile('Inversión', moneyC(t.spend_minor), `${int(t.impressions)} impresiones`)}
+      ${tile('CTR', pct(t.ctr, 2), `${int(t.clicks)} clics`)}
+      ${tile('FTD %', pct(t.ftd_rate), `${int(t.ftd)} FTD de ${int(t.registrations)} registros`)}
+      ${tile('CPA', moneyC(t.cpa_minor), 'por registro')}
+      ${tile('Costo por FTD', moneyC(t.cost_per_ftd_minor), 'inversión / FTD')}
+      ${tile('Depósitos', moneyC(t.deposits_minor), 'netos de reversos')}
+      ${tile('GGR', moneyC(t.ggr_minor), 'apuestas − premios')}
+      ${tile('NGR', moneyC(t.ngr_minor), `bonos ${moneyC(t.bonus_cost_minor)} · impuesto ${moneyC(t.gaming_tax_minor)}`)}
+      ${tile('Retención D7', t.retention_d7.eligible ? pct(t.retention_d7.rate) : 'inmadura', `${t.retention_d7.retained}/${t.retention_d7.eligible} FTD`)}
+      ${tile('Retención D30', t.retention_d30.eligible ? pct(t.retention_d30.rate) : 'inmadura', `${t.retention_d30.retained}/${t.retention_d30.eligible} FTD`)}
+      ${tile('ROI', roiCell(t.roi), `valor por FTD ${moneyC(t.ngr_per_ftd_minor)}`)}
+    </div><br>
+    <div class="grid">
+      <div class="card"><h3>Embudo</h3>
+        ${steps.map(([l, v, prev], i) => {
+          const immature = i === steps.length - 1 && !prev;
+          const share = i === 0 ? 1 : prev ? v / prev : 0;
+          return `<div class="funnel-row"><span>${l}</span><div class="bar" role="img" aria-label="${l}: ${immature ? 'cohorte inmadura' : pct(share) + ' del paso anterior'}"><span style="width:${immature ? 0 : Math.max(2, 100 * share)}%"></span></div><span class="num">${immature ? '<span class="muted">inmadura</span>' : `${int(v)} <span class="muted">${i ? pct(share) : ''}</span>`}</span></div>`;
+        }).join('')}
+        <p class="muted">Cada barra muestra la conversión desde el paso anterior. Retenidos D30 se mide sobre FTD con 30 días o más.</p></div>
+      <div class="card scroll" style="grid-column: span 2"><h3>Marketing → CRM → Loyalty</h3>
+        <table><tr><th>Campaña</th><th class="num">Alcance CRM</th><th class="num">Plata o más</th><th class="num">Bonos CRM</th><th class="num">Valor por FTD</th></tr>
+        ${rows.map((c) => `<tr class="${c.campaign_id === 'total' ? 'total' : ''}"><td>${esc(c.campaign_name)}</td><td class="num">${pct(c.crm_reach, 0)}</td><td class="num">${pct(c.loyalty_silver_plus, 0)}</td><td class="num">${moneyC(c.bonus_cost_minor)}</td><td class="num">${moneyC(c.ngr_per_ftd_minor)}</td></tr>`).join('')}</table></div>
+    </div><br>
+    <div class="card scroll"><h3>Rendimiento por campaña</h3>
+      <table><tr><th>Campaña</th><th class="num">Inversión</th><th class="num">CTR</th><th class="num">Registros</th><th class="num">FTD %</th><th class="num">CPA</th><th class="num">Costo/FTD</th><th class="num">Depósitos</th><th class="num">GGR</th><th class="num">NGR</th><th class="num">D7</th><th class="num">D30</th><th class="num">ROI</th></tr>
+      ${rows.map((c) => `<tr class="${c.campaign_id === 'total' ? 'total' : ''}"><td>${esc(c.campaign_name)}${c.channel && c.channel !== 'all' ? `<br><span class="chip">${esc(CHANNEL[c.channel] ?? c.channel)}</span>` : ''}</td><td class="num">${moneyC(c.spend_minor)}</td><td class="num">${pct(c.ctr, 2)}</td><td class="num">${int(c.registrations)}</td><td class="num">${pct(c.ftd_rate)}</td><td class="num">${moneyC(c.cpa_minor)}</td><td class="num">${moneyC(c.cost_per_ftd_minor)}</td><td class="num">${moneyC(c.deposits_minor)}</td><td class="num">${moneyC(c.ggr_minor)}</td><td class="num">${moneyC(c.ngr_minor)}</td><td class="num">${ret(c.retention_d7)}</td><td class="num">${ret(c.retention_d30)}</td><td class="num">${roiCell(c.roi)}</td></tr>`).join('')}
+      </table>
+      <details><summary>Cómo se calcula</summary>
+        <p class="muted">Definición financiera <b>${esc(p.finance_definition.version)}</b> · impuesto sobre GGR ${pct(p.finance_definition.gaming_tax_rate, 0)} (valor de ejemplo, a validar con Finanzas) · días con inversión reportada: ${p.data_quality.spend_days_reported} · registros sin atribución: ${p.data_quality.unattributed_registrations}${p.data_quality.mixed_currency_excluded ? ` · excluidos por moneda: ${p.data_quality.mixed_currency_excluded}` : ''}</p>
+        <dl class="defs">${Object.entries(p.definitions).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+      </details></div>
+  </section><br><h2 style="font-size:18px;margin:8px 0 12px">Operación CRM</h2>`;
+}
+
 const money = (minor, cur = 'COP') => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, maximumFractionDigits: 0 });
 let current = 'tower';
 
@@ -122,9 +192,10 @@ const kv = (o) => Object.entries(o ?? {}).map(([k, n]) => `<span class="chip">${
 const VIEWS = {
   async tower() {
     const t = await api('/control-tower');
+    const perf = can('performance.read') ? perfSection(await api('/performance?days=' + perfDays)) : '';
     const delivered = Object.entries(t.deliveries).filter(([k]) => k.endsWith(':accepted')).reduce((s, [, n]) => s + n, 0);
     const suppressed = Object.entries(t.deliveries).filter(([k]) => k.endsWith(':suppressed')).reduce((s, [, n]) => s + n, 0);
-    return `
+    return `${perf}
     <div class="row">${can('runtime.tick') ? '<button id="tick">Procesar esperas vencidas (+24 h)</button>' : ''}
       ${can('runtime.global_pause') ? `<button class="ghost" id="gpause">${t.global_pause ? 'Reanudar envíos' : 'Pausa general'}</button>` : ''}
       <span class="muted">Datos al ${new Date(t.as_of).toLocaleString('es-CO')}</span></div>
@@ -212,6 +283,7 @@ const VIEWS = {
 
 const BIND = {
   tower() {
+    if ($('#perfDays')) $('#perfDays').onchange = () => { perfDays = Number($('#perfDays').value); show(); };
     if ($('#tick')) $('#tick').onclick = async () => { try { const r = await api('/runtime/tick', { method: 'POST', body: { advance_hours: 24 } }); flash(`Reloj de la demo adelantado 24 h. Instancias procesadas: ${r.processed}.`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } };
     if ($('#gpause')) $('#gpause').onclick = async () => {
       const t = await api('/control-tower');

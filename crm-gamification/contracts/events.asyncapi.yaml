@@ -22,6 +22,7 @@ channels:
       betSettled: { $ref: '#/components/messages/betSettled' }
       rewardGranted: { $ref: '#/components/messages/rewardGranted' }
       loyaltyThresholdCrossed: { $ref: '#/components/messages/loyaltyThresholdCrossed' }
+      marketingSpendReported: { $ref: '#/components/messages/marketingSpendReported' }
 operations:
   consumeEvents:
     action: receive
@@ -30,7 +31,8 @@ components:
   schemas:
     Envelope:
       type: object
-      required: [event_id, event_type, schema_version, tenant_id, brand_id, player_id, occurred_at, source, correlation_id, payload]
+      required: [event_id, event_type, schema_version, tenant_id, brand_id, occurred_at, source, correlation_id, payload]
+      description: player_id es obligatorio salvo en eventos no asociados a un jugador (marketing.spend_reported).
       properties:
         event_id: { type: string, description: Único por tenant; clave de idempotencia }
         event_type: { type: string }
@@ -51,7 +53,7 @@ components:
         currency: { type: string, pattern: '^[A-Z]{3}$' }
   messages:
     playerRegistered:
-      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [email_masked, country, locale, timezone], properties: { email_masked: { type: string }, country: { type: string }, locale: { type: string, enum: [es, en, pt] }, timezone: { type: string } } } } }] }
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [email_masked, country, locale, timezone], properties: { email_masked: { type: string }, country: { type: string }, locale: { type: string, enum: [es, en, pt] }, timezone: { type: string }, acquisition: { type: object, required: [campaign_id], properties: { campaign_id: { type: string }, channel: { type: string } } } } } } }] }
     playerVerified:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [kyc_status], properties: { kyc_status: { type: string, enum: [pending, verified, rejected] } } } } }] }
     consentChanged:
@@ -63,8 +65,11 @@ components:
     depositReversed:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { allOf: [{ $ref: '#/components/schemas/Money' }, { required: [deposit_id], properties: { deposit_id: { type: string } } }] } } }] }
     betSettled:
-      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [bet_id, stake, product], properties: { bet_id: { type: string }, stake: { $ref: '#/components/schemas/Money' }, product: { type: string, enum: [casino, sports] } } } } }] }
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [bet_id, stake, product], properties: { bet_id: { type: string }, stake: { $ref: '#/components/schemas/Money' }, win: { $ref: '#/components/schemas/Money' }, product: { type: string, enum: [casino, sports] } } } } }] }
     rewardGranted:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [grant_id, reward_type, value, expires_at], properties: { grant_id: { type: string }, reward_type: { type: string, enum: [free_bet, free_spins, bonus] }, value: { $ref: '#/components/schemas/Money' }, expires_at: { type: string, format: date-time } } } } }] }
     loyaltyThresholdCrossed:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [level, season, percent], properties: { level: { type: string }, season: { type: string }, percent: { type: integer } } } } }] }
+    marketingSpendReported:
+      description: Inversión diaria agregada por campaña. No pertenece a un jugador (player_id se omite). Un nuevo reporte del mismo día reemplaza al anterior.
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [campaign_id, campaign_name, channel, date, impressions, clicks, spend], properties: { campaign_id: { type: string }, campaign_name: { type: string }, channel: { type: string, examples: [google, meta, affiliate, tiktok] }, date: { type: string, format: date }, impressions: { type: integer }, clicks: { type: integer }, spend: { $ref: '#/components/schemas/Money' } } } } }] }
