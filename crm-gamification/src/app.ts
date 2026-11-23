@@ -6,6 +6,7 @@ import { trainPersonas, type PersonaModel } from './analytics/personas.ts';
 import { nextBestAction } from './analytics/nba.ts';
 import { lifecycleOf } from './analytics/rfm.ts';
 import { GamificationService } from './gamification/missions.ts';
+import { GamesService } from './gamification/games.ts';
 import { ChannelHub, MemoryAdapter } from './channels/channels.ts';
 import { CopilotTools } from './copilot/tools.ts';
 import type { EventEnvelope } from './domain/events.ts';
@@ -44,7 +45,8 @@ export function createApp(clock: Clock = systemClock) {
   // bucle de eventos: proyección → fidelidad → recorridos
   // en reprocesamiento histórico solo se actualizan proyección y métricas: sin recorridos ni avisos
   const gamification = new GamificationService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
-  ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); runtime.onEvent(e); });
+  const games = new GamesService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
+  ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); games.onEvent(e, prof); runtime.onEvent(e); });
   bonus.onGranted = (e) => ingestor.ingest(e);
   loyalty.onThreshold = (e) => ingestor.ingest(e);
 
@@ -93,7 +95,7 @@ export function createApp(clock: Clock = systemClock) {
     return nextBestAction(p, models(tenant).predictions.get(playerId), { lifecycle: lifecycleOf(p, clock.now()), loyaltyPct: prog?.next_level ? prog.percent_to_next : undefined, policy });
   }
 
-  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification };
+  return { clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

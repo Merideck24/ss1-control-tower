@@ -565,7 +565,7 @@ const VIEWS = {
       <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
   },
   async gamification() {
-    const g = await api('/gamification/missions');
+    const [g, tours, games] = await Promise.all([api('/gamification/missions'), api('/gamification/tournaments'), api('/gamification/minigames')]);
     const ST = { draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activa', paused: 'En pausa', ended: 'Terminada' };
     const target = (m) => m.kind === 'sum' ? moneyC(m.target) : m.kind === 'streak' ? `${m.target} días seguidos` : `${int(m.target)} eventos`;
     const reward = (m) => [m.reward.xp ? `${int(m.reward.xp)} XP` : '', m.reward.reward_id ? esc(m.reward.reward_id) : ''].filter(Boolean).join(' + ');
@@ -580,6 +580,18 @@ const VIEWS = {
       ${g.missions.map((m) => `<tr><td>${esc(m.name)}<br><span class="muted">${esc(m.description)}</span>${m.disputed ? `<br><span class="warn">${m.disputed} en revisión por reverso</span>` : ''}</td><td>${target(m)}</td><td>${reward(m)}</td><td><span class="chip ${m.status === 'active' ? 'brand' : ''}">${ST[m.status] ?? esc(m.status)}</span></td><td class="num">${int(m.participants)}</td><td class="num">${int(m.completions)}</td><td class="num">${pct(m.completion_rate, 0)}</td><td class="num">${int(m.xp_awarded)}</td><td class="num">${moneyC(m.reward_cost_minor)}</td><td class="num">${act(m)}</td></tr>`).join('') || '<tr><td colspan="10" class="muted">Sin misiones.</td></tr>'}</table>
       <p class="muted">No participan jugadores con la gamificación desactivada ni con restricción de juego responsable. Las misiones con bono requieren aprobación de otra persona y el bono pasa por política y presupuesto. Un reverso de depósito corrige el progreso; si la misión ya estaba completada queda en revisión.</p></div><br>
       ${can('journeys.draft') ? `<div class="card"><h3>Nueva misión (JSON)</h3><textarea id="mdraft" rows="10">${esc(JSON.stringify(sample, null, 2))}</textarea><div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
+      <div class="card scroll"><h3>Torneos</h3><table><tr><th>Torneo</th><th>Puntúa</th><th>Ventana</th><th>Estado</th><th class="num">Participan</th><th>Podio</th><th></th></tr>
+        ${tours.map((t) => `<tr><td>${esc(t.name)}</td><td>${t.metric === 'bet_count' ? 'apuestas' : `monto apostado (tope ${moneyC(t.stake_cap_minor)} por apuesta)`}${t.product ? ' · ' + esc(t.product) : ''}<br><span class="muted">mínimo ${int(t.min_score)}</span></td>
+          <td class="muted">${new Date(t.starts_at).toLocaleDateString('es-CO')} – ${new Date(t.ends_at).toLocaleDateString('es-CO')}</td><td><span class="chip ${t.status === 'active' ? 'brand' : ''}">${({ draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activo', finished: 'Cerrado' })[t.status]}</span>${t.final ? `<br><span class="muted" title="${esc(t.final.hash)}">hash ${esc(t.final.hash.slice(0, 10))}…</span>` : ''}</td>
+          <td class="num">${int(t.participants)}</td><td>${t.standings.slice(0, 3).map((x) => `${x.rank}. ${esc(x.player_id)} (${int(x.score)})`).join('<br>') || '<span class="muted">—</span>'}</td>
+          <td class="num">${t.status === 'active' && Date.parse(t.ends_at) < Date.now() && can('journeys.approve') ? `<button data-tfin="${esc(t.id)}">Cerrar y premiar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin torneos.</td></tr>'}</table>
+        <p class="muted">Ranking reproducible desde los eventos: a igual puntaje gana quien lo alcanzó primero. Al cierre se excluyen jugadores con gamificación desactivada o restricción de juego responsable, se guarda la foto con hash y los premios se pagan una sola vez.</p></div><br>
+      ${games.map((gm) => `<div class="card scroll"><h3>${esc(gm.name)} · ${gm.kind === 'wheel' ? 'ruleta' : 'caja de premios'}</h3>
+        <div class="row"><span class="chip">${int(gm.spins_per_day)} tirada(s) gratis por día</span><span class="chip">Costo esperado ${moneyC(gm.expected.cost_per_spin_minor)} por tirada</span><span class="chip">${gm.expected.xp_per_spin} XP esperados</span><span class="chip">${int(gm.spins)} tiradas</span></div>
+        <table><tr><th>Premio</th><th class="num">Probabilidad</th><th class="num">Observado</th></tr>${gm.expected.probabilities.map((pr) => `<tr><td>${esc(pr.label)}</td><td class="num">${pct(pr.p, 1)}</td><td class="num">${gm.spins ? pct((gm.observed[pr.id] ?? 0) / gm.spins, 1) : '—'}</td></tr>`).join('')}</table>
+        <p class="muted">Azar verificable: se publica el compromiso <code>${esc(gm.seeds.at(-1).commit.slice(0, 16))}…</code> (sha256 de la semilla). Al rotar, la semilla anterior se revela y cualquiera puede recalcular cada resultado con sha256(semilla:jugador:número de tirada). Sin compra ni dinero apostado.</p>
+        ${gm.seeds.filter((x) => x.seed).length ? `<details><summary>Semillas reveladas (${gm.seeds.filter((x) => x.seed).length})</summary>${gm.seeds.filter((x) => x.seed).map((x) => `<div class="muted"><code>${esc(x.seed)}</code> · válida desde ${new Date(x.from).toLocaleString('es-CO')}</div>`).join('')}</details>` : ''}
+        ${can('alerts.configure') ? `<div class="row" style="margin-top:8px"><button class="ghost" data-rot="${esc(gm.id)}">Rotar semilla y revelar la anterior</button></div>` : ''}</div><br>`).join('')}
       <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
@@ -743,9 +755,15 @@ const BIND = {
           return `<div style="margin-bottom:10px"><div><b>${esc(m.name)}</b> ${m.completed_at ? '<span class="chip brand">Completada</span>' : m.eligible ? '' : '<span class="chip">No disponible</span>'}</div><div class="muted">${esc(m.description)}</div>
             <div class="bar" role="progressbar" aria-valuenow="${pctv}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(m.name)}"><span style="width:${pctv}%"></span></div>
             <div class="muted">${m.kind === 'sum' ? `${moneyC(m.value)} de ${moneyC(m.target)}` : `${int(m.value)} de ${int(m.target)}${m.kind === 'streak' ? ' días seguidos' : ''}`} · ${m.reward.xp ? `${int(m.reward.xp)} XP` : 'bono'}</div></div>`; }).join('') : '<p class="muted">Sin misiones activas.</p>'}
+        ${d.gamification.opt_out ? '' : `<h3>Torneos</h3>${d.gamification.tournaments.map((t) => `<div style="margin-bottom:6px"><b>${esc(t.name)}</b> ${t.status === 'finished' ? '<span class="chip">Cerrado</span>' : ''}<div class="muted">${t.rank ? `Puesto ${t.rank} de ${int(t.participants)} · ${int(t.score)} puntos` : 'Aún sin puntos'}</div></div>`).join('') || '<p class="muted">Sin torneos.</p>'}
+        <h3>Mini-juegos</h3>${d.gamification.minigames.map((g) => `<div class="row"><span>${esc(g.name)}</span><span class="chip">${int(g.spins_left)} tirada(s) hoy</span>${can('player.preferences') && g.spins_left > 0 ? `<button data-spin="${esc(g.id)}">Girar</button>` : ''}</div>`).join('') || '<p class="muted">Sin mini-juegos.</p>'}`}
         <h3>Logros</h3><div class="row">${d.gamification.badge_catalog.map((b) => { const got = d.gamification.badges.find((x) => x.id === b.id); return `<span class="chip ${got ? 'brand' : ''}" style="${got ? '' : 'opacity:.45'}" title="${esc(b.description)}">${esc(b.name)}</span>`; }).join('')}</div>
         <h3>Preferencias</h3><label><input type="checkbox" id="optin" ${d.gamification.opt_out ? '' : 'checked'} ${can('player.preferences') ? '' : 'disabled'}> Recibir avisos de progreso y misiones</label>
         ${can('player.preferences') ? '' : '<p class="muted">Solo soporte o administración pueden cambiarla desde el backoffice.</p>'}</div>`;
+      document.querySelectorAll('[data-spin]').forEach((b) => b.onclick = async () => {
+        try { const r = await api(`/gamification/minigames/${b.dataset.spin}/spin`, { method: 'POST', body: { player_id: $('#lp').value, request_id: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) } }); flash(`Resultado: ${r.label}${r.reward_status && r.reward_status !== 'sin_premio' ? ' · ' + r.reward_status : ''} (tirada ${r.nonce}, compromiso ${r.commit.slice(0, 10)}…)`, 'ok'); load(); }
+        catch (e) { flash(e.message, 'bad'); }
+      });
       if ($('#optin')) $('#optin').onchange = async () => {
         try { await api(`/players/${encodeURIComponent($('#lp').value)}/gamification-preference`, { method: 'POST', body: { opt_out: !$('#optin').checked } }); flash($('#optin').checked ? 'Gamificación activada para el jugador.' : 'Gamificación desactivada: sin misiones ni avisos de progreso.', 'ok'); load(); }
         catch (e) { flash(e.message, 'bad'); }
@@ -757,6 +775,12 @@ const BIND = {
     document.querySelectorAll('[data-mact]').forEach((b) => b.onclick = async () => {
       try { const m = await api(`/gamification/missions/${b.dataset.mid}/${b.dataset.mact}`, { method: 'POST' }); flash(m.status === 'pending_approval' ? 'Misión enviada a aprobación. La activa otra persona con rol Aprobador.' : m.status === 'active' ? 'Misión activa.' : 'Misión en pausa.', 'ok'); show(); }
       catch (e) { flash(e.message, 'bad'); }
+    });
+    document.querySelectorAll('[data-tfin]').forEach((b) => b.onclick = async () => {
+      try { const t = await api(`/gamification/tournaments/${b.dataset.tfin}/finalize`, { method: 'POST' }); flash(`Torneo cerrado: ${t.final.payouts.length} premios, ${t.final.excluded} excluidos. Hash ${t.final.hash.slice(0, 12)}…`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    });
+    document.querySelectorAll('[data-rot]').forEach((b) => b.onclick = async () => {
+      try { await api(`/gamification/minigames/${b.dataset.rot}/rotate-seed`, { method: 'POST' }); flash('Semilla rotada: la anterior ya es pública para verificar resultados.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
     });
     if ($('#msave')) $('#msave').onclick = async () => {
       try { const m = await api('/gamification/missions', { method: 'POST', body: JSON.parse($('#mdraft').value) }); flash(`Borrador «${m.name}» guardado.`, 'ok'); show(); }

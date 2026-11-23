@@ -118,7 +118,9 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         receipts: app.channels.receipts(T, p.player_id),
         journeys: app.runtime.instances(T, { player_id: p.player_id }),
         grants: app.rewards.grants(T).filter((g) => g.player_id === p.player_id),
-        gamification: app.gamification.playerView(T, p.player_id),
+        gamification: { ...app.gamification.playerView(T, p.player_id),
+          tournaments: app.games.tournaments(T).filter((t) => t.status === 'active' || t.status === 'finished').map((t) => { const st = app.games.standings(T, t.id); const me = st.find((x) => x.player_id === p.player_id); return { id: t.id, name: t.name, status: t.status, ends_at: t.ends_at, rank: me?.rank ?? null, score: me?.score ?? 0, participants: st.length }; }),
+          minigames: app.games.games(T).map((g) => ({ id: g.id, name: g.name, spins_left: app.games.spinsLeft(T, g.id, p.player_id) })) },
         segmentation: (() => {
           const now = app.clock.now();
           const life = lifecycleOf(p, now);
@@ -140,6 +142,39 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
     if (r0 === 'GET /gamification/missions') {
       if (!can(actor, 'gamification.read')) return forbid('gamification.read');
       return ok({ missions: app.gamification.stats(T), badges: app.gamification.playerView(T, '__catalog__').badge_catalog });
+    }
+    if (r0 === 'GET /gamification/tournaments') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok(app.games.tournaments(T).map((t) => ({ ...t, standings: app.games.standings(T, t.id).slice(0, 10), participants: app.games.standings(T, t.id).length })));
+    }
+    if (r0 === 'POST /gamification/tournaments') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.games.saveTournament(actor, req.body as never), 201);
+    }
+    if ((r = m(/^POST \/gamification\/tournaments\/([\w-]+)\/(activate|finalize)$/))) {
+      if (r[2] === 'finalize') { if (!can(actor, 'journeys.approve') && !can(actor, 'runtime.global_pause')) return forbid('journeys.approve'); return ok(app.games.finalizeTournament(actor, r[1])); }
+      if (!can(actor, 'journeys.submit') && !can(actor, 'journeys.approve')) return forbid('journeys.submit');
+      return ok(app.games.activateTournament({ ...actor, canApprove: can(actor, 'journeys.approve') }, r[1]));
+    }
+    if (r0 === 'GET /gamification/minigames') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok(app.games.games(T).map((g) => {
+        const spins = app.games.spinsOf(T, g.id);
+        const observed = Object.fromEntries(g.prizes.map((p) => [p.id, spins.filter((s) => s.outcome === p.id).length]));
+        return { ...g, expected: app.games.expected(T, g), seeds: app.games.seeds(T, g.id), spins: spins.length, observed };
+      }));
+    }
+    if ((r = m(/^POST \/gamification\/minigames\/([\w-]+)\/(spin|rotate-seed)$/))) {
+      if (r[2] === 'rotate-seed') { if (!can(actor, 'alerts.configure')) return forbid('alerts.configure'); return ok(app.games.rotateSeed(actor, r[1])); }
+      if (!can(actor, 'player.preferences')) return forbid('player.preferences'); // en el backoffice: soporte/admin en nombre del jugador
+      return ok(app.games.spin(T, r[1], String(req.body.player_id), String(req.body.request_id ?? '')));
+    }
+    if ((r = m(/^GET \/gamification\/minigames\/([\w-]+)\/verify$/))) {
+      const g = app.games.game(T, r[1]); if (!g) return { status: 404, body: { error: 'not_found' } };
+      const seed = req.query.get('seed') ?? '';
+      const { outcomeFor } = await import('../gamification/games.ts');
+      const { sha256 } = await import('../shared/util.ts');
+      return ok({ commit: sha256(seed), outcome: outcomeFor(seed, req.query.get('player') ?? '', Number(req.query.get('nonce')), g.prizes).id });
     }
     if (r0 === 'POST /gamification/missions') {
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');

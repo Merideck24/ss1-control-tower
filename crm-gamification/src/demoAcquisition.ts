@@ -136,4 +136,13 @@ export function seedDemoMissions(app: App, tenant: string, now: number) {
     app.gamification.activate({ ...analyst, canApprove: false }, m.id);
     if (m.reward.reward_id) app.gamification.activate(approver, m.id);
   }
+  if (!app.games.tournament(tenant, 't_sports_week')) {
+    app.games.saveTournament(analyst, { id: 't_sports_week', brand_id: 'rumbawin', name: 'Semana deportiva', metric: 'bet_count', product: 'sports', starts_at: new Date(now - 7 * DAY).toISOString(), ends_at: new Date(now + 2 * DAY).toISOString(), min_score: 3,
+      prizes: [{ from: 1, to: 1, prize: { xp: 1000 } }, { from: 2, to: 3, prize: { xp: 500 } }, { from: 4, to: 10, prize: { xp: 100 } }] });
+    app.games.activateTournament({ ...analyst, canApprove: false }, 't_sports_week');
+  }
+  if (!app.games.game(tenant, 'g_daily_wheel')) {
+    app.games.saveGame(analyst, { id: 'g_daily_wheel', brand_id: 'rumbawin', name: 'Ruleta diaria', kind: 'wheel', spins_per_day: 1,
+      prizes: [{ id: 'none', label: 'Sigue intentando', weight: 55, prize: {} }, { id: 'xp25', label: '25 XP', weight: 30, prize: { xp: 25 } }, { id: 'xp100', label: '100 XP', weight: 12, prize: { xp: 100 } }, { id: 'fs', label: 'Free spins', weight: 3, prize: { reward_id: 'welcome_fs_10' } }] });
+  }
 }

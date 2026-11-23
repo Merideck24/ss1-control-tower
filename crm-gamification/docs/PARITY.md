@@ -80,8 +80,8 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | G1 | Niveles, puntos, aviso del 50 %, reversos compensatorios | GR8, OPT | ✅ |
 | G2 | Misiones/retos con progreso y recompensa | FT, GR8, OPT | ✅ |
 | G3 | Logros e insignias | GR8, OPT | ✅ |
-| G4 | Torneos con ranking reproducible | FT, GR8, OPT | ⬜ |
-| G5 | Mini-juegos: ruleta y caja de premios aleatoria con probabilidades auditables | GR8, OPT | ⬜ |
+| G4 | Torneos con ranking reproducible | FT, GR8, OPT | ✅ |
+| G5 | Mini-juegos: ruleta y caja de premios aleatoria con probabilidades auditables | GR8, OPT | ✅ |
 | G6 | Tienda de canjes con moneda propia, saldo y stock bajo concurrencia | GR8, OPT | ⬜ |
 | G7 | Juegos de predicción con bonos por acierto | GR8 | ⬜ |
 | G8 | Presupuesto y límites de gasto de recompensas | OPT | ✅ |
@@ -140,3 +140,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 8 | 2026-11-23 | E1, E2, E3, E5, C5 | Regresión logística L2 por tenant con validación temporal (60/30 días): abandono AUC 0,84 vs. base 0,75; propensión AUC 0,81 vs. 0,64; valor a 30 días con 22 % menos error que la base. VIP temprano (p90), preferencias, razones en lenguaje claro, sin variables de juego responsable y restringidos no elegibles para promoción. Campos `pred.*` en segmentos |
 | 9 | 2026-11-23 | C4, E4 | Personas por k-means determinista con nombres por rasgos e IDs estables; mejor acción siguiente con valor esperado, «no contactar» siempre disponible, candidatas filtradas por el motor de políticas y juego responsable ⇒ solo «no contactar». Campos `persona` y `nba.action` en segmentos; resumen en Analítica y detalle en Perfil 360 |
 | 10 | 2026-11-23 | G2, G3, G10 | Misiones de conteo, suma y racha (días de Bogotá) con XP en el libro de fidelidad o bono aprobado por otra persona; progreso idempotente y reverso compensatorio (completadas en revisión); logros únicos; preferencia de desactivar con API, permisos y auditoría; pestaña Gamificación y widget con misiones e insignias. Corregido: recompensas vencidas se mostraban como vigentes |
+| 11 | 2026-11-23 | G4, G5 | Torneos por apuestas o monto con tope por apuesta, ranking puro y reproducible con desempate por tiempo, cierre con hash, exclusión JR al cierre y premios idempotentes (bono con aprobación). Ruleta y caja de premios gratuitas con tabla de probabilidades, costo esperado, límite diario (Bogotá), idempotencia por solicitud y azar verificable por compromiso-revelación |
