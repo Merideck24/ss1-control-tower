@@ -37,6 +37,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'alerts.ack': ['crm_analyst', 'approver', 'tenant_admin', 'rg_officer'],
   'alerts.configure': ['tenant_admin'],
   'integration.sync': ['tenant_admin'],
+  'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
+  'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
 };
@@ -109,12 +111,14 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       if (!p) return { status: 404, body: { error: 'not_found', message: `No existe el jugador ${r[1]} en ${T}` } };
       const decisions = Object.fromEntries((['inapp', 'email', 'webpush'] as const).map((c) => [c, app.policy.decide({ profile: p, purpose: 'marketing', channel: c })]));
       return ok({
+        as_of: app.clock.now().toISOString(),
         profile: profileView(p),
         loyalty: app.loyalty.program(T, p.brand_id) ? { ...app.loyalty.progress(T, p.brand_id, p.player_id), movements: app.loyalty.movements(T, p.player_id).slice(-20) } : null,
         eligibility_explanation: { marketing: decisions, incentive: app.policy.decide({ profile: p, purpose: 'marketing', incentive: true }) },
         receipts: app.channels.receipts(T, p.player_id),
         journeys: app.runtime.instances(T, { player_id: p.player_id }),
         grants: app.rewards.grants(T).filter((g) => g.player_id === p.player_id),
+        gamification: app.gamification.playerView(T, p.player_id),
         segmentation: (() => {
           const now = app.clock.now();
           const life = lifecycleOf(p, now);
@@ -132,6 +136,27 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
       const preds = [...m.predictions.values()];
       return ok({ as_of: m.as_of, models: m.models, value: m.value, vip_threshold_minor: m.vip_threshold_minor, notes: m.notes,
         summary: { scored: preds.length, high_churn: preds.filter((p) => (p.churn?.p ?? 0) >= 0.6).length, vip_early: preds.filter((p) => p.vip_early).length, not_promo_eligible: preds.filter((p) => !p.promo_eligible).length } });
+    }
+    if (r0 === 'GET /gamification/missions') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok({ missions: app.gamification.stats(T), badges: app.gamification.playerView(T, '__catalog__').badge_catalog });
+    }
+    if (r0 === 'POST /gamification/missions') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.gamification.save(actor, req.body as never), 201);
+    }
+    if ((r = m(/^POST \/gamification\/missions\/([\w-]+)\/(activate|pause)$/))) {
+      const perm = r[2] === 'pause' ? 'journeys.pause' : 'journeys.submit';
+      if (!can(actor, perm) && !can(actor, 'journeys.approve')) return forbid(perm);
+      return ok(r[2] === 'pause' ? app.gamification.pause(actor, r[1]) : app.gamification.activate({ ...actor, canApprove: can(actor, 'journeys.approve') }, r[1]));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/gamification-preference$/))) {
+      if (!can(actor, 'player.preferences')) return forbid('player.preferences');
+      if (!app.ingestor.get(T, r[1])) return { status: 404, body: { error: 'not_found' } };
+      const optOut = req.body.opt_out === true;
+      app.loyalty.setOptOut(T, r[1], optOut);
+      app.audit.record(T, actor.id, 'player.gamification_preference', r[1], { opt_out: optOut });
+      return ok({ player_id: r[1], opt_out: optOut });
     }
     if (r0 === 'GET /personas') {
       if (!can(actor, 'segments.preview')) return forbid('segments.preview');

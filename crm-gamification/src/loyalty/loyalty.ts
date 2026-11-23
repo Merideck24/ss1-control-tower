@@ -79,6 +79,13 @@ export class LoyaltyService {
     return this.#append({ entry_id: `le_${e.event_id}`, tenant_id: e.tenant_id, player_id: e.player_id, season: p.season, points, reason: 'bet.settled', ref: e.event_id }, e.brand_id);
   }
 
+  /** XP por misiones u otras mecánicas: asiento idempotente por `ref`. */
+  award(tenant: string, brand: string, player: string, points: number, reason: string, ref: string): LedgerEntry | undefined {
+    const p = this.program(tenant, brand);
+    if (!p || points <= 0) return undefined;
+    return this.#append({ entry_id: `le_${ref}`, tenant_id: tenant, player_id: player, season: p.season, points, reason, ref }, brand);
+  }
+
   /** Asiento compensatorio de un movimiento previo. */
   reverse(tenant: string, brand: string, ref: string, reason: string): LedgerEntry | undefined {
     const orig = this.#ledger.find((x) => x.tenant_id === tenant && x.ref === ref && !x.compensates);

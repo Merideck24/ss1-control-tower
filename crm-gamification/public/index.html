@@ -181,7 +181,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -466,6 +466,7 @@ const ICON_PATHS = {
   analytics: '<path d="M4 19h16"/><path d="M4 15l5-5 4 4 7-7"/>',
   loyalty: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   copilot: '<path d="M12 3a7 7 0 0 1 7 7c0 3-2 5-4 6v3H9v-3c-2-1-4-3-4-6a7 7 0 0 1 7-7z"/><path d="M10 21h4"/>',
+  gamification: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
@@ -562,6 +563,24 @@ const VIEWS = {
     const pending = js.filter((j) => j.status === 'pending_approval' || j.status === 'approved');
     return `<div class="card scroll"><h3>Pendientes</h3>${pending.length ? `<table><tr><th>Recorrido</th><th>Versión</th><th>Autor</th><th>Incentivo</th><th>Pasos</th><th></th></tr>${pending.map((j) => `<tr><td>${esc(j.name)}</td><td>v${j.version}</td><td>${esc(j.created_by)}</td><td>${j.nodes.some((n) => n.type === 'grant_reward') ? '<span class="warn">Sí, aprobación separada</span>' : 'No'}</td><td>${j.as_list.map(esc).join('<br>')}</td><td>${j.status === 'pending_approval' ? (can('journeys.approve') ? `<button data-approve="${esc(j.id)}">Aprobar</button>` : '<span class="muted">Espera a un aprobador</span>') : (can('journeys.publish') ? `<button data-publish="${esc(j.id)}">Publicar</button>` : '<span class="muted">Aprobado</span>')}</td></tr>`).join('')}</table>` : '<p class="muted">Sin solicitudes. Cambia a «Analista CRM», crea un borrador en Constructor y envíalo.</p>'}
       <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
+  },
+  async gamification() {
+    const g = await api('/gamification/missions');
+    const ST = { draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activa', paused: 'En pausa', ended: 'Terminada' };
+    const target = (m) => m.kind === 'sum' ? moneyC(m.target) : m.kind === 'streak' ? `${m.target} días seguidos` : `${int(m.target)} eventos`;
+    const reward = (m) => [m.reward.xp ? `${int(m.reward.xp)} XP` : '', m.reward.reward_id ? esc(m.reward.reward_id) : ''].filter(Boolean).join(' + ');
+    const act = (m) => {
+      if ((m.status === 'draft' || m.status === 'paused') && can('journeys.submit')) return `<button class="ghost" data-mact="activate" data-mid="${esc(m.id)}">${m.reward.reward_id && m.status === 'draft' ? 'Enviar a aprobación' : 'Activar'}</button>`;
+      if (m.status === 'pending_approval' && can('journeys.approve')) return `<button data-mact="activate" data-mid="${esc(m.id)}">Aprobar y activar</button>`;
+      if (m.status === 'active' && can('journeys.pause')) return `<button class="ghost" data-mact="pause" data-mid="${esc(m.id)}">Pausar</button>`;
+      return '';
+    };
+    const sample = { id: 'm_weekend', brand_id: 'rumbawin', name: 'Fin de semana deportivo', description: 'Liquida 3 apuestas de deportes', kind: 'count', event_type: 'bet.settled', product: 'sports', target: 3, reward: { xp: 150 }, starts_at: new Date().toISOString(), ends_at: new Date(Date.now() + 14 * 864e5).toISOString() };
+    return `<div class="card scroll"><h3>Misiones</h3><table><tr><th>Misión</th><th>Meta</th><th>Recompensa</th><th>Estado</th><th class="num">Participan</th><th class="num">Completan</th><th class="num">Tasa</th><th class="num">XP</th><th class="num">Costo bonos</th><th></th></tr>
+      ${g.missions.map((m) => `<tr><td>${esc(m.name)}<br><span class="muted">${esc(m.description)}</span>${m.disputed ? `<br><span class="warn">${m.disputed} en revisión por reverso</span>` : ''}</td><td>${target(m)}</td><td>${reward(m)}</td><td><span class="chip ${m.status === 'active' ? 'brand' : ''}">${ST[m.status] ?? esc(m.status)}</span></td><td class="num">${int(m.participants)}</td><td class="num">${int(m.completions)}</td><td class="num">${pct(m.completion_rate, 0)}</td><td class="num">${int(m.xp_awarded)}</td><td class="num">${moneyC(m.reward_cost_minor)}</td><td class="num">${act(m)}</td></tr>`).join('') || '<tr><td colspan="10" class="muted">Sin misiones.</td></tr>'}</table>
+      <p class="muted">No participan jugadores con la gamificación desactivada ni con restricción de juego responsable. Las misiones con bono requieren aprobación de otra persona y el bono pasa por política y presupuesto. Un reverso de depósito corrige el progreso; si la misión ya estaba completada queda en revisión.</p></div><br>
+      ${can('journeys.draft') ? `<div class="card"><h3>Nueva misión (JSON)</h3><textarea id="mdraft" rows="10">${esc(JSON.stringify(sample, null, 2))}</textarea><div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
+      <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
     const [rs, md, nb] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary')]);
@@ -711,11 +730,38 @@ const BIND = {
         <h2 style="margin:6px 0">Nivel ${esc(l.level)}</h2>
         <div class="bar" role="progressbar" aria-valuenow="${l.percent_to_next}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso al siguiente nivel"><span style="width:${l.percent_to_next}%"></span></div>
         <p>${l.next_level ? `${l.percent_to_next} % hacia <b>${esc(l.next_level)}</b> · faltan ${l.points_to_next} pts` : 'Nivel máximo'}</p>
-        <h3>Recompensas</h3>${d.profile.rewards.map((r) => `<div class="card" style="margin-bottom:6px">${esc(r.reward_type)} · ${money(r.amount_minor, r.currency)}<br><span class="muted">Vence ${new Date(r.expires_at).toLocaleDateString('es-CO')}</span></div>`).join('') || '<p class="muted">Sin recompensas activas</p>'}
+        <h3>Recompensas</h3>${(() => {
+          const asOf = d.as_of ? Date.parse(d.as_of) : Date.now();
+          const rs = [...d.profile.rewards].sort((a, b) => b.expires_at.localeCompare(a.expires_at));
+          const active = rs.filter((r) => Date.parse(r.expires_at) > asOf), expired = rs.filter((r) => Date.parse(r.expires_at) <= asOf);
+          const card = (r, exp) => `<div class="card" style="margin-bottom:6px${exp ? ';opacity:.55' : ''}">${esc(r.reward_type)} · ${money(r.amount_minor, r.currency)}<br><span class="muted">${exp ? 'Venció' : 'Vence'} ${new Date(r.expires_at).toLocaleDateString('es-CO')}</span></div>`;
+          return (active.map((r) => card(r, false)).join('') || '<p class="muted">Sin recompensas vigentes</p>') + (expired.length ? `<details><summary>Vencidas (${expired.length})</summary>${expired.map((r) => card(r, true)).join('')}</details>` : '');
+        })()}
         <h3>Movimientos</h3>${l.movements.slice(-6).reverse().map((m) => `<div>${m.points > 0 ? '+' : ''}${m.points} pts <span class="muted">${esc(m.reason)}</span></div>`).join('') || '<p class="muted">—</p>'}
-        <h3>Preferencias</h3><label><input type="checkbox" checked disabled> Recibir avisos de progreso</label></div>`;
+        <h3>Misiones</h3>${d.gamification.opt_out ? '<p class="muted">Gamificación desactivada por el jugador.</p>' : d.gamification.missions.length ? d.gamification.missions.map((m) => {
+          const pctv = Math.min(100, Math.round(100 * m.value / m.target));
+          return `<div style="margin-bottom:10px"><div><b>${esc(m.name)}</b> ${m.completed_at ? '<span class="chip brand">Completada</span>' : m.eligible ? '' : '<span class="chip">No disponible</span>'}</div><div class="muted">${esc(m.description)}</div>
+            <div class="bar" role="progressbar" aria-valuenow="${pctv}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(m.name)}"><span style="width:${pctv}%"></span></div>
+            <div class="muted">${m.kind === 'sum' ? `${moneyC(m.value)} de ${moneyC(m.target)}` : `${int(m.value)} de ${int(m.target)}${m.kind === 'streak' ? ' días seguidos' : ''}`} · ${m.reward.xp ? `${int(m.reward.xp)} XP` : 'bono'}</div></div>`; }).join('') : '<p class="muted">Sin misiones activas.</p>'}
+        <h3>Logros</h3><div class="row">${d.gamification.badge_catalog.map((b) => { const got = d.gamification.badges.find((x) => x.id === b.id); return `<span class="chip ${got ? 'brand' : ''}" style="${got ? '' : 'opacity:.45'}" title="${esc(b.description)}">${esc(b.name)}</span>`; }).join('')}</div>
+        <h3>Preferencias</h3><label><input type="checkbox" id="optin" ${d.gamification.opt_out ? '' : 'checked'} ${can('player.preferences') ? '' : 'disabled'}> Recibir avisos de progreso y misiones</label>
+        ${can('player.preferences') ? '' : '<p class="muted">Solo soporte o administración pueden cambiarla desde el backoffice.</p>'}</div>`;
+      if ($('#optin')) $('#optin').onchange = async () => {
+        try { await api(`/players/${encodeURIComponent($('#lp').value)}/gamification-preference`, { method: 'POST', body: { opt_out: !$('#optin').checked } }); flash($('#optin').checked ? 'Gamificación activada para el jugador.' : 'Gamificación desactivada: sin misiones ni avisos de progreso.', 'ok'); load(); }
+        catch (e) { flash(e.message, 'bad'); }
+      };
     };
     $('#lp').onchange = load; load();
+  },
+  gamification() {
+    document.querySelectorAll('[data-mact]').forEach((b) => b.onclick = async () => {
+      try { const m = await api(`/gamification/missions/${b.dataset.mid}/${b.dataset.mact}`, { method: 'POST' }); flash(m.status === 'pending_approval' ? 'Misión enviada a aprobación. La activa otra persona con rol Aprobador.' : m.status === 'active' ? 'Misión activa.' : 'Misión en pausa.', 'ok'); show(); }
+      catch (e) { flash(e.message, 'bad'); }
+    });
+    if ($('#msave')) $('#msave').onclick = async () => {
+      try { const m = await api('/gamification/missions', { method: 'POST', body: JSON.parse($('#mdraft').value) }); flash(`Borrador «${m.name}» guardado.`, 'ok'); show(); }
+      catch (e) { flash(e.message, 'bad'); }
+    };
   },
   analytics() {
     document.querySelectorAll('[data-nba]').forEach((b) => b.onclick = () => openSegmentWith(JSON.parse(b.dataset.nba)));

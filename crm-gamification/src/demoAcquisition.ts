@@ -38,6 +38,7 @@ const ORGANIC_PER_DAY = 1.6;
 export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scale = 1, seed = 7) {
   const r = rng(seed);
   const now = app.clock.now().getTime();
+  seedDemoMissions(app, tenant, now);
   // demo: bono de bienvenida con valor y presupuesto realistas para el volumen simulado
   const item = app.rewards.item(tenant, 'welcome_fs_10');
   if (item) app.rewards.addItem({ ...item, value: { amount_minor: 20_000_00, currency: 'COP' }, budget_minor: 20_000_00 * 2_000 });
@@ -117,4 +118,22 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   const it = app.rewards.item(tenant, 'welcome_fs_10');
   if (b && it && b.committed_minor > 0) app.rewards.addItem({ ...it, budget_minor: Math.round(b.committed_minor / 0.86 / 100) * 100 });
   return { events: events.length, players: n };
+}
+
+/** Misiones de demostración activas en los últimos 30 días (una con bono, aprobada por otra persona). */
+export function seedDemoMissions(app: App, tenant: string, now: number) {
+  const analyst = { id: 'analyst@ss1', tenant_id: tenant };
+  const approver = { id: 'approver@ss1', tenant_id: tenant, canApprove: true };
+  const window = { starts_at: new Date(now - 30 * DAY).toISOString(), ends_at: new Date(now + 7 * DAY).toISOString() };
+  const ms = [
+    { id: 'm_sports_5', brand_id: 'rumbawin', name: '5 apuestas deportivas', description: 'Liquida 5 apuestas de deportes', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'sports' as const, target: 5, reward: { xp: 200 }, ...window },
+    { id: 'm_deposit_streak', brand_id: 'rumbawin', name: 'Racha de depósitos', description: 'Deposita 3 días seguidos', kind: 'streak' as const, event_type: 'deposit.settled' as const, target: 3, reward: { xp: 300 }, ...window },
+    { id: 'm_casino_20', brand_id: 'rumbawin', name: '20 rondas de casino', description: 'Liquida 20 apuestas de casino y gana free spins', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'casino' as const, target: 20, reward: { reward_id: 'welcome_fs_10' }, ...window },
+  ];
+  for (const m of ms) {
+    if (app.gamification.get(tenant, m.id)) continue;
+    app.gamification.save(analyst, m);
+    app.gamification.activate({ ...analyst, canApprove: false }, m.id);
+    if (m.reward.reward_id) app.gamification.activate(approver, m.id);
+  }
 }

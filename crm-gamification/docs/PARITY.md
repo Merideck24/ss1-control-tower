@@ -78,15 +78,15 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | # | Capacidad | Referencia | Estado |
 |---|---|---|---|
 | G1 | Niveles, puntos, aviso del 50 %, reversos compensatorios | GR8, OPT | ✅ |
-| G2 | Misiones/retos con progreso y recompensa | FT, GR8, OPT | ⬜ |
-| G3 | Logros e insignias | GR8, OPT | ⬜ |
+| G2 | Misiones/retos con progreso y recompensa | FT, GR8, OPT | ✅ |
+| G3 | Logros e insignias | GR8, OPT | ✅ |
 | G4 | Torneos con ranking reproducible | FT, GR8, OPT | ⬜ |
 | G5 | Mini-juegos: ruleta y caja de premios aleatoria con probabilidades auditables | GR8, OPT | ⬜ |
 | G6 | Tienda de canjes con moneda propia, saldo y stock bajo concurrencia | GR8, OPT | ⬜ |
 | G7 | Juegos de predicción con bonos por acierto | GR8 | ⬜ |
 | G8 | Presupuesto y límites de gasto de recompensas | OPT | ✅ |
 | G9 | Detección de abuso de bonos y escalado por conducta | FT (Greco) | ⬜ |
-| G10 | Preferencia del jugador para desactivar gamificación (persistente) | Plan CRM-10 | 🟡 (servicio ✅; UI y API ⬜) |
+| G10 | Preferencia del jugador para desactivar gamificación (persistente) | Plan CRM-10 | ✅ |
 
 ## H. Medición
 
@@ -139,3 +139,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 7 | 2026-11-23 | C2, C3 | RFM por quintiles dentro del tenant con 8 segmentos nombrados y ciclo de vida por jugador (6 etapas, con reactivación); campos `rfm.*` y `lifecycle` en segmentos, `lifecycle` también en recorridos; distribución en la pestaña Segmentos con «Usar» y bloque en Perfil 360. Corregido el desborde de Perfil 360 en móvil |
 | 8 | 2026-11-23 | E1, E2, E3, E5, C5 | Regresión logística L2 por tenant con validación temporal (60/30 días): abandono AUC 0,84 vs. base 0,75; propensión AUC 0,81 vs. 0,64; valor a 30 días con 22 % menos error que la base. VIP temprano (p90), preferencias, razones en lenguaje claro, sin variables de juego responsable y restringidos no elegibles para promoción. Campos `pred.*` en segmentos |
 | 9 | 2026-11-23 | C4, E4 | Personas por k-means determinista con nombres por rasgos e IDs estables; mejor acción siguiente con valor esperado, «no contactar» siempre disponible, candidatas filtradas por el motor de políticas y juego responsable ⇒ solo «no contactar». Campos `persona` y `nba.action` en segmentos; resumen en Analítica y detalle en Perfil 360 |
+| 10 | 2026-11-23 | G2, G3, G10 | Misiones de conteo, suma y racha (días de Bogotá) con XP en el libro de fidelidad o bono aprobado por otra persona; progreso idempotente y reverso compensatorio (completadas en revisión); logros únicos; preferencia de desactivar con API, permisos y auditoría; pestaña Gamificación y widget con misiones e insignias. Corregido: recompensas vencidas se mostraban como vigentes |
