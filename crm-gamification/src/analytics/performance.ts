@@ -48,10 +48,11 @@ export const METRIC_DEFINITIONS: Record<string, string> = {
   loyalty_silver_plus: '% de la cohorte en nivel Plata o superior.',
 };
 
-type Spend = { date: string; campaign_id: string; campaign_name: string; channel: string; impressions: number; clicks: number; spend_minor: number; currency: string };
+type Spend = { brand_id?: string; date: string; campaign_id: string; campaign_name: string; channel: string; impressions: number; clicks: number; spend_minor: number; currency: string };
 type Activity = { at: number; kind: 'bet' | 'deposit' };
 export type PlayerFacts = {
   tenant_id: string;
+  brand_id?: string;
   player_id: string;
   registered_at: number;
   campaign_id: string;
@@ -145,7 +146,7 @@ export class PerformanceStore {
         const p = (e as EventEnvelope<'marketing.spend_reported'>).payload;
         const m = this.#spend.get(e.tenant_id) ?? new Map<string, Spend>();
         // último reporte del día gana (las plataformas reexpresan cifras)
-        m.set(`${p.campaign_id}::${p.date}`, { date: p.date, campaign_id: p.campaign_id, campaign_name: p.campaign_name, channel: p.channel, impressions: p.impressions, clicks: p.clicks, spend_minor: p.spend.amount_minor, currency: p.spend.currency });
+        m.set(`${e.brand_id}::${p.campaign_id}::${p.date}`, { brand_id: e.brand_id, date: p.date, campaign_id: p.campaign_id, campaign_name: p.campaign_name, channel: p.channel, impressions: p.impressions, clicks: p.clicks, spend_minor: p.spend.amount_minor, currency: p.spend.currency });
         this.#spend.set(e.tenant_id, m);
         this.#campaignNames.set(`${e.tenant_id}::${p.campaign_id}`, { name: p.campaign_name, channel: p.channel });
         return;
@@ -153,7 +154,7 @@ export class PerformanceStore {
       case 'player.registered': {
         const p = (e as EventEnvelope<'player.registered'>).payload;
         if (this.#players.has(k)) return;
-        this.#players.set(k, { tenant_id: e.tenant_id, player_id: e.player_id, registered_at: t, campaign_id: p.acquisition?.campaign_id ?? ORGANIC.campaign_id, channel: p.acquisition?.channel ?? ORGANIC.channel, deposits: new Map(), reversed: new Map(), bets: [], bonuses: [], withdrawals: [], instruments: [], activity: [], ...(p.device_hash ? { device_hash: p.device_hash } : {}) });
+        this.#players.set(k, { tenant_id: e.tenant_id, brand_id: e.brand_id, player_id: e.player_id, registered_at: t, campaign_id: p.acquisition?.campaign_id ?? ORGANIC.campaign_id, channel: p.acquisition?.channel ?? ORGANIC.channel, deposits: new Map(), reversed: new Map(), bets: [], bonuses: [], withdrawals: [], instruments: [], activity: [], ...(p.device_hash ? { device_hash: p.device_hash } : {}) });
         if (p.device_hash) this.#link(e.tenant_id, `dev:${p.device_hash}`, e.player_id);
         return;
       }
@@ -253,7 +254,7 @@ export class PerformanceStore {
    * recuperado(t) = NGR acumulado de la cohorte hasta el día t desde el registro / inversión de esa semana.
    * Las curvas por campaña solo usan cohortes con al menos t días de antigüedad (sin sesgo de cohortes jóvenes).
    */
-  payback(tenant: string, opts: { to: Date; weeks: number; maxDay?: number; currency?: string }): PaybackReport {
+  payback(tenant: string, opts: { to: Date; weeks: number; maxDay?: number; currency?: string; brand?: string }): PaybackReport {
     const fin = this.financeDefinition(tenant);
     const to = opts.to.getTime();
     const maxDay = opts.maxDay ?? 90;
@@ -264,11 +265,13 @@ export class PerformanceStore {
     const cohorts = new Map<string, Acc>();
     const acc = (c: string, w: number) => { const k = `${c}::${w}`; let a = cohorts.get(k); if (!a) { a = { campaign_id: c, week: w, spend: 0, players: [] }; cohorts.set(k, a); } return a; };
     for (const s of this.#spend.get(tenant)?.values() ?? []) {
+      if (opts.brand && s.brand_id !== opts.brand) continue;
       if (s.currency !== currency) continue;
       const w = weekStart(Date.parse(s.date + 'T12:00:00Z'));
       if (w >= firstWeek && w <= to) acc(s.campaign_id, w).spend += s.spend_minor;
     }
     for (const p of this.#players.values()) {
+      if (opts.brand && p.brand_id !== opts.brand) continue;
       if (p.tenant_id !== tenant || p.campaign_id === ORGANIC.campaign_id || (p.currency && p.currency !== currency)) continue;
       const w = weekStart(p.registered_at);
       if (w >= firstWeek && p.registered_at <= to) acc(p.campaign_id, w).players.push(p);
@@ -334,7 +337,7 @@ export class PerformanceStore {
       } };
   }
 
-  report(tenant: string, opts: { to: Date; days: number; currency?: string }, enrich: Enrichment = {}): PerformanceReport {
+  report(tenant: string, opts: { to: Date; days: number; currency?: string; brand?: string }, enrich: Enrichment = {}): PerformanceReport {
     const fin = this.financeDefinition(tenant);
     const to = opts.to.getTime();
     const from = to - opts.days * DAY;
@@ -342,9 +345,10 @@ export class PerformanceStore {
     const fromDay = isoDay(from);
     const toDay = isoDay(to);
 
-    const spendRows = [...(this.#spend.get(tenant)?.values() ?? [])].filter((s) => s.date >= fromDay && s.date <= toDay && s.currency === currency);
+    const brandOk = (b?: string) => !opts.brand || b === opts.brand;
+    const spendRows = [...(this.#spend.get(tenant)?.values() ?? [])].filter((s) => brandOk(s.brand_id) && s.date >= fromDay && s.date <= toDay && s.currency === currency);
     let mixed = [...(this.#spend.get(tenant)?.values() ?? [])].filter((s) => s.date >= fromDay && s.date <= toDay && s.currency !== currency).length;
-    const cohort = [...this.#players.values()].filter((p) => p.tenant_id === tenant && p.registered_at >= from && p.registered_at <= to);
+    const cohort = [...this.#players.values()].filter((p) => p.tenant_id === tenant && brandOk(p.brand_id) && p.registered_at >= from && p.registered_at <= to);
     const inCurrency = cohort.filter((p) => !p.currency || p.currency === currency);
     mixed += cohort.length - inCurrency.length;
 

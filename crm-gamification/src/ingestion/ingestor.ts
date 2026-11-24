@@ -19,6 +19,9 @@ export class Ingestor {
   #dlq: { event: unknown; reason: string; at: string }[] = [];
   #bySource = new Map<string, { received: number; applied: number; duplicates: number; rejected: number; max_lag_ms: number }>();
   #subs: Subscriber[] = [];
+  /** B4: últimas mediciones (ms reales de proceso hasta decidir; retraso de llegada en tiempo de evento). */
+  #lat = new Map<string, { type: string; ms: number; lag_ms: number }[]>(); // por tenant: un tenant no desplaza a otro
+  latencyWindow = 5000;
   #clock: Clock;
   constructor(clock: Clock) { this.#clock = clock; }
 
@@ -48,11 +51,19 @@ export class Ingestor {
       for (const s of this.#subs) s(e, undefined, meta);
       return { status: 'applied' };
     }
+    const t0 = globalThis.performance?.now() ?? Date.now();
     const k = key(e.tenant_id, e.player_id);
     const profile = applyEvent(this.#profiles.get(k) ?? emptyProfile(e.tenant_id, e.brand_id, e.player_id), e);
     this.#profiles.set(k, profile);
     m.applied++;
     for (const s of this.#subs) s(e, profile, meta);
+    if (!meta.replay) {
+      // proyección + políticas + recorridos + efectos de este evento (incluye eventos derivados)
+      const buf = this.#lat.get(e.tenant_id) ?? [];
+      buf.push({ type: e.event_type, ms: (globalThis.performance?.now() ?? Date.now()) - t0, lag_ms: Math.max(0, Date.parse(e.received_at!) - Date.parse(e.occurred_at)) });
+      if (buf.length > this.latencyWindow) buf.splice(0, buf.length - this.latencyWindow);
+      this.#lat.set(e.tenant_id, buf);
+    }
     return { status: 'applied', profile };
   }
 
@@ -60,6 +71,14 @@ export class Ingestor {
   all(tenant_id: string): PlayerProfile[] { return [...this.#profiles.values()].filter((p) => p.tenant_id === tenant_id); }
   deadLetters() { return [...this.#dlq]; }
   sourceMetrics() { return Object.fromEntries(this.#bySource); }
+  /** Percentiles de latencia evento→decisión en la ventana reciente, total y por tipo. */
+  latency(tenant: string) {
+    const xs = this.#lat.get(tenant) ?? [];
+    const pct = (vals: number[], q: number) => { if (!vals.length) return null; const s = [...vals].sort((a, b) => a - b); return Math.round(s[Math.min(s.length - 1, Math.ceil(q * s.length) - 1)] * 100) / 100; };
+    const sum = (ys: typeof xs) => ({ n: ys.length, p50_ms: pct(ys.map((y) => y.ms), 0.5), p95_ms: pct(ys.map((y) => y.ms), 0.95), p99_ms: pct(ys.map((y) => y.ms), 0.99), max_ms: ys.length ? Math.round(Math.max(...ys.map((y) => y.ms)) * 100) / 100 : null, lag_p95_ms: pct(ys.map((y) => y.lag_ms), 0.95) });
+    const types = [...new Set(xs.map((x) => x.type))];
+    return { ...sum(xs), by_type: Object.fromEntries(types.map((t) => [t, sum(xs.filter((x) => x.type === t))])), window: this.latencyWindow };
+  }
   /** Cambia con cada evento aplicado: sirve para invalidar cachés derivados (modelos). */
   get version() { return this.#seen.size; }
 }

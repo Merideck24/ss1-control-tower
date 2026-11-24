@@ -184,6 +184,7 @@
       <button class="menu-btn" id="menuBtn" aria-label="Abrir menú"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <h1 id="pageTitle">Control Tower</h1>
       <span class="chip brand">Datos sintéticos</span><span class="chip" id="mode" hidden>Demo en navegador</span>
+      <label class="brandsel" title="Filtra jugadores, recorridos, rendimiento y Control Tower por marca">Marca <select id="brand"><option value="">Todas</option></select></label>
       <div class="ctx">
         <label>Tenant <select id="tenant"><option>tenant-rumbawin</option><option>tenant-demo-b</option></select></label>
         <label>Rol <select id="role">
@@ -204,7 +205,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -459,6 +460,8 @@ async function api(path, opts = {}) {
   const headers = s
     ? { 'content-type': 'application/json', authorization: `Bearer ${s.accessToken}`, 'x-tenant-id': s.tenantId, 'x-actor': `ss1:${s.user.id}`, ...(EMBED.roles ? { 'x-roles': EMBED.roles.join(',') || 'none' } : {}) }
     : { 'content-type': 'application/json', 'x-tenant-id': $('#tenant').value, 'x-roles': role, 'x-actor': role + '@ss1' };
+  // B3: la marca elegida viaja en toda consulta (los endpoints que no la usan la ignoran)
+  if ((opts.method ?? 'GET') === 'GET' && $('#brand')?.value && !/[?&]brand=/.test(path) && path !== '/brands') path += (path.includes('?') ? '&' : '?') + 'brand=' + encodeURIComponent($('#brand').value);
   const res = await fetch('/api' + path, {
     method: opts.method ?? 'GET',
     headers,
@@ -471,6 +474,7 @@ async function api(path, opts = {}) {
 
 async function loadSession() {
   SESSION = await api('/session');
+  try { const bs = await api('/brands'); const cur = $('#brand').value; $('#brand').innerHTML = '<option value="">Todas</option>' + bs.map((b) => `<option value="${esc(b.brand_id)}">${esc(b.brand_id)} (${b.players})</option>`).join(''); $('#brand').value = bs.some((b) => b.brand_id === cur) ? cur : ''; $('#brand').closest('label').hidden = bs.length < 2; } catch { /* sin marcas */ }
   if (EMBED.session) {
     EMBED.ready = true;
     if (EMBED.pendingTab && TABS.some(([k, , p]) => k === EMBED.pendingTab && can(p))) current = EMBED.pendingTab;
@@ -493,6 +497,7 @@ const ICON_PATHS = {
   policies: '<path d="M12 3v18M5 7h14M5 7l-2 6h4zM19 7l-2 6h4z"/><path d="M8 21h8"/>',
   content: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   onsite: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>',
+  integrations: '<path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 10h8"/><path d="M12 14v6"/>',
   rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
 };
@@ -718,7 +723,10 @@ const VIEWS = {
       <div class="card"><h3>Diferidos (horario silencioso)</h3><div class="kpi">${t.deferred}</div></div>
       <div class="card"><h3>Cola de errores</h3><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
       <div class="card"><h3>Estado</h3><div class="kpi ${t.global_pause ? 'warn' : 'ok'}">${t.global_pause ? 'En pausa' : 'Operando'}</div></div>
+      <div class="card" title="Tiempo real de proceso desde que llega el evento hasta decidir y ejecutar (perfil, políticas, recorridos, envíos), últimos ${int(t.latency.window)} eventos"><h3>Evento → decisión (p95)</h3><div class="kpi ${t.latency.within_slo === false ? 'bad' : 'ok'}">${t.latency.p95_ms === null ? '—' : t.latency.p95_ms.toLocaleString('es-CO') + ' ms'}</div>
+        <div class="muted">p50 ${t.latency.p50_ms ?? '—'} · p99 ${t.latency.p99_ms ?? '—'} ms · objetivo ≤ ${t.latency.slo_p95_ms} ms · ${int(t.latency.n)} eventos${t.latency.lag_p95_ms ? ` · llegada p95 ${Math.round(t.latency.lag_p95_ms / 1000)} s` : ''}</div></div>
     </div><br>
+    ${t.brand ? `<p class="muted">Vista filtrada por la marca <b>${esc(t.brand)}</b>.</p>` : ''}
     <div class="card scroll"><h3>Recorridos</h3><table><tr><th>Recorrido</th><th>Versión</th><th>Estado</th><th>Propósito</th><th>Control</th><th>Instancias</th></tr>
       ${t.journeys.map((j) => `<tr><td>${esc(j.name)}<br><span class="muted">${esc(j.id)}</span></td><td>v${j.version}</td><td>${statusChip(j.status)}</td><td>${j.purpose === 'service' ? 'Servicio' : 'Marketing'}</td><td>${j.control_group_pct}%</td><td>${kv(j.instances)}</td></tr>`).join('')}
     </table></div><br>
@@ -727,7 +735,13 @@ const VIEWS = {
       <div class="card"><h3>Entregas por canal</h3>${kv(t.deliveries)}</div>
       <div class="card"><h3>Presupuestos</h3>${t.budgets.map((b) => `<div>${esc(b.reward_id)}: ${money(b.committed_minor)} / ${money(b.budget_minor)}<div class="bar"><span style="width:${Math.min(100, 100 * b.committed_minor / b.budget_minor)}%"></span></div></div>`).join('')}</div>
       <div class="card"><h3>Alertas operativas</h3>${t.alerts.length ? t.alerts.map((a) => `<div class="warn">${esc(a.alert)} · ${esc(a.player_id)}</div>`).join('') : '<span class="muted">Sin alertas</span>'}</div>
-    </div>`;
+    </div>
+    ${can('ingest.csv') ? `<br><div class="card"><h3>Carga por lotes (CSV)</h3>
+      <div class="row"><label>Tipo <select id="csvtype"><option value="deposit.settled">Depósitos</option><option value="bet.settled">Apuestas</option><option value="withdrawal.settled">Retiros</option><option value="player.registered">Registros</option><option value="marketing.spend_reported">Inversión de medios</option></select></label>
+        <label>Modo <select id="csvmode"><option value="historico">Histórico (sin recorridos ni mensajes)</option><option value="tiempo_real">Tiempo real</option></select></label><input type="file" id="csvfile" accept=".csv,text/csv"></div>
+      <textarea id="csvtext" rows="4" placeholder="O pega el CSV aquí. Depósitos: player_id,occurred_at,deposit_id,amount,currency"></textarea>
+      <div class="row"><button class="ghost" id="csvcheck">Validar</button><button id="csvload">Cargar</button></div><div id="csvout"></div>
+      <p class="muted">Todo o nada: si una fila falla no se carga ninguna. Montos en unidades mayores (12500.50). Volver a subir el mismo archivo no duplica eventos.</p></div>` : ''}`;
   },
   async profile() {
     const list = await api('/players');
@@ -1004,6 +1018,26 @@ const VIEWS = {
           <td class="num">${can('rg.act') && c.status !== 'closed' ? `${c.status === 'open' ? `<button class="ghost" data-rgtake="${esc(c.case_id)}">Tomar</button> ` : ''}<button class="ghost" data-rgclose="${esc(c.case_id)}">Cerrar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin casos.</td></tr>'}</table>
         <p class="muted">${esc(r.note)} Reglas ${esc(r.rules.version)}: ≥ ${r.rules.velocity_count_24h} depósitos en 24 h, redepósito en ≤ ${r.rules.chase_minutes} min tras perder ≥ ${Math.round(r.rules.chase_loss_share * 100)} %, juego entre ${r.rules.night_from}:00 y ${r.rules.night_to}:00 en ≥ ${r.rules.night_days_7d} de 7 días, apuesta media ≥ ${r.rules.stake_multiple}× la habitual.</p></div>`;
   },
+  async integrations() {
+    const w = await api('/webhooks');
+    const EV = { 'delivery.accepted': 'Mensaje entregado', 'delivery.failed': 'Mensaje fallido', 'delivery.suppressed': 'Mensaje suprimido', 'reward.confirmed': 'Recompensa confirmada', 'reward.failed': 'Recompensa fallida', 'rg.case_opened': 'Caso JR abierto', 'rg.case_closed': 'Caso JR cerrado', 'abuse.reviewed': 'Revisión de abuso', 'policy.approved': 'Política aprobada', 'content.approved': 'Plantilla aprobada', 'onsite.approved': 'Contenido en sitio aprobado' };
+    const ST = { active: ['ok', 'Activa'], paused: ['warn', 'En pausa'], disabled: ['bad', 'Desactivada por fallos'] };
+    const DS = { delivered: ['ok', 'Entregada'], pending: ['warn', 'Pendiente'], failed: ['bad', 'Rechazada'], dead: ['bad', 'Agotó reintentos'] };
+    const admin = can('integration.sync');
+    const subs = `<div class="card scroll"><h3>Webhooks salientes</h3><table><tr><th>Destino</th><th>Eventos</th><th>Estado</th><th class="num">Entregadas</th><th class="num">Pendientes</th><th class="num">Fallidas</th><th></th></tr>
+      ${w.subscriptions.map((s) => `<tr><td>${esc(s.url)}<br><span class="muted">${esc(s.description || s.id)} · secreto ${esc(s.secret_hint)}</span></td><td>${s.events.map((e) => `<span class="chip">${esc(EV[e] ?? e)}</span>`).join(' ')}</td><td><span class="${ST[s.status][0]}">${ST[s.status][1]}</span></td>
+        <td class="num">${int(s.deliveries.delivered)}</td><td class="num">${int(s.deliveries.pending)}</td><td class="num">${int(s.deliveries.failed + s.deliveries.dead)}</td>
+        <td class="num">${admin ? `${s.status === 'active' ? `<button class="ghost" data-wha="pause" data-whid="${esc(s.id)}">Pausar</button>` : `<button class="ghost" data-wha="resume" data-whid="${esc(s.id)}">Reactivar</button>`} <button class="ghost" data-wha="rotate" data-whid="${esc(s.id)}">Rotar secreto</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin suscripciones.</td></tr>'}</table>
+      <p class="muted">${esc(w.note)}</p>${admin ? '<div class="row"><button class="ghost" id="whsend">Enviar pendientes ahora</button></div>' : ''}</div><br>`;
+    const form = !admin ? '' : `<div class="card"><h3>Nueva suscripción</h3><div class="row"><label>URL https <input id="whurl" size="40" value="https://hooks.syssoft1.com/crm"></label><label>Descripción <input id="whdesc" size="24" value="Backoffice SS1"></label></div>
+      <div class="row">${w.events.map((e) => `<label><input type="checkbox" data-whev="${e}" ${['rg.case_opened', 'reward.confirmed'].includes(e) ? 'checked' : ''}> ${esc(EV[e] ?? e)}</label>`).join('')}</div>
+      <div class="row"><button id="whcreate">Crear</button></div><div id="whout"></div></div><br>`;
+    const recent = `<div class="card scroll"><h3>Entregas recientes</h3><table><tr><th>Fecha</th><th>Evento</th><th>Estado</th><th class="num">Intentos</th><th class="num">Última respuesta</th><th></th></tr>
+      ${w.recent.map((d) => `<tr><td>${new Date(d.created_at).toLocaleString('es-CO')}<br><span class="muted">${esc(d.id)}</span></td><td>${esc(EV[d.event] ?? d.event)}</td><td><span class="${DS[d.status][0]}">${DS[d.status][1]}</span>${d.status === 'pending' && d.attempts ? `<br><span class="muted">reintento ${new Date(d.next_at).toLocaleTimeString('es-CO')}</span>` : ''}</td><td class="num">${d.attempts}</td><td class="num">${d.last_status ?? '—'}</td>
+        <td class="num">${admin && (d.status === 'failed' || d.status === 'dead') ? `<button class="ghost" data-whr="${esc(d.id)}">Reintentar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin entregas todavía.</td></tr>'}</table>
+      <p class="muted">Bus de eventos (en memoria hasta conectar Kafka/RabbitMQ): ${w.bus_topics.length ? w.bus_topics.map(esc).join(', ') : 'sin temas'}. En la demo, las URL que contienen «falla» simulan un receptor caído.</p></div>`;
+    return form + subs + recent;
+  },
   async audit() {
     const a = await api('/audit');
     return `<div class="card scroll"><h3>Registro de auditoría <span class="chip ${a.chain_valid ? 'ok' : 'bad'}">cadena ${a.chain_valid ? 'íntegra' : 'alterada'}</span></h3>
@@ -1018,6 +1052,7 @@ const BIND = {
   tower() {
     if ($('#perfDays')) $('#perfDays').onchange = () => { perfDays = Number($('#perfDays').value); show(); };
     drawCharts();
+    BIND.towerCsv();
     document.querySelectorAll('[data-ack]').forEach((b) => b.onclick = async () => {
       try { await api(`/kpi-alerts/${encodeURIComponent(b.dataset.ack)}/ack`, { method: 'POST', body: {} }); flash('Alerta marcada como revisada. Queda registrada en la auditoría.', 'ok'); show(); }
       catch (e) { flash(e.message, 'bad'); }
@@ -1190,6 +1225,20 @@ const BIND = {
       catch (e) { $('#osformout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
     };
   },
+  integrations() {
+    const act = async (path, body, msg) => { try { const r = await api(path, { method: 'POST', body }); flash(typeof msg === 'function' ? msg(r) : msg, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } };
+    document.querySelectorAll('[data-wha]').forEach((b) => b.onclick = async () => {
+      if (b.dataset.wha === 'rotate') { try { const r = await api(`/webhooks/${b.dataset.whid}/rotate`, { method: 'POST' }); await show(); flash(`Secreto nuevo (guárdalo ahora, no se vuelve a mostrar): ${r.secret}`, 'warn'); } catch (e) { flash(e.message, 'bad'); } return; }
+      act(`/webhooks/${b.dataset.whid}/${b.dataset.wha}`, {}, b.dataset.wha === 'pause' ? 'Suscripción en pausa.' : 'Suscripción reactivada.');
+    });
+    document.querySelectorAll('[data-whr]').forEach((b) => b.onclick = () => act(`/webhooks/deliveries/${b.dataset.whr}/retry`, {}, 'Entrega reprogramada.'));
+    if ($('#whsend')) $('#whsend').onclick = () => act('/webhooks/dispatch', {}, (r) => `Enviadas ${r.sent}: ${r.delivered} entregadas, ${r.retried} para reintento, ${r.dead} agotadas.`);
+    if ($('#whcreate')) $('#whcreate').onclick = async () => {
+      try { const r = await api('/webhooks', { method: 'POST', body: { url: $('#whurl').value.trim(), description: $('#whdesc').value, events: [...document.querySelectorAll('[data-whev]')].filter((c) => c.checked).map((c) => c.dataset.whev) } });
+        await show(); $('#whout') && ($('#whout').innerHTML = ''); flash(`Suscripción creada. Secreto (se muestra una sola vez): ${r.secret}`, 'warn'); }
+      catch (e) { $('#whout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+  },
   rg() {
     document.querySelectorAll('[data-rgtake]').forEach((b) => b.onclick = async () => { try { await api(`/risk/rg-cases/${encodeURIComponent(b.dataset.rgtake)}/take`, { method: 'POST' }); flash('Caso asignado a ti.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } });
     document.querySelectorAll('[data-rgclose]').forEach((b) => b.onclick = async () => { try { await api(`/risk/rg-cases/${encodeURIComponent(b.dataset.rgclose)}/close`, { method: 'POST', body: { outcome: $('#rgout').value, note: $('#rgnote').value } }); flash('Caso cerrado y registrado en la auditoría.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } });
@@ -1288,6 +1337,18 @@ const BIND = {
       catch (e) { flash(e.message, 'bad'); }
     });
   },
+  towerCsv() {
+    if (!$('#csvload')) return;
+    $('#csvfile').onchange = async () => { const f = $('#csvfile').files[0]; if (f) $('#csvtext').value = await f.text(); };
+    const run = async (dry) => {
+      try {
+        const r = await api('/ingest/csv', { method: 'POST', body: { event_type: $('#csvtype').value, csv: $('#csvtext').value, dry_run: dry, mode: $('#csvmode').value } });
+        $('#csvout').innerHTML = r.error_count ? `<p class="bad">${int(r.error_count)} filas con error de ${int(r.rows)}:</p><ul class="issues">${r.errors.map((e) => `<li class="error">Línea ${e.line}: ${esc(e.message)}</li>`).join('')}</ul>`
+          : `<p class="ok">${dry ? `${int(r.valid)} filas válidas de ${int(r.rows)}.` : `Cargadas ${int(r.applied)} · duplicadas ${int(r.duplicate)} · rechazadas ${int(r.rejected)} (modo ${r.mode === 'historico' ? 'histórico' : 'tiempo real'}).`}</p><p class="muted">${esc(r.note)}</p>`;
+      } catch (e) { $('#csvout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+    $('#csvcheck').onclick = () => run(true); $('#csvload').onclick = () => run(false);
+  },
   copilot() {
     const samples = { query_metric: { metric: 'kyc_verified_rate' }, preview_segment: { rules: { field: 'kyc', op: 'eq', value: 'verified' }, exclusions: { field: 'rg', op: 'neq', value: 'none' } }, validate_policy: { journey: { id: 'j_demo', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] } } };
     samples.simulate_journey = { ...samples.validate_policy, synthetic_profile: { rg: 'self_excluded' } };
@@ -1305,7 +1366,7 @@ async function boot() {
   renderTabs(); show();
 }
 if (window.SS1_STATIC) $('#mode').hidden = false;
-$('#tenant').onchange = boot; $('#role').onchange = boot;
+$('#tenant').onchange = boot; $('#role').onchange = boot; $('#brand').onchange = () => show();
 if (!EMBED.active) boot();
 else {
   $('#view').innerHTML = '<p class="waiting">Esperando la sesión de admin.syssoft1.com…</p>';

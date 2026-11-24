@@ -126,3 +126,24 @@ Servidor: con `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` o un perfil `ant` se h
 | `GET /analytics/sources?days=30` | `performance.read` | Calidad temprana por fuente con veredicto y motivos; `&format=csv` descarga |
 
 `GET /analytics/campaigns` ahora mide «depósito en 14 días tras entrar» (`deposito_14d_tras_entrar`) en lugar de «alguna vez depositó». Las respuestas CSV llevan `content-type: text/csv` y nombre de archivo.
+
+## Lotes CSV, marcas y latencia (B2, B3, B4)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `POST /ingest/csv` | `ingest.csv` | `{ event_type, csv, dry_run = true, mode: historico \| tiempo_real, brand_id? }`; todo o nada, errores por línea, idempotente al resubir |
+| `GET /brands` | — | Marcas del tenant con número de jugadores |
+
+`?brand=` filtra `GET /players`, `/journeys`, `/performance`, `/performance/payback` y `/control-tower`. `GET /control-tower` incluye `latency` (n, p50/p95/p99/max en ms, retraso de llegada p95, por tipo de evento, objetivo 250 ms).
+
+## Webhooks salientes y bus (J2, J3)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /webhooks` | `integration.read` | Suscripciones (sin secreto), conteos de entregas, entregas recientes y temas del bus |
+| `POST /webhooks` | `integration.sync` | `{ url, events, description? }` → devuelve el secreto una sola vez |
+| `POST /webhooks/:id/pause` · `resume` · `rotate` | `integration.sync` | Pausa, reactiva o rota el secreto |
+| `POST /webhooks/deliveries/:id/retry` | `integration.sync` | Reprograma una entrega rechazada o agotada |
+| `POST /webhooks/dispatch` | `integration.sync` | Envía lo pendiente (el servidor lo hace cada 10 s) |
+
+Cabeceras de cada entrega: `X-SS1-CRM-Event`, `X-SS1-CRM-Delivery` (id para deduplicar) y `X-SS1-CRM-Signature: t=<seg>,v1=<HMAC-SHA256(secreto, "<t>.<cuerpo>")>`. En el servidor, `CRM_PROVIDERS_LIVE=1` usa transporte HTTP real (10 s de espera, sin redirecciones).

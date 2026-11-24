@@ -65,6 +65,8 @@ export class ChannelHub {
   #receipts = new Map<string, Receipt>();
   #clock: Clock;
   maxAttempts = 3;
+  /** Oyente de recibos (webhooks salientes). */
+  onReceipt?: (r: Receipt) => void;
   /** F2: SS1 resuelve teléfono o chat al enviar; el CRM no los almacena. */
   contacts?: (tenant: string, player: string, channel: Channel) => string | undefined;
   constructor(clock: Clock) { this.#clock = clock; }
@@ -77,6 +79,7 @@ export class ChannelHub {
   recordNonDelivery(base: Omit<Receipt, 'at' | 'attempts'>): Receipt {
     const r = { ...base, at: this.#clock.now().toISOString(), attempts: 0 };
     this.#receipts.set(base.idempotency_key, r);
+    this.onReceipt?.(r);
     return r;
   }
 
@@ -111,6 +114,7 @@ export class ChannelHub {
       ? { ...base, status: 'accepted', provider_message_id: last.provider_message_id, rendered, at: this.#clock.now().toISOString(), attempts }
       : { ...base, status: 'failed', reason: last.reason, rendered, at: this.#clock.now().toISOString(), attempts };
     this.#receipts.set(req.idempotency_key, r);
+    this.onReceipt?.(r);
     return r;
   }
 

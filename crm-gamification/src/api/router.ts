@@ -12,6 +12,8 @@ import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEn
 import { DomainError, HOUR, toCsv } from '../shared/util.ts';
 import { journeyImpact } from '../analytics/journeyImpact.ts';
 import { sourceQuality } from '../analytics/affiliates.ts';
+import { CSV_TYPES, csvToEvents } from '../ingestion/csvImport.ts';
+import { WEBHOOK_EVENTS } from '../integration/outbound.ts';
 import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
 import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
 import { RISK_RULES } from '../risk/riskMonitor.ts';
@@ -50,6 +52,7 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
+  'ingest.csv': ['tenant_admin'],
   'policy.read': ['tenant_admin', 'approver', 'rg_officer', 'auditor', 'crm_analyst'],
   'policy.propose': ['tenant_admin', 'rg_officer'],
   'content.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
@@ -77,14 +80,18 @@ export function sessionFrom(headers: ApiRequest['headers']): Actor {
 
 const moneyFmt = (minor: number) => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 
-export function controlTower(app: App, tenant: string) {
-  const instances = app.runtime.instances(tenant);
-  const receipts = app.channels.receipts(tenant);
+export function controlTower(app: App, tenant: string, brand?: string) {
+  const inBrand = (player: string) => !brand || app.ingestor.get(tenant, player)?.brand_id === brand;
+  const instances = app.runtime.instances(tenant).filter((i) => inBrand(i.player_id));
+  const receipts = app.channels.receipts(tenant).filter((r) => inBrand(r.player_id));
+  const lat = app.ingestor.latency(tenant);
   const count = <T,>(xs: T[], f: (x: T) => string) => xs.reduce<Record<string, number>>((m, x) => ((m[f(x)] = (m[f(x)] ?? 0) + 1), m), {});
   return {
     as_of: app.clock.now().toISOString(),
     global_pause: app.runtime.isGloballyPaused(tenant),
-    journeys: app.registry.list(tenant).map((j) => ({ id: j.id, name: j.name, version: j.version, status: j.status, purpose: j.purpose, control_group_pct: j.control_group_pct ?? 0, instances: count(instances.filter((i) => i.journey_id === j.id && i.version === j.version), (i) => i.status) })),
+    brand: brand ?? null,
+    latency: { ...lat, slo_p95_ms: 250, within_slo: lat.p95_ms === null ? null : lat.p95_ms <= 250 },
+    journeys: app.registry.list(tenant).filter((j) => !brand || j.brand_id === brand).map((j) => ({ id: j.id, name: j.name, version: j.version, status: j.status, purpose: j.purpose, control_group_pct: j.control_group_pct ?? 0, instances: count(instances.filter((i) => i.journey_id === j.id && i.version === j.version), (i) => i.status) })),
     deliveries: count(receipts, (r) => `${r.channel}:${r.status}`),
     suppression_reasons: count(receipts.filter((r) => r.status === 'suppressed').flatMap((r) => (r.reason ?? '').split(',')), (x) => x),
     deferred: receipts.filter((r) => r.status === 'deferred').length,
@@ -114,7 +121,50 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     if (!app.tenants.includes(T)) return { status: 403, body: { error: 'tenant_unknown', message: `Tenant ${T} no habilitado` } };
     if (r0 === 'GET /health') return ok({ ok: true });
     if (r0 === 'GET /session') return ok({ actor, permissions: Object.keys(PERMISSIONS).filter((p) => can(actor, p)), copilot_tools: app.copilot.definitionsFor(copilotSession(actor)).map((t) => t.name), copilot_ask: Boolean(opts.ask) });
-    if (r0 === 'GET /control-tower') return ok(controlTower(app, T));
+    const brand = req.query.get('brand') || undefined;
+    if (r0 === 'GET /control-tower') return ok(controlTower(app, T, brand));
+    if (r0 === 'GET /webhooks') {
+      if (!can(actor, 'integration.read')) return forbid('integration.read');
+      const ds = app.webhooks.deliveries(T);
+      return ok({ events: WEBHOOK_EVENTS, subscriptions: app.webhooks.list(T).map((s) => { const mine = ds.filter((d) => d.subscription_id === s.id); return { ...s, deliveries: { delivered: mine.filter((d) => d.status === 'delivered').length, pending: mine.filter((d) => d.status === 'pending').length, failed: mine.filter((d) => d.status === 'failed').length, dead: mine.filter((d) => d.status === 'dead').length } }; }),
+        recent: ds.slice(0, 30).map(({ body: _b, ...d }) => d), bus_topics: app.bus.topics(),
+        note: 'Firma: cabecera X-SS1-CRM-Signature «t=<seg>,v1=<HMAC-SHA256(secreto, "<t>.<cuerpo>")>»; X-SS1-CRM-Delivery es el id para deduplicar. Reintentos a 1 min, 5 min, 30 min, 2 h y 6 h; 4xx (salvo 408/429) no se reintenta; 20 fallos seguidos desactivan la suscripción.' });
+    }
+    if (r0 === 'POST /webhooks') {
+      if (!can(actor, 'integration.sync')) return forbid('integration.sync');
+      return ok(app.webhooks.create(actor, req.body as never), 201);
+    }
+    if ((r = m(/^POST \/webhooks\/([\w-]+)\/(pause|resume|rotate)$/))) {
+      if (!can(actor, 'integration.sync')) return forbid('integration.sync');
+      return ok(r[2] === 'rotate' ? app.webhooks.rotate(actor, r[1]) : app.webhooks.setStatus(actor, r[1], r[2] === 'pause' ? 'paused' : 'active'));
+    }
+    if ((r = m(/^POST \/webhooks\/deliveries\/([\w-]+)\/retry$/))) {
+      if (!can(actor, 'integration.sync')) return forbid('integration.sync');
+      return ok(app.webhooks.retry(actor, r[1]));
+    }
+    if (r0 === 'POST /webhooks/dispatch') {
+      if (!can(actor, 'integration.sync')) return forbid('integration.sync');
+      return ok(await app.webhooks.dispatch());
+    }
+    if (r0 === 'GET /brands') {
+      const counts = new Map<string, number>();
+      for (const p of app.ingestor.all(T)) counts.set(p.brand_id, (counts.get(p.brand_id) ?? 0) + 1);
+      for (const p of app.policy.listPolicies(T)) if (!counts.has(p.brand_id)) counts.set(p.brand_id, 0);
+      return ok([...counts].map(([brand_id, players]) => ({ brand_id, players })).sort((a, b) => b.players - a.players));
+    }
+    if (r0 === 'POST /ingest/csv') {
+      if (!can(actor, 'ingest.csv')) return forbid('ingest.csv');
+      const type = String(req.body.event_type ?? '') as never;
+      const conv = csvToEvents(type, String(req.body.csv ?? ''), { tenant_id: T, brand_id: String(req.body.brand_id ?? 'rumbawin'), source: `csv.${actor.id}` });
+      const dry = req.body.dry_run !== false;
+      // histórico por defecto: actualiza perfiles y métricas sin disparar recorridos ni mensajes
+      const live = req.body.mode === 'tiempo_real';
+      const tally = { applied: 0, duplicate: 0, rejected: 0 };
+      if (!dry && !conv.errors.length) for (const e of conv.events) { const r = app.ingestor.ingest(e, { replay: !live }); tally[r.status === 'applied' ? 'applied' : r.status === 'duplicate' ? 'duplicate' : 'rejected']++; }
+      if (!dry && !conv.errors.length) app.audit.record(T, actor.id, 'ingest.csv', String(type), { rows: conv.rows, ...tally, mode: live ? 'tiempo_real' : 'historico' });
+      return ok({ event_type: type, rows: conv.rows, valid: conv.events.length, errors: conv.errors.slice(0, 50), error_count: conv.errors.length, dry_run: dry, mode: live ? 'tiempo_real' : 'historico', ...(dry ? {} : tally),
+        note: conv.errors.length ? 'No se cargó nada: corrige las filas con error y vuelve a subir el archivo (todo o nada).' : dry ? 'Validación sin cambios. Envía con dry_run=false para cargar.' : 'Carga aplicada. Volver a subir el mismo archivo no duplica eventos.', types: Object.keys(CSV_TYPES) });
+    }
     if (r0 === 'POST /events') {
       if (req.body.tenant_id !== T) return { status: 403, body: { error: 'tenant_mismatch' } };
       const out = app.ingestor.ingest(req.body);
@@ -124,7 +174,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, 'players.read')) return forbid('players.read');
       const q = req.query.get('q') ?? '';
       const recent = req.query.get('sort') === 'recent';
-      const all = app.ingestor.all(T).filter((p) => p.player_id.includes(q));
+      const all = app.ingestor.all(T).filter((p) => p.player_id.includes(q) && (!brand || p.brand_id === brand));
       if (recent) all.sort((a, b) => (b.timeline.at(-1)?.occurred_at ?? '').localeCompare(a.timeline.at(-1)?.occurred_at ?? ''));
       return ok(all.slice(0, 100).map((p) => ({ player_id: p.player_id, kyc: p.kyc?.value, rg: p.rg?.value, deposits_minor: p.stats.deposits_minor, currency: p.stats.currency, level: app.loyalty.program(T, p.brand_id) ? app.loyalty.progress(T, p.brand_id, p.player_id).level : null })));
     }
@@ -460,7 +510,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
         frequency: (() => { const p = app.policy.policyFor({ tenant_id: T, brand_id: 'rumbawin', country: { value: 'CO' } } as never); return p ? { per_day: p.max_marketing_per_day, per_week: p.max_marketing_per_week ?? null, per_channel_day: p.max_marketing_per_day_by_channel ?? {} } : null; })(),
         note: 'Mismo grupo ⇒ un solo recorrido de marketing activo por jugador. Gana la prioridad mayor; en empate se queda el que ya está en curso. Los recorridos de servicio nunca se bloquean.' });
     }
-    if (r0 === 'GET /journeys') return ok(app.registry.list(T).map((j) => ({ ...j, as_list: journeyAsList(j), validation: validateJourney(j) })));
+    if (r0 === 'GET /journeys') return ok(app.registry.list(T).filter((j) => !brand || j.brand_id === brand).map((j) => ({ ...j, as_list: journeyAsList(j), validation: validateJourney(j) })));
     if (r0 === 'POST /journeys') {
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
       return ok(app.registry.saveDraft(actor, req.body as never), 201);
@@ -540,12 +590,12 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     if (r0 === 'GET /performance') {
       if (!can(actor, 'performance.read')) return forbid('performance.read');
       const days = Math.min(365, Math.max(1, Number(req.query.get('days') ?? 30)));
-      return ok(app.performanceReport(T, days));
+      return ok(app.performanceReport(T, days, brand));
     }
     if (r0 === 'GET /performance/payback') {
       if (!can(actor, 'performance.read')) return forbid('performance.read');
       const weeks = Math.min(26, Math.max(1, Number(req.query.get('weeks') ?? 12)));
-      return ok(app.performance.payback(T, { to: app.clock.now(), weeks }));
+      return ok(app.performance.payback(T, { to: app.clock.now(), weeks, ...(brand ? { brand } : {}) }));
     }
     if (r0 === 'GET /kpi-alerts') {
       if (!can(actor, 'alerts.read')) return forbid('alerts.read');

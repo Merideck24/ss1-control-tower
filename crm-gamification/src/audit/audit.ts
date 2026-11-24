@@ -29,6 +29,8 @@ export function redact(value: unknown): unknown {
 export class AuditLog {
   #entries: AuditEntry[] = [];
   #clock: Clock;
+  /** Oyentes de cada registro (p. ej. webhooks salientes). */
+  listeners: ((e: AuditEntry) => void)[] = [];
   constructor(clock: Clock) { this.#clock = clock; }
 
   record(tenant_id: string, actor: string, action: string, subject: string, details: Record<string, unknown> = {}): AuditEntry {
@@ -36,6 +38,7 @@ export class AuditLog {
     const base = { seq: this.#entries.length + 1, at: this.#clock.now().toISOString(), tenant_id, actor, action, subject, details: redact(details) as Record<string, unknown>, prev_hash };
     const entry = { ...base, hash: sha256(JSON.stringify(base)) };
     this.#entries.push(entry);
+    for (const l of this.listeners) l(entry);
     return entry;
   }
 

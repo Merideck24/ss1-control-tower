@@ -25,9 +25,9 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | # | Capacidad | Referencia | Estado |
 |---|---|---|---|
 | B1 | Perfil 360 actualizado por eventos, con procedencia por campo | FT, OPT | ✅ |
-| B2 | Ingesta en tiempo real y en lote (API + CSV) | FT, OPT | 🟡 (API sí; carga CSV ⬜) |
-| B3 | Multimarca con filtro por marca | FT | 🟡 (modelo sí; filtro en UI ⬜) |
-| B4 | Latencia evento→decisión medida (p95) y visible en Control Tower | FT | ⬜ |
+| B2 | Ingesta en tiempo real y en lote (API + CSV) | FT, OPT | ✅ |
+| B3 | Multimarca con filtro por marca | FT | ✅ |
+| B4 | Latencia evento→decisión medida (p95) y visible en Control Tower | FT | ✅ |
 
 ## C. Segmentación
 
@@ -113,8 +113,8 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | # | Capacidad | Referencia | Estado |
 |---|---|---|---|
 | J1 | API REST de eventos | FT, OPT | ✅ |
-| J2 | Webhooks salientes firmados (decisiones y entregas) | FT | ⬜ |
-| J3 | Kafka / RabbitMQ | FT | 🔒 (interfaz de adaptador ⬜ con A3) |
+| J2 | Webhooks salientes firmados (decisiones y entregas) | FT | ✅ |
+| J3 | Kafka / RabbitMQ | FT | 🔒 broker real (interfaz de bus ✅ con implementación en memoria) |
 
 ## Orden de las iteraciones
 
@@ -152,3 +152,5 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 20 | 2026-11-24 | E6 | Estudio de plantillas: el analista describe objetivo, propósito, tono, idiomas, variables y SMS; Claude (servidor, con credenciales) devuelve borradores con salida estructurada por esquema JSON, el pedido delimitado como dato y reglas de marca en el sistema, con rechazo y salida truncada manejados; sin credenciales se usa un texto base marcado como tal. Moderación determinista y versionada sobre todo borrador (promesas de ganancia, persecución de pérdidas, crédito, menores, juego como solución, variables inventadas, enlaces externos, HTML, datos personales, longitudes, aviso JR obligatorio en texto y SMS de marketing; urgencia, «gratis», mayúsculas y exclamaciones como avisos). Edición humana con nueva revisión; envío bloqueado mientras haya observaciones que bloquean; aprobación por una persona distinta de quien generó o editó; al aprobar se crea la plantilla (con variante SMS) usable en recorridos. Auditoría con fuente, modelo y hash del pedido. No se probó contra la API real en esta sesión (sin credenciales); el escritor se prueba con un cliente simulado |
 | 21 | 2026-11-24 | I3 | Políticas por mercado editables desde la interfaz: JR o administración proponen una versión nueva (o un mercado nuevo) con validación de rangos (topes diarios, por canal y semanales coherentes, silencio de hasta 14 h, antigüedad del feed JR de 15 min a 24 h); el diff campo a campo marca lo que relaja una protección y exige justificación escrita. Aprueba otra persona y recién entonces se aplica; las decisiones registran la versión usada. Si otra versión se aprobó antes, la propuesta queda obsoleta en vez de pisarla. Historial de versiones por mercado y auditoría. Pestaña «Políticas por mercado» |
 | 22 | 2026-11-24 | H4, H5, H6 | Ranking de recorridos por impacto incremental: resultados medidos después de entrar y durante 14 días (depósito posterior, actividad en la segunda semana, NGR por jugador con impuesto y bonos descontados) contra el grupo de control, con IC 95 %, solo entradas con ventana cumplida, ROI y orden que descuenta la incertidumbre; recompensas valoradas como NGR incremental por cada $1 de bono. Corregido: la métrica «has_deposit» daba 100 % en recorridos cuya entrada ya implica depósito (j4, seguimiento de depósitos); ahora cuenta solo el depósito posterior a la entrada. Calidad temprana por fuente de adquisición (afiliados y campañas): primer depósito, valor previsto a 30 días, actividad a 7 días, abuso de bonos y riesgo JR frente al promedio del período, y valor por peso invertido frente al promedio de fuentes pagas, con veredicto y motivos. Exportación CSV: botón en cada tabla del sistema y `?format=csv` en la API, con BOM, comillas y neutralización de fórmulas |
+| 23 | 2026-11-24 | B2, B3, B4 | Carga por lotes desde CSV (depósitos, apuestas, retiros, registros e inversión de medios): separador «,» o «;», comillas y BOM, montos en unidades mayores convertidos a mínimas, emails solo enmascarados, validación por línea, todo o nada, id determinista por fila (resubir no duplica), modo histórico sin recorridos ni mensajes o tiempo real, y auditoría; solo administración. Filtro por marca en la cabecera que viaja en toda consulta: jugadores, recorridos, rendimiento, payback y Control Tower; la demo tiene una segunda marca («rumbabet», campaña TikTok) con su política y su programa de fidelidad. Latencia evento→decisión medida en cada evento en tiempo real (perfil, políticas, recorridos y efectos), con p50/p95/p99 por tenant y tipo, retraso de llegada y objetivo p95 ≤ 250 ms en Control Tower. Corregido: el búfer de latencia era compartido y un tenant desplazaba las mediciones del otro |
+| 24 | 2026-11-24 | J2, J3 | Webhooks salientes firmados con el mismo esquema que la ingesta (HMAC-SHA256 sobre «t.cuerpo», ahora en JS puro para que funcione también en el navegador y verificado contra node:crypto): suscripciones por evento (entregas, recompensas, casos JR, revisiones de abuso, aprobaciones), secreto mostrado una sola vez y rotable, destino solo https público (sin localhost, IPs ni dominios internos), cuerpo sin datos personales, id de entrega para deduplicar, reintentos a 1 min/5 min/30 min/2 h/6 h, 4xx sin reintento, cola de agotados con reintento manual y desactivación automática tras 20 fallos seguidos; auditoría y pestaña «Integraciones». Interfaz de bus de eventos (publicar/suscribir con clave de partición) con implementación en memoria: cada evento saliente también se publica en `crm.outbound.<tenant>`; el adaptador Kafka/RabbitMQ queda bloqueado hasta que SS1 defina el broker |

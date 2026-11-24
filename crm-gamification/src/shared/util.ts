@@ -29,7 +29,29 @@ const K = new Uint32Array([
 
 /** SHA-256 síncrono en JS puro (funciona en Node y en navegador). */
 export function sha256(input: string): string {
-  const msg = new TextEncoder().encode(input);
+  return Array.from(sha256Bytes(new TextEncoder().encode(input)), (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+/** HMAC-SHA256 (RFC 2104) en JS puro, hex. Para firmar webhooks también en la demo del navegador. */
+export function hmacSha256(key: string, message: string): string {
+  let k: Uint8Array = new TextEncoder().encode(key);
+  if (k.length > 64) k = sha256Bytes(k);
+  const pad = (byte: number) => { const out = new Uint8Array(64); for (let i = 0; i < 64; i++) out[i] = (k[i] ?? 0) ^ byte; return out; };
+  const msg = new TextEncoder().encode(message);
+  const inner = new Uint8Array(64 + msg.length); inner.set(pad(0x36)); inner.set(msg, 64);
+  const ih = sha256Bytes(inner);
+  const outer = new Uint8Array(64 + 32); outer.set(pad(0x5c)); outer.set(ih, 64);
+  return Array.from(sha256Bytes(outer), (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+/** Comparación de cadenas en tiempo constante (para firmas). */
+export function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+export function sha256Bytes(msg: Uint8Array): Uint8Array {
   const len = ((msg.length + 9 + 63) >> 6) << 6;
   const buf = new Uint8Array(len);
   buf.set(msg);
@@ -55,7 +77,9 @@ export function sha256(input: string): string {
     }
     h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
   }
-  return Array.from(h, (x) => x.toString(16).padStart(8, '0')).join('');
+  const out = new Uint8Array(32); const ov = new DataView(out.buffer);
+  for (let i = 0; i < 8; i++) ov.setUint32(i * 4, h[i]);
+  return out;
 }
 
 /** Stable bucket in [0, 1) derived from a key — used for control groups. */

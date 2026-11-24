@@ -1,6 +1,7 @@
 import { ev, type App } from './app.ts';
 import type { EventEnvelope } from './domain/events.ts';
 import { DAY, HOUR, stableBucket } from './shared/util.ts';
+import { DEFAULT_POLICY } from './policy/policyEngine.ts';
 
 /** Generador determinista (mulberry32) para que la demo sea reproducible. */
 function rng(seed: number) {
@@ -127,6 +128,13 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   }
   for (let i = 1; i <= 5; i++) abuseCase(`ring_${String(i).padStart(2, '0')}`, now - (18 - i) * DAY, 'dev-ring-01', 2);
   for (let i = 1; i <= 4; i++) abuseCase(`fast_wd_${String(i).padStart(2, '0')}`, now - (20 - 2 * i) * DAY, `dev-fast-${i}`, 1, 250_000);
+  // demo B3: segunda marca del mismo operador. La campaña de TikTok y sus jugadores pertenecen a «rumbabet»,
+  // con su propia política y programa de fidelidad (los recorridos de rumbawin no la alcanzan)
+  const SECOND = 'rumbabet';
+  app.policy.setPolicy(tenant, { ...DEFAULT_POLICY, brand_id: SECOND, version: 'co-rumbabet-2026.11.1' });
+  app.loyalty.setProgram({ tenant_id: tenant, brand_id: SECOND, season: '2026-Q4', points_per_major_unit: 0.001, halfway_notice: true, levels: [{ name: 'Bronce', threshold: 0 }, { name: 'Plata', threshold: 1000 }, { name: 'Oro', threshold: 5000 }] });
+  const secondPlayers = new Set(events.filter((e) => e.event_type === 'player.registered' && (e.payload as { acquisition?: { campaign_id: string } }).acquisition?.campaign_id === 'tiktok_awareness').map((e) => e.player_id));
+  for (const e of events) if (secondPlayers.has(e.player_id) || (e.event_type === 'marketing.spend_reported' && (e.payload as { campaign_id: string }).campaign_id === 'tiktok_awareness')) e.brand_id = SECOND;
   events.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
   // Reproduce la historia en el tiempo: el reloj avanza con los eventos y cada hora simulada
   // se procesan esperas y diferidos, así bonos y mensajes quedan con su fecha real.

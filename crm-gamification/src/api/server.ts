@@ -84,6 +84,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const heartbeat = () => demoTenants.forEach((t) => app.policy.markRgFeedSynced(t));
   heartbeat();
   setInterval(heartbeat, 60_000).unref();
+  // J2: entrega de webhooks salientes (con transporte real salvo en la demo)
+  if (process.env.CRM_PROVIDERS_LIVE) app.webhooks.setTransport(async (r) => ({ status: (await fetch(r.url, { method: 'POST', headers: r.headers, body: r.body, redirect: 'error', signal: AbortSignal.timeout(10_000) })).status }));
+  setInterval(() => { void app.webhooks.dispatch(); }, 10_000).unref();
   const ask = await loadAsk();
   const write = await loadWriter();
   const identity = new Ss1IdentityProvider({ apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', profilePath: process.env.SS1_PROFILE_PATH, tenantMap: process.env.CRM_TENANT_MAP ? JSON.parse(process.env.CRM_TENANT_MAP) : {} });

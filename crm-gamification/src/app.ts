@@ -27,6 +27,8 @@ import { RiskMonitor } from './risk/riskMonitor.ts';
 import { OnsiteService } from './onsite/onsite.ts';
 import { ContentStudio } from './content/studio.ts';
 import { PolicyGovernance } from './policy/governance.ts';
+import { OutboundWebhooks, type WebhookEvent } from './integration/outbound.ts';
+import { InMemoryBus } from './integration/bus.ts';
 import { DAY, systemClock, type Clock } from './shared/util.ts';
 
 export type App = ReturnType<typeof createApp>;
@@ -77,8 +79,8 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   loyalty.onThreshold = (e) => ingestor.ingest(e);
 
   /** Rendimiento enriquecido con CRM (alcance) y Loyalty (nivel). */
-  function performanceReport(tenant: string, days: number) {
-    return performance.report(tenant, { to: clock.now(), days }, {
+  function performanceReport(tenant: string, days: number, brand?: string) {
+    return performance.report(tenant, { to: clock.now(), days, ...(brand ? { brand } : {}) }, {
       crmReached: (t, p) => channels.receipts(t, p).some((r) => r.status === 'accepted'),
       loyaltyLevelRank: (t, p) => {
         const prof = ingestor.get(t, p);
@@ -138,7 +140,14 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
 
   const content = new ContentStudio({ audit, clock, channels });
   const governance = new PolicyGovernance({ policy, audit, clock });
-  return { governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  // J2/J3: webhooks salientes firmados y bus de eventos (en memoria hasta que exista el broker)
+  const bus = new InMemoryBus();
+  const webhooks = new OutboundWebhooks({ audit, clock, bus, ...(demo ? { transport: async (req) => ({ status: /falla|fail/.test(req.url) ? 503 : 200 }) } : {}) });
+  const AUDIT_TO_EVENT: Record<string, WebhookEvent> = { 'reward.confirmed': 'reward.confirmed', 'reward.failed': 'reward.failed', 'delivery.suppressed': 'delivery.suppressed', 'rg.case_opened': 'rg.case_opened', 'rg.case_closed': 'rg.case_closed',
+    'abuse.review_cleared': 'abuse.reviewed', 'abuse.review_confirmed': 'abuse.reviewed', 'policy.approved': 'policy.approved', 'content.approved': 'content.approved', 'onsite.approved': 'onsite.approved' };
+  audit.listeners.push((e) => { const ev = AUDIT_TO_EVENT[e.action]; if (ev) webhooks.emit(e.tenant_id, ev, { subject: e.subject, actor: e.actor, at: e.at, audit_seq: e.seq, details: e.details }); });
+  channels.onReceipt = (r) => { if (r.status === 'accepted' || r.status === 'failed') webhooks.emit(r.tenant_id, r.status === 'accepted' ? 'delivery.accepted' : 'delivery.failed', { player_id: r.player_id, channel: r.channel, template: r.template, status: r.status, reason: r.reason ?? null, at: r.at }); };
+  return { bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

@@ -150,3 +150,7 @@ Salvaguardas:
 - Confirmar con el equipo del admin el endpoint de perfil (`SS1_PROFILE_PATH`), los campos de jugadores y transacciones, y si existe un endpoint de apuestas por jugador (GGR real).
 - Desplegar el CRM en un dominio de SS1 (por ejemplo `crm.syssoft1.com`) con persistencia (PostgreSQL) y configurar secretos.
 - Crear los permisos CASL nuevos y asignarlos a roles.
+
+## Webhooks salientes (CRM → SS1)
+
+El backoffice de SS1 puede suscribirse a eventos del CRM (entregas, recompensas, casos de juego responsable, aprobaciones) desde la pestaña «Integraciones». Cada entrega va firmada con el mismo esquema que el webhook de ingesta (`t=<seg>,v1=<HMAC-SHA256>`), así que el receptor reutiliza `verifySignature`. La entrega es al menos una vez: el receptor debe deduplicar por `X-SS1-CRM-Delivery`. Cuando SS1 defina un broker (Kafka o RabbitMQ), el mismo flujo se publica en el tema `crm.outbound.<tenant>` mediante la interfaz `EventBus` (`src/integration/bus.ts`).
