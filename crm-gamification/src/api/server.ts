@@ -38,6 +38,8 @@ async function loadAsk(): Promise<AskFn | undefined> {
  * Autenticación: con `Authorization: Bearer` se valida contra la API de SS1 y el servidor decide los roles.
  * Las cabeceras de desarrollo (x-roles) solo se aceptan si `devAuth` está activo (CRM_DEV_AUTH=1).
  */
+/** Orígenes del admin que pueden llamar a la API desde el navegador (mismo valor que el modo embebido). */
+const CORS_ORIGINS = (process.env.CRM_ALLOWED_ORIGINS ?? 'https://admin.syssoft1.com').split(',').map((o) => o.trim()).filter(Boolean);
 const RATE = new RateLimiter(Number(process.env.CRM_SERVICE_RATE_PER_MIN ?? 600));
 
 export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string; webhookSecrets?: Record<string, string>; write?: WriterFn } = {}) {
@@ -49,6 +51,16 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
       res.writeHead(data ? 200 : 404, { 'content-type': data ? MIME[extname(file)] ?? 'application/octet-stream' : 'text/plain' });
       return res.end(data ?? 'not found');
     }
+    // CORS para las vistas nativas del admin: solo los orígenes permitidos (CRM_ALLOWED_ORIGINS), nunca '*'
+    const origin = req.headers.origin;
+    if (origin && CORS_ORIGINS.includes(origin)) {
+      res.setHeader('access-control-allow-origin', origin);
+      res.setHeader('vary', 'Origin');
+      res.setHeader('access-control-allow-headers', 'authorization, content-type, accept');
+      res.setHeader('access-control-allow-methods', 'GET, POST, PUT, OPTIONS');
+      res.setHeader('access-control-max-age', '600');
+    }
+    if (req.method === 'OPTIONS') { res.writeHead(origin && CORS_ORIGINS.includes(origin) ? 204 : 403); return res.end(); }
     // Webhook máquina a máquina del PAM: se autentica con firma HMAC, no con token de usuario
     if (url.pathname === '/api/ingest/ss1') {
       if (req.method !== 'POST') { res.writeHead(405); return res.end(); }

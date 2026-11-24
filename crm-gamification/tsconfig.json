@@ -16,6 +16,6 @@
   "include": [
     "src",
     "test",
-    "integrations/**/*.ts"
+    "integrations/ss1-admin/*.ts"
   ]
 }

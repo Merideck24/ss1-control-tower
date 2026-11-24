@@ -97,3 +97,18 @@ test('API: servidor HTTP — /health y /openapi.json públicos, llave por Bearer
   assert.deepEqual([rl.take('k', t0).ok, rl.take('k', t0).ok, rl.take('k', t0).ok, rl.take('k', t0).ok], [true, true, true, false]);
   assert.equal(rl.take('k', t0 + 20_000).ok, true, 'se recarga con el tiempo');
 });
+
+test('API: CORS solo para los orígenes del admin (vistas nativas)', async () => {
+  const { app } = setup();
+  const srv = createServer(createHandler(app, undefined, { devAuth: false }));
+  await new Promise<void>((r) => srv.listen(0, r));
+  const base = `http://127.0.0.1:${(srv.address() as { port: number }).port}`;
+  try {
+    const ok = await fetch(`${base}/api/v1/health`, { method: 'OPTIONS', headers: { origin: 'https://admin.syssoft1.com', 'access-control-request-method': 'GET' } });
+    assert.equal(ok.status, 204); assert.equal(ok.headers.get('access-control-allow-origin'), 'https://admin.syssoft1.com');
+    const evil = await fetch(`${base}/api/v1/health`, { method: 'OPTIONS', headers: { origin: 'https://evil.example.com' } });
+    assert.equal(evil.status, 403); assert.equal(evil.headers.get('access-control-allow-origin'), null);
+    const get = await fetch(`${base}/api/v1/health`, { headers: { origin: 'https://evil.example.com' } });
+    assert.equal(get.headers.get('access-control-allow-origin'), null, 'sin cabecera para orígenes no permitidos');
+  } finally { srv.close(); }
+});

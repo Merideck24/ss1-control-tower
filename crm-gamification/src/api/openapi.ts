@@ -21,6 +21,13 @@ function toPath(e: Endpoint): { method: string; path: string; params: { name: st
   return { method: method.toLowerCase(), path, params };
 }
 
+export const operationIdOf = (method: string, path: string) => `${method}${path.replace(/[{}]/g, '').split(/[/._-]/).filter(Boolean).map((s) => s[0].toUpperCase() + s.slice(1)).join('')}`;
+
+/** Operaciones para generar clientes (ruta sin el prefijo /v1). */
+export function listOperations() {
+  return CATALOG.map((e) => { const { method, path, params } = toPath(e); return { operationId: operationIdOf(method, path), method: method.toUpperCase(), path, params: params.map((p) => ({ name: p.name, ...(p.enum ? { enum: p.enum } : {}) })), query: e.query ?? [], scope: e.scope, summary: e.summary }; });
+}
+
 export function buildOpenApi() {
   const paths: Record<string, Record<string, unknown>> = {};
   for (const e of CATALOG) {
@@ -32,7 +39,7 @@ export function buildOpenApi() {
     paths[`/v1${path}`][method] = {
       tags: [e.tag],
       summary: e.summary,
-      operationId: `${method}${path.replace(/[{}]/g, '').split(/[/-]/).filter(Boolean).map((s) => s[0].toUpperCase() + s.slice(1)).join('')}`,
+      operationId: operationIdOf(method, path),
       description: [
         perms.length ? `Permiso de rol: ${perms.map((p) => `\`${p}\``).join(' o ')} (${roles.join(', ')}).` : 'Cualquier usuario autenticado del tenant.',
         e.scope ? `Llaves de servicio: alcance \`${e.scope}\`.` : 'No disponible para llaves de servicio.',

@@ -575,7 +575,7 @@
           "Jugadores"
         ],
         "summary": "Perfil 360 con procedencia, elegibilidad, segmentación y riesgo",
-        "operationId": "getPlayersPlayer_id",
+        "operationId": "getPlayersPlayerId",
         "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `players:read`.",
         "parameters": [
           {
@@ -634,7 +634,7 @@
           "Jugadores"
         ],
         "summary": "Bandeja del jugador",
-        "operationId": "getPlayersPlayer_idInbox",
+        "operationId": "getPlayersPlayerIdInbox",
         "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `players:read`.",
         "parameters": [
           {
@@ -701,7 +701,7 @@
           "Jugadores"
         ],
         "summary": "Marcar toda la bandeja como leída",
-        "operationId": "postPlayersPlayer_idInboxReadAll",
+        "operationId": "postPlayersPlayerIdInboxReadAll",
         "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`.",
         "parameters": [
           {
@@ -774,7 +774,7 @@
           "Jugadores"
         ],
         "summary": "Marcar un mensaje como leído o archivarlo",
-        "operationId": "postPlayersPlayer_idInboxMessage_idAction",
+        "operationId": "postPlayersPlayerIdInboxMessageIdAction",
         "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`.",
         "parameters": [
           {
@@ -867,7 +867,7 @@
           "Jugadores"
         ],
         "summary": "Activar o desactivar la gamificación del jugador",
-        "operationId": "postPlayersPlayer_idGamificationPreference",
+        "operationId": "postPlayersPlayerIdGamificationPreference",
         "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`. Cuerpo: `{ opt_out: boolean }`.",
         "parameters": [
           {
@@ -941,7 +941,7 @@
           "Jugadores"
         ],
         "summary": "Ajuste manual de monedas (auditado)",
-        "operationId": "postPlayersPlayer_idCoins",
+        "operationId": "postPlayersPlayerIdCoins",
         "description": "Permiso de rol: `alerts.configure` (tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ amount, reason, request_id }`.",
         "parameters": [
           {
@@ -1601,7 +1601,7 @@
           "Recorridos"
         ],
         "summary": "Ciclo de aprobación y publicación",
-        "operationId": "postJourneysJourney_idAction",
+        "operationId": "postJourneysJourneyIdAction",
         "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.publish` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -1687,7 +1687,7 @@
           "Recorridos"
         ],
         "summary": "Simular sin efectos",
-        "operationId": "postJourneysJourney_idSimulate",
+        "operationId": "postJourneysJourneyIdSimulate",
         "description": "Permiso de rol: `journeys.simulate` (crm_analyst, approver, tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ player_id, payload }`.",
         "parameters": [
           {
@@ -2228,7 +2228,7 @@
           "Rendimiento"
         ],
         "summary": "Reconocer una alerta",
-        "operationId": "postKpiAlertsAlert_idAck",
+        "operationId": "postKpiAlertsAlertIdAck",
         "description": "Permiso de rol: `alerts.ack` (crm_analyst, approver, tenant_admin, rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -2571,7 +2571,7 @@
           "Gamificación"
         ],
         "summary": "Activar o pausar misión",
-        "operationId": "postGamificationMissionsMission_idAction",
+        "operationId": "postGamificationMissionsMissionIdAction",
         "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -2762,7 +2762,7 @@
           "Gamificación"
         ],
         "summary": "Activar o cerrar torneo",
-        "operationId": "postGamificationTournamentsTournament_idAction",
+        "operationId": "postGamificationTournamentsTournamentIdAction",
         "description": "Permiso de rol: `journeys.submit` o `journeys.approve` (crm_analyst, tenant_admin, approver). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -2894,7 +2894,7 @@
           "Gamificación"
         ],
         "summary": "Verificar resultados con la semilla revelada",
-        "operationId": "getGamificationMinigamesGame_idVerify",
+        "operationId": "getGamificationMinigamesGameIdVerify",
         "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `journeys:read`.",
         "parameters": [
           {
@@ -2975,7 +2975,7 @@
           "Gamificación"
         ],
         "summary": "Girar (jugador) o rotar semilla (admin)",
-        "operationId": "postGamificationMinigamesGame_idAction",
+        "operationId": "postGamificationMinigamesGameIdAction",
         "description": "Permiso de rol: `player.preferences` o `alerts.configure` (support, tenant_admin). Llaves de servicio: alcance `players:write`.",
         "parameters": [
           {
@@ -3298,7 +3298,7 @@
           "Gamificación"
         ],
         "summary": "Elegir (jugador) o resolver (aprobador)",
-        "operationId": "postGamificationPredictionsPrediction_idAction",
+        "operationId": "postGamificationPredictionsPredictionIdAction",
         "description": "Permiso de rol: `player.preferences` o `journeys.approve` (support, tenant_admin, approver). Llaves de servicio: alcance `players:write`.",
         "parameters": [
           {
@@ -3435,7 +3435,7 @@
           "Riesgo"
         ],
         "summary": "Revisión humana de abuso",
-        "operationId": "postRiskBonusAbusePlayer_idReview",
+        "operationId": "postRiskBonusAbusePlayerIdReview",
         "description": "Permiso de rol: `abuse.review` (approver, tenant_admin). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -3554,7 +3554,7 @@
           "Riesgo"
         ],
         "summary": "Tomar o cerrar un caso",
-        "operationId": "postRiskRgCasesCase_idAction",
+        "operationId": "postRiskRgCasesCaseIdAction",
         "description": "Permiso de rol: `rg.act` (rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -3798,7 +3798,7 @@
           "Contenido"
         ],
         "summary": "Editar, enviar, aprobar o rechazar",
-        "operationId": "postContentDraftsDraft_idAction",
+        "operationId": "postContentDraftsDraftIdAction",
         "description": "Permiso de rol: `journeys.draft` o `journeys.submit` o `journeys.approve` (crm_analyst, tenant_admin, approver). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -3991,7 +3991,7 @@
           "Sitio"
         ],
         "summary": "Ciclo de aprobación",
-        "operationId": "postOnsiteCampaignsCampaign_idAction",
+        "operationId": "postOnsiteCampaignsCampaignIdAction",
         "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -4075,7 +4075,7 @@
           "Sitio"
         ],
         "summary": "Contenido a mostrar al jugador en una ubicación",
-        "operationId": "getOnsiteServePlayer_id",
+        "operationId": "getOnsiteServePlayerId",
         "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `onsite:serve`.",
         "parameters": [
           {
@@ -4158,7 +4158,7 @@
           "Sitio"
         ],
         "summary": "Registrar clic o descarte",
-        "operationId": "postOnsiteEventsPlayer_id",
+        "operationId": "postOnsiteEventsPlayerId",
         "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `onsite:serve`. Cuerpo: `{ campaign_id, type, request_id }`.",
         "parameters": [
           {
@@ -4343,7 +4343,7 @@
           "Políticas"
         ],
         "summary": "Aprobar o rechazar",
-        "operationId": "postPoliciesProposalsProposal_idAction",
+        "operationId": "postPoliciesProposalsProposalIdAction",
         "description": "Permiso de rol: `journeys.approve` (approver). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -4678,7 +4678,7 @@
           "Integración"
         ],
         "summary": "Revocar llave de servicio",
-        "operationId": "postIntegrationServiceKeysKey_idRevoke",
+        "operationId": "postIntegrationServiceKeysKeyIdRevoke",
         "description": "Permiso de rol: `integration.sync` (tenant_admin). No disponible para llaves de servicio.",
         "parameters": [
           {
@@ -4746,7 +4746,7 @@
           "Integración"
         ],
         "summary": "Esta especificación",
-        "operationId": "getOpenapi.json",
+        "operationId": "getOpenapiJson",
         "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
         "parameters": [],
         "responses": {
@@ -4891,7 +4891,7 @@
           "Integración"
         ],
         "summary": "Pausar, reactivar o rotar secreto",
-        "operationId": "postWebhooksSubscription_idAction",
+        "operationId": "postWebhooksSubscriptionIdAction",
         "description": "Permiso de rol: `integration.sync` (tenant_admin). Llaves de servicio: alcance `webhooks:manage`.",
         "parameters": [
           {
@@ -4977,7 +4977,7 @@
           "Integración"
         ],
         "summary": "Reintentar entrega",
-        "operationId": "postWebhooksDeliveriesDelivery_idRetry",
+        "operationId": "postWebhooksDeliveriesDeliveryIdRetry",
         "description": "Permiso de rol: `integration.sync` (tenant_admin). Llaves de servicio: alcance `webhooks:manage`.",
         "parameters": [
           {
