@@ -4,7 +4,8 @@ import type { Clock } from '../shared/util.ts';
 
 export type IngestResult = { status: 'applied' | 'duplicate' | 'rejected'; reason?: string; profile?: PlayerProfile };
 /** `replay`: reprocesamiento histórico; los suscriptores no deben producir efectos externos. */
-export type IngestMeta = { replay: boolean };
+/** `fromStore`: el evento viene del registro persistido (reconstrucción): no se vuelve a guardar. */
+export type IngestMeta = { replay: boolean; fromStore?: boolean };
 export type Subscriber = (e: EventEnvelope, profile: PlayerProfile | undefined, meta: IngestMeta) => void;
 
 const key = (tenant: string, player: string) => `${tenant}::${player}`;
@@ -27,8 +28,8 @@ export class Ingestor {
 
   subscribe(fn: Subscriber): void { this.#subs.push(fn); }
 
-  ingest(raw: unknown, opts: { replay?: boolean } = {}): IngestResult {
-    const meta: IngestMeta = { replay: opts.replay ?? false };
+  ingest(raw: unknown, opts: { replay?: boolean; fromStore?: boolean } = {}): IngestResult {
+    const meta: IngestMeta = { replay: opts.replay ?? false, ...(opts.fromStore ? { fromStore: true } : {}) };
     const now = this.#clock.now();
     const src = String((raw as Record<string, unknown>)?.source ?? 'unknown');
     const m = this.#bySource.get(src) ?? { received: 0, applied: 0, duplicates: 0, rejected: 0, max_lag_ms: 0 };

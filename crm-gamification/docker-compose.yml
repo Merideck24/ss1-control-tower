@@ -1,0 +1,25 @@
+# Entorno local con PostgreSQL. Uso:
+#   docker compose up -d db && npm run db:migrate && npm run start
+# Variables de ejemplo; en producción las contraseñas vienen de un gestor de secretos.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: crm_owner
+      POSTGRES_PASSWORD: crm_owner_local
+      POSTGRES_DB: crm
+    ports: ['5432:5432']
+    volumes: ['crm-db:/var/lib/postgresql/data', './db/init-roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro']
+    healthcheck: { test: ['CMD-SHELL', 'pg_isready -U crm_owner -d crm'], interval: 5s, retries: 10 }
+  crm:
+    build: .
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      DATABASE_URL: postgres://crm_app_login:crm_app_local@db:5432/crm
+      DATABASE_MIGRATION_URL: postgres://crm_owner:crm_owner_local@db:5432/crm
+      DATABASE_MAINTENANCE_URL: postgres://crm_owner:crm_owner_local@db:5432/crm
+      CRM_DEV_AUTH: '1'
+    ports: ['3000:3000']
+    command: sh -c "node src/persistence/migrate.ts && node src/api/server.ts"
+volumes:
+  crm-db: {}
