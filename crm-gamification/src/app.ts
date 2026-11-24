@@ -20,6 +20,7 @@ import { LoyaltyService } from './loyalty/loyalty.ts';
 import { DEFAULT_POLICY, PolicyEngine } from './policy/policyEngine.ts';
 import { MockBonusService, RewardService } from './rewards/rewards.ts';
 import { SplitTracker } from './experiments/bandit.ts';
+import { RiskMonitor } from './risk/riskMonitor.ts';
 import { DAY, systemClock, type Clock } from './shared/util.ts';
 
 export type App = ReturnType<typeof createApp>;
@@ -36,6 +37,8 @@ export function createApp(clock: Clock = systemClock) {
   const rewards = new RewardService(bonus, audit, clock);
   const loyalty = new LoyaltyService(clock);
   const registry = new JourneyRegistry(audit, clock);
+  const risk = new RiskMonitor(audit, clock);
+  policy.riskHold = (t, p) => risk.hasOpenHigh(t, p);
   const splits = new SplitTracker();
   const runtime = new JourneyRuntime({
     splits, registry, policy, profiles: ingestor, audit, clock,
@@ -51,7 +54,8 @@ export function createApp(clock: Clock = systemClock) {
   const gamification = new GamificationService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
   const games = new GamesService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
   const store = new StoreService({ clock, audit, loyalty, rewards, policy, profile: (t, p) => ingestor.get(t, p) });
-  ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); splits.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); games.onEvent(e, prof); store.onEvent(e, prof); runtime.onEvent(e); });
+  ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); splits.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); games.onEvent(e, prof); store.onEvent(e, prof); risk.onEvent(e, prof); runtime.onEvent(e); });
+  risk.emit = (e) => ingestor.ingest(e);
   bonus.onGranted = (e) => ingestor.ingest(e);
   loyalty.onThreshold = (e) => ingestor.ingest(e);
 
@@ -115,7 +119,7 @@ export function createApp(clock: Clock = systemClock) {
     return a && { multiplier: a.multiplier, reason: a.signals.map((s) => s.code).join(',') || (a.valuable ? 'valuable' : 'ok') };
   });
 
-  return { splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  return { risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */
@@ -128,6 +132,8 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
   t('verify_reminder', 'transactional', 'service', ['Completa tu verificación', 'Tu cuenta está casi lista: completa la verificación desde tu perfil.'], ['Complete your verification', 'Your account is almost ready: finish verification from your profile.'], ['Conclua sua verificação', 'Sua conta está quase pronta: conclua a verificação no seu perfil.']);
   t('security_confirmation', 'transactional', 'service', ['Tu cuenta fue recuperada', 'Confirmamos el cambio de acceso. Si no fuiste tú, contacta a soporte.'], ['Your account was recovered', 'We confirm the access change. If this was not you, contact support.'], ['Sua conta foi recuperada', 'Confirmamos a alteração de acesso. Se não foi você, fale com o suporte.']);
   t('reward_granted', 'promotional', 'marketing', ['Tienes una recompensa', 'Recibiste {{reward_type}} por {{amount}} {{currency}}. Vigente hasta {{expires_at}}.'], ['You have a reward', 'You received {{reward_type}} worth {{amount}} {{currency}}. Valid until {{expires_at}}.'], ['Você tem uma recompensa', 'Você recebeu {{reward_type}} de {{amount}} {{currency}}. Válido até {{expires_at}}.']);
+  t('rg_check_in', 'transactional', 'service', ['¿Cómo vas con tu juego?', 'Queremos que jugar siga siendo diversión. Revisa tu actividad y, si lo necesitas, fija límites de depósito o tiempo desde tu perfil.'], ['How is your play going?', 'We want play to stay fun. Review your activity and, if needed, set deposit or time limits from your profile.'], ['Como está seu jogo?', 'Queremos que jogar continue sendo diversão. Revise sua atividade e, se precisar, defina limites no seu perfil.']);
+  t('rg_limits_reminder', 'transactional', 'service', ['Herramientas para jugar con control', 'Notamos mucha actividad en poco tiempo. Puedes fijar límites, tomar una pausa o hablar con nuestro equipo de juego responsable.'], ['Tools to stay in control', 'We noticed a lot of activity in a short time. You can set limits, take a break or talk to our responsible gaming team.'], ['Ferramentas para jogar com controle', 'Notamos muita atividade em pouco tempo. Você pode definir limites, fazer uma pausa ou falar com nossa equipe.']);
   t('loyalty_halfway', 'promotional', 'marketing', ['¡Vas a mitad de camino!', 'Llevas el {{percent}} % del camino al nivel {{level}}.'], ['Halfway there!', 'You are {{percent}}% of the way to {{level}}.'], ['Metade do caminho!', 'Você está a {{percent}}% do nível {{level}}.']);
 
   app.rewards.addItem({ id: 'welcome_fs_10', tenant_id, brand_id, reward_type: 'free_spins', value: { amount_minor: 1000_00, currency: 'COP' }, validity_days: 7, budget_minor: 50 * 1000_00, approved_by: 'compliance@ss1' });
@@ -151,6 +157,13 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
       { id: 'end', type: 'exit' }] },
     { ...base, id: 'jx_welcome_bonus', name: 'Verificado → free spins de bienvenida', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'player.verified' }, entry: 'grant', nodes: [
       { id: 'grant', type: 'grant_reward', reward_id: 'welcome_fs_10', next: 'end' },
+      { id: 'end', type: 'exit' }] },
+    // D6: intervención de juego responsable (servicio): nunca promociona ni otorga incentivos
+    { ...base, id: 'jrg_intervention', name: 'Señal de riesgo → intervención de juego responsable', purpose: 'service', trigger: { event_type: 'rg.risk_signal' }, entry: 'level', nodes: [
+      { id: 'level', type: 'condition', rule: { field: 'risk.level', op: 'eq', value: 'high' }, on_true: 'limits_inapp', on_false: 'check_in' },
+      { id: 'limits_inapp', type: 'message', channel: 'inapp', template: 'rg_limits_reminder', next: 'limits_email' },
+      { id: 'limits_email', type: 'message', channel: 'email', template: 'rg_limits_reminder', next: 'end' },
+      { id: 'check_in', type: 'message', channel: 'inapp', template: 'rg_check_in', next: 'end' },
       { id: 'end', type: 'exit' }] },
   ];
   for (const j of journeys) {

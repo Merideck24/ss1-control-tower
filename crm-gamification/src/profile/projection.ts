@@ -15,6 +15,8 @@ export type PlayerProfile = {
   timezone?: Tracked<string>;
   kyc?: Tracked<KycStatus>;
   rg?: Tracked<RgStatus>;
+  /** Último nivel de riesgo detectado por el monitor (I2); no es el estado oficial de JR. */
+  risk?: Tracked<'medium' | 'high'>;
   consents: Partial<Record<ConsentKey, Tracked<boolean>>>;
   stats: { deposits_minor: number; deposit_count: number; withdrawals_minor: number; bets_count: number; stake_minor: number; win_minor: number; currency?: string; first_deposit_at?: string; last_deposit_at?: string; last_bet_at?: string };
   acquisition?: { campaign_id: string; channel?: string };
@@ -101,6 +103,9 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
     }
     case 'loyalty.threshold_crossed':
       break;
+    case 'rg.risk_signal':
+      next.risk = track(next.risk, (e as EventEnvelope<'rg.risk_signal'>).payload.level, e);
+      break;
   }
   return next;
 }
@@ -114,6 +119,7 @@ export function profileView(p: PlayerProfile) {
     contact: { email: field(p.email_masked) },
     kyc: field(p.kyc),
     rg: field(p.rg),
+    risk: field(p.risk),
     country: field(p.country),
     timezone: field(p.timezone),
     consents: Object.fromEntries(Object.entries(p.consents).map(([k, v]) => [k, field(v)])),

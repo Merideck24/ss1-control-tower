@@ -66,6 +66,10 @@ export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | '
     if (!n.metric || !EVENT_TYPES.includes(n.metric.event) || !(n.metric.window_hours > 0)) errs.push(`split_metric:${n.id}`);
     if (n.mode !== 'fixed' && n.mode !== 'bandit') errs.push(`split_mode:${n.id}`);
   }
+  if ((j as { trigger?: { event_type: string } }).trigger?.event_type === 'rg.risk_signal') {
+    if (j.purpose !== 'service') errs.push('rg_journey_must_be_service');
+    if (j.nodes.some((n) => n.type === 'grant_reward' || n.type === 'split')) errs.push('rg_journey_no_incentives_or_tests');
+  }
   if (j.overlap && (!j.overlap.group?.trim() || !(j.overlap.priority >= 1 && j.overlap.priority <= 100))) errs.push('invalid_overlap');
   if (j.purpose === 'service' && j.overlap) errs.push('service_journey_cannot_have_overlap');
   return [...new Set(errs)];

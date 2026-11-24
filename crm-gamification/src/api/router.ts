@@ -12,6 +12,7 @@ import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEn
 import { DomainError, HOUR } from '../shared/util.ts';
 import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
 import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
+import { RISK_RULES } from '../risk/riskMonitor.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
 import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
 import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
@@ -44,6 +45,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
+  'rg.monitor': ['rg_officer', 'tenant_admin', 'auditor'],
+  'rg.act': ['rg_officer'],
   'abuse.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'rg_officer'],
   'abuse.review': ['approver', 'tenant_admin'],
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
@@ -140,6 +143,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
           return { lifecycle: { key: life, label: LIFECYCLE_LABELS[life] }, rfm: s ? { ...s, label: RFM_LABELS[s.segment] } : null, predictions: app.models(T).predictions.get(p.player_id) ?? null,
             persona: pid ? app.personas(T).personas.find((x) => x.id === pid) ?? null : null, nba: app.nba(T, p.player_id) ?? null };
         })(),
+        rg_risk: can(actor, 'rg.monitor') ? { ...app.risk.assess(T, p.player_id, p.timezone?.value), cases: app.risk.cases(T).filter((c) => c.player_id === p.player_id) } : undefined,
         bonus_abuse: can(actor, 'abuse.read') ? app.abuse(T, p.player_id) ?? null : undefined,
       });
     }
@@ -248,6 +252,25 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         if (r.candidates.some((c) => !c.allowed)) blocked++;
       }
       return ok({ players: rows.length, actions: [...by].map(([action, v]) => ({ action, ...v })).sort((a, b) => b.players - a.players), with_blocked_candidates: blocked, note: 'Recomendaciones; se ejecutan solo mediante recorridos aprobados. Efectos supuestos a calibrar con grupos de control.' });
+    }
+    if (r0 === 'GET /risk/rg-monitor') {
+      if (!can(actor, 'rg.monitor')) return forbid('rg.monitor');
+      const cases = app.risk.cases(T).sort((a, b) => (a.status === 'closed' ? 1 : 0) - (b.status === 'closed' ? 1 : 0) || (b.level === 'high' ? 1 : 0) - (a.level === 'high' ? 1 : 0) || b.opened_at.localeCompare(a.opened_at));
+      const open = cases.filter((c) => c.status !== 'closed');
+      const bySignal = new Map<string, { label: string; cases: number }>();
+      for (const c of open) for (const s of c.signals) { const g = bySignal.get(s.code) ?? { label: s.label, cases: 0 }; g.cases++; bySignal.set(s.code, g); }
+      const inst = app.runtime.instances(T).filter((i) => i.journey_id === 'jrg_intervention');
+      const receipts = inst.length ? app.channels.receipts(T).filter((r) => r.template.startsWith('rg_')) : [];
+      return ok({ as_of: app.clock.now().toISOString(), rules: RISK_RULES,
+        summary: { open: open.length, high: open.filter((c) => c.level === 'high').length, medium: open.filter((c) => c.level === 'medium').length, in_review: open.filter((c) => c.status === 'in_review').length, closed: cases.length - open.length, marketing_on_hold: open.filter((c) => c.level === 'high').length },
+        signals: [...bySignal].map(([code, v]) => ({ code, ...v })).sort((a, b) => b.cases - a.cases),
+        interventions: { started: inst.length, messages_accepted: receipts.filter((r) => r.status === 'accepted').length, messages_not_sent: receipts.filter((r) => r.status !== 'accepted').length },
+        cases: cases.slice(0, 80),
+        note: 'Señales calculadas al llegar cada evento. Un caso alto abierto pausa marketing e incentivos del jugador. Las restricciones oficiales (autoexclusión, límites) se deciden y registran en SS1.' });
+    }
+    if ((r = m(/^POST \/risk\/rg-cases\/([\w:.-]+)\/(take|close)$/))) {
+      if (!can(actor, 'rg.act')) return forbid('rg.act');
+      return ok(r[2] === 'take' ? app.risk.take(actor, r[1]) : app.risk.close(actor, r[1], String(req.body.outcome ?? ''), String(req.body.note ?? '')));
     }
     if (r0 === 'GET /risk/bonus-abuse') {
       if (!can(actor, 'abuse.read')) return forbid('abuse.read');

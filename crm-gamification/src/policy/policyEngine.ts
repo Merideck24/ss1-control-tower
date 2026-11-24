@@ -72,6 +72,8 @@ export class PolicyEngine {
   #sends = new Map<string, { at: number; channel?: Channel }[]>(); // tenant::player → envíos de marketing
   #alerts: { at: string; tenant_id: string; player_id: string; alert: string }[] = [];
   #clock: Clock;
+  /** I2: caso de riesgo alto abierto ⇒ sin marketing ni incentivos hasta que JR lo cierre. */
+  riskHold?: (tenant: string, player: string) => boolean;
   constructor(clock: Clock) { this.#clock = clock; }
 
   setPolicy(tenant_id: string, p: MarketPolicy): void { this.#policies.set(`${tenant_id}::${p.brand_id}::${p.market}`, p); }
@@ -123,6 +125,7 @@ export class PolicyEngine {
       if (!lastSync || now.getTime() - Date.parse(lastSync) > policy.rg_feed_max_staleness_ms) { reasons.push('rg_feed_stale'); alertMsg = alert('rg feed stale'); }
       if (profile.rg.value !== 'none') reasons.push(`rg_restricted:${profile.rg.value}`);
     }
+    if (this.riskHold?.(profile.tenant_id, profile.player_id)) reasons.push('rg_risk_case_open');
 
     if (channel) {
       const c = profile.consents[`marketing:${channel}`];

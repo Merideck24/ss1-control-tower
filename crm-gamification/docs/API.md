@@ -66,3 +66,13 @@ Recorridos: `overlap: { group, priority (1–100), cooldown_hours? }` (solo mark
 | `GET /experiments/splits` | `analytics.read` | Por cada paso A/B/n publicado: fase (fijo, calentamiento, optimizando), asignados, cerrados, conversiones, tasa con IC 95 %, probabilidad de ser la mejor, reparto actual y decisión |
 
 Paso `split`: `{ mode: 'fixed' \| 'bandit', metric: { event, window_hours }, variants: [{ id, label, weight, next }], min_explore_pct?, warmup_per_variant? }`.
+
+## Juego responsable (I2, D6)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /risk/rg-monitor` | `rg.monitor` | Resumen de casos, señales, intervenciones y cola priorizada |
+| `POST /risk/rg-cases/:id/take` | `rg.act` | Asigna el caso a quien lo toma |
+| `POST /risk/rg-cases/:id/close` | `rg.act` | `{ outcome: contacted \| limits_suggested \| escalated_to_rg \| no_action, note }`; auditado |
+
+Evento interno `rg.risk_signal` (`source: crm.risk`): `{ level, score, signals }`. `GET /players/:id` incluye `rg_risk` solo para roles con `rg.monitor`.

@@ -24,6 +24,7 @@ channels:
       loyaltyThresholdCrossed: { $ref: '#/components/messages/loyaltyThresholdCrossed' }
       marketingSpendReported: { $ref: '#/components/messages/marketingSpendReported' }
       withdrawalSettled: { $ref: '#/components/messages/withdrawalSettled' }
+      rgRiskSignal: { $ref: '#/components/messages/rgRiskSignal' }
 operations:
   consumeEvents:
     action: receive
@@ -59,6 +60,9 @@ components:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [kyc_status], properties: { kyc_status: { type: string, enum: [pending, verified, rejected] } } } } }] }
     consentChanged:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [purpose, channel, granted], properties: { purpose: { type: string, enum: [service, marketing] }, channel: { type: string, enum: [inapp, email, webpush] }, granted: { type: boolean } } } } }] }
+    rgRiskSignal:
+      summary: Señal interna del monitor de riesgo (source crm.risk); dispara intervenciones de servicio, nunca promociones
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [level, score, signals], properties: { level: { type: string, enum: [medium, high] }, score: { type: integer, minimum: 0, maximum: 100 }, signals: { type: array, items: { type: string, enum: [deposit_velocity, loss_chasing, night_play, escalating_stakes] } } } } } }] }
     rgStatusChanged:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [status], properties: { status: { type: string, enum: [none, cooling_off, self_excluded, limited] } } } } }] }
     depositSettled:

@@ -16,6 +16,7 @@ export const EVENT_TYPES = [
   'loyalty.threshold_crossed',
   'marketing.spend_reported',
   'withdrawal.settled',
+  'rg.risk_signal',
 ] as const;
 
 /** Eventos que no pertenecen a un jugador (no actualizan la proyección). */
@@ -40,6 +41,8 @@ export type PayloadByType = {
   'reward.granted': { grant_id: string; reward_type: 'free_bet' | 'free_spins' | 'bonus'; value: Money; expires_at: string };
   'loyalty.threshold_crossed': { level: string; season: string; percent: number };
   'withdrawal.settled': { withdrawal_id: string } & Money;
+  /** I2: señal interna del monitor de riesgo (fuente crm.risk); dispara intervenciones, no promociones. */
+  'rg.risk_signal': { level: 'medium' | 'high'; score: number; signals: string[] };
   /** Inversión diaria agregada por campaña (fuente: plataformas de medios / afiliados). */
   'marketing.spend_reported': { campaign_id: string; campaign_name: string; channel: string; date: string; impressions: number; clicks: number; spend: Money };
 };

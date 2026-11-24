@@ -108,6 +108,21 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
       events.push(ev(tenant, player, 'withdrawal.settled', { withdrawal_id: `${player}-w${c}`, amount_minor: 35_000_00, currency: 'COP' }, iso(t0 + 4 * HOUR)));
     }
   };
+  // demo I2: dos jugadores que persiguen pérdidas en las últimas horas (casos altos para el equipo JR)
+  for (const [i, pl] of ['rg_chase_01', 'rg_chase_02'].entries()) {
+    const reg = now - (40 + 10 * i) * DAY;
+    events.push(ev(tenant, pl, 'player.registered', { email_masked: `c***${i}@demo.test`, country: 'CO', locale: 'es', timezone: 'America/Bogota', device_hash: `dev-${pl}` }, iso(reg)));
+    events.push(ev(tenant, pl, 'rg.status_changed', { status: 'none' }, iso(reg + 60_000)));
+    events.push(ev(tenant, pl, 'consent.changed', { purpose: 'marketing', channel: 'inapp', granted: true }, iso(reg + 60_000)));
+    events.push(ev(tenant, pl, 'consent.changed', { purpose: 'marketing', channel: 'email', granted: true }, iso(reg + 60_000)));
+    events.push(ev(tenant, pl, 'player.verified', { kyc_status: 'verified' }, iso(reg + HOUR)));
+    const start = now - (6 + 3 * i) * HOUR;
+    for (let k = 0; k < 5; k++) {
+      const t0 = start + k * 25 * 60_000;
+      events.push(ev(tenant, pl, 'deposit.settled', { deposit_id: `${pl}-d${k}`, amount_minor: 200_000_00, currency: 'COP', instrument_hash: `card-${pl}` }, iso(t0)));
+      events.push(ev(tenant, pl, 'bet.settled', { bet_id: `${pl}-b${k}`, stake: { amount_minor: 200_000_00, currency: 'COP' }, win: { amount_minor: 10_000_00, currency: 'COP' }, product: 'casino' }, iso(t0 + 10 * 60_000)));
+    }
+  }
   for (let i = 1; i <= 5; i++) abuseCase(`ring_${String(i).padStart(2, '0')}`, now - (18 - i) * DAY, 'dev-ring-01', 2);
   for (let i = 1; i <= 4; i++) abuseCase(`fast_wd_${String(i).padStart(2, '0')}`, now - (20 - 2 * i) * DAY, `dev-fast-${i}`, 1, 250_000);
   events.sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));

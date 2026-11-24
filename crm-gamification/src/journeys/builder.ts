@@ -63,6 +63,8 @@ const MESSAGES: Record<string, (arg?: string) => string> = {
   split_weights: (a) => `En «${a}» al menos una variante debe tener peso mayor que cero.`,
   split_metric: (a) => `Elige en «${a}» el evento que cuenta como conversión y una ventana en horas.`,
   split_mode: (a) => `El modo de «${a}» debe ser fijo u optimizado.`,
+  rg_journey_must_be_service: () => 'Un recorrido disparado por una señal de riesgo es una intervención: debe ser de servicio, no de marketing.',
+  rg_journey_no_incentives_or_tests: () => 'Las intervenciones de juego responsable no llevan recompensas ni pruebas A/B.',
   invalid_overlap: () => 'El grupo de solapamiento necesita nombre y una prioridad entre 1 y 100.',
   service_journey_cannot_have_overlap: () => 'Los recorridos de servicio no compiten con otros: quita el grupo de solapamiento.',
 };

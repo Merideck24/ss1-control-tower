@@ -48,7 +48,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | D3 | Anti-solapamiento entre journeys (prioridad y bloqueo de colisión) | GR8 | ✅ |
 | D4 | Control de frecuencia por canal | FT | ✅ |
 | D5 | A/B/n en journeys y optimización automática (bandit) | OPT, GR8 | ✅ |
-| D6 | Journeys de juego responsable (intervención, no promoción) | FT | ⬜ (depende de G1) |
+| D6 | Journeys de juego responsable (intervención, no promoción) | FT | ✅ |
 
 ## E. Personalización e IA
 
@@ -104,7 +104,7 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | # | Capacidad | Referencia | Estado |
 |---|---|---|---|
 | I1 | Consentimiento por propósito y canal, supresión fail-closed, auditoría encadenada | FT | ✅ |
-| I2 | Monitoreo de riesgo en tiempo real (velocidad de depósito, persecución de pérdidas, sesiones nocturnas) con señales para el equipo JR | FT | ⬜ |
+| I2 | Monitoreo de riesgo en tiempo real (velocidad de depósito, persecución de pérdidas, sesiones nocturnas) con señales para el equipo JR | FT | ✅ |
 | I3 | Topes jurisdiccionales editables por mercado desde la UI (con aprobación) | FT | ⬜ |
 | I4 | Certificaciones GDPR / SOC | FT | 🔒 |
 
@@ -146,3 +146,4 @@ Hallazgos del admin: Vue 3 + Vuetify (plantilla Vuexy), autorización con CASL (
 | 14 | 2026-11-23 | D2 | Lienzo de recorridos: paleta de pasos (esperar, condición, mensaje, recompensa, salida), conexiones con clic en el puerto o desde el panel, arrastre con ajuste a cuadrícula, orden automático por capas (determinista y sin solapes) hasta que se mueve un paso a mano, panel de edición por tipo con catálogos reales (eventos de jugador, plantillas, recompensas aprobadas, campos de segmento). Revisión en vivo en lenguaje claro con el paso marcado (conexiones sueltas, ciclos, plantilla promocional en servicio, recompensa inexistente o sin aprobar, espera inválida, sin grupo de control). Editar un recorrido publicado crea versión nueva con el mismo flujo de aprobación; las posiciones se guardan con el borrador. JSON solo como vista avanzada de lectura |
 | 15 | 2026-11-23 | D3, D4 | Grupos de solapamiento con prioridad 1–100 y enfriamiento opcional: un solo recorrido de marketing activo por jugador y grupo; el de mayor prioridad desplaza al que está en curso, el empate lo conserva el que ya estaba, y la entrada perdedora queda registrada y auditada (servicio exento). Panel de solapamiento en Constructor con entradas, desplazadas y bloqueadas por recorrido, más riesgos de colisión (mismo disparador sin grupo). Topes de marketing por canal (24 h) y semanal (7 días) además del global, con motivo explícito; servicio no cuenta. Campos de grupo, prioridad y enfriamiento en el lienzo con validación. Corregido: listas de pasos con texto largo desbordaban en móvil |
 | 16 | 2026-11-23 | D5 | Paso A/B/n en recorridos (2–5 variantes): modo fijo por pesos o optimizado con Thompson sampling (Beta-Binomial) tras un calentamiento por variante y con piso de exploración (10 % por defecto). Asignación estable por jugador y auditable (cada asignación guarda el reparto vigente); conversión = primer evento de la métrica dentro de la ventana, contando solo casos cerrados. Informe en Analítica con tasa e IC 95 % (Wilson), probabilidad de ser la mejor y decisión al 95 %. Prueba de simulación: la mejor variante recibe más de la mitad del tráfico sin dejar a las otras por debajo del 10 %. Lienzo con puertos por variante y edición de modo, métrica, ventana, pesos y variantes. Demo con datos neutros: sin ganadora clara, como corresponde |
+| 17 | 2026-11-24 | I2, D6 | Monitor de riesgo en tiempo real con señales explicables (depósitos acelerados, persecución de pérdidas, juego nocturno frecuente en hora local, apuestas en escalada) y niveles medio/alto. Un nivel nuevo abre un caso para el equipo JR (sin duplicar alertas en 24 h) y emite `rg.risk_signal`; un caso alto abierto pausa marketing e incentivos del jugador hasta que JR lo cierre con resultado y nota auditados. Recorrido de intervención de servicio (check-in o recordatorio de herramientas de control), que llega aunque no haya consentimiento de marketing y que la validación impide convertir en promoción. Pestaña «Juego responsable» solo para JR, administración y auditoría; riesgo en Perfil 360; campo `risk.level` en segmentos. Calibrado en la demo: la regla de velocidad por múltiplo exigía un solo depósito y marcaba 361 jugadores; ahora pide al menos 2 en 24 h (53 casos, ~4 %) |

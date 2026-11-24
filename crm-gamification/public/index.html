@@ -202,7 +202,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -488,6 +488,7 @@ const ICON_PATHS = {
   loyalty: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   copilot: '<path d="M12 3a7 7 0 0 1 7 7c0 3-2 5-4 6v3H9v-3c-2-1-4-3-4-6a7 7 0 0 1 7-7z"/><path d="M10 21h4"/>',
   gamification: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
@@ -866,6 +867,23 @@ const VIEWS = {
       <textarea id="tin" rows="5">{"metric": "kyc_verified_rate"}</textarea>
       <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
   },
+  async rg() {
+    const r = await api('/risk/rg-monitor');
+    const S = r.summary;
+    const OUT = { contacted: 'Contactado', limits_suggested: 'Límites sugeridos', escalated_to_rg: 'Escalado a restricción en SS1', no_action: 'Sin acción' };
+    const ST = { open: ['bad', 'Abierto'], in_review: ['warn', 'En gestión'], closed: ['ok', 'Cerrado'] };
+    return `<div class="kpis"><div class="kpi-card"><div class="lbl">Casos abiertos</div><div class="val">${int(S.open)}</div></div><div class="kpi-card"><div class="lbl">Riesgo alto</div><div class="val bad">${int(S.high)}</div></div><div class="kpi-card"><div class="lbl">Riesgo medio</div><div class="val">${int(S.medium)}</div></div><div class="kpi-card"><div class="lbl">En gestión</div><div class="val">${int(S.in_review)}</div></div><div class="kpi-card"><div class="lbl">Cerrados</div><div class="val">${int(S.closed)}</div></div></div><br>
+      <div class="card"><h3>Señales en casos abiertos</h3><div class="row">${r.signals.map((x) => `<span class="chip">${esc(x.label)}: <b>${int(x.cases)}</b></span>`).join('') || '<span class="muted">—</span>'}</div>
+        <p class="muted">Intervenciones automáticas: ${int(r.interventions.started)} recorridos iniciados, ${int(r.interventions.messages_accepted)} mensajes de herramientas de control enviados${r.interventions.messages_not_sent ? `, ${int(r.interventions.messages_not_sent)} no enviados (horario o canal)` : ''}. ${int(S.marketing_on_hold)} jugadores con marketing e incentivos en pausa.</p></div><br>
+      <div class="card scroll"><h3>Cola de casos</h3>
+        ${can('rg.act') ? `<div class="row"><label>Resultado <select id="rgout">${Object.entries(OUT).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label><input id="rgnote" style="flex:1; min-width:0" placeholder="Nota de la gestión (obligatoria, queda en la auditoría)"></div>` : ''}
+        <table><tr><th>Jugador</th><th>Nivel</th><th class="num">Puntaje</th><th>Señales</th><th>Abierto</th><th>Estado</th><th></th></tr>
+        ${r.cases.map((c) => `<tr><td>${esc(c.player_id)}</td><td><span class="${c.level === 'high' ? 'bad' : 'warn'}">${c.level === 'high' ? 'Alto' : 'Medio'}</span></td><td class="num">${c.score}</td>
+          <td>${c.signals.map((x) => `<div><b>${esc(x.label)}</b> <span class="muted">${esc(x.detail)}</span></div>`).join('')}</td><td class="muted">${new Date(c.opened_at).toLocaleString('es-CO')}</td>
+          <td><span class="${ST[c.status][0]}">${ST[c.status][1]}</span>${c.assignee ? ` <span class="muted">${esc(c.assignee)}</span>` : ''}${c.outcome ? `<br><span class="muted">${esc(OUT[c.outcome])}: ${esc(c.notes.at(-1)?.text ?? '')}</span>` : ''}</td>
+          <td class="num">${can('rg.act') && c.status !== 'closed' ? `${c.status === 'open' ? `<button class="ghost" data-rgtake="${esc(c.case_id)}">Tomar</button> ` : ''}<button class="ghost" data-rgclose="${esc(c.case_id)}">Cerrar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin casos.</td></tr>'}</table>
+        <p class="muted">${esc(r.note)} Reglas ${esc(r.rules.version)}: ≥ ${r.rules.velocity_count_24h} depósitos en 24 h, redepósito en ≤ ${r.rules.chase_minutes} min tras perder ≥ ${Math.round(r.rules.chase_loss_share * 100)} %, juego entre ${r.rules.night_from}:00 y ${r.rules.night_to}:00 en ≥ ${r.rules.night_days_7d} de 7 días, apuesta media ≥ ${r.rules.stake_multiple}× la habitual.</p></div>`;
+  },
   async audit() {
     const a = await api('/audit');
     return `<div class="card scroll"><h3>Registro de auditoría <span class="chip ${a.chain_valid ? 'ok' : 'bad'}">cadena ${a.chain_valid ? 'íntegra' : 'alterada'}</span></h3>
@@ -923,6 +941,9 @@ const BIND = {
             <span class="chip">Abandono ${P(pr.churn)}</span><span class="chip">Depósito en 30 d ${P(pr.deposit)}</span><span class="chip">Valor 30 d ${moneyC(pr.value_30d_minor)}</span>
             ${pr.preferences.product ? `<span class="chip">Prefiere ${esc(pr.preferences.product)}${pr.preferences.daypart ? ' · ' + esc(pr.preferences.daypart) : ''}</span>` : ''}</div>
           ${pr.churn ? `<div class="muted">Por qué ese riesgo: ${pr.churn.reasons.map(esc).join(' · ')}</div>` : ''}`; })()}
+        ${d.rg_risk && (d.rg_risk.signals.length || d.rg_risk.cases.length) ? `<h3 style="margin-top:12px">Riesgo de juego</h3>
+          <div class="row"><span class="chip ${d.rg_risk.level === 'high' ? 'bad' : ''}">${d.rg_risk.level === 'high' ? 'Alto' : d.rg_risk.level === 'medium' ? 'Medio' : 'Sin señales ahora'} · ${d.rg_risk.score}/100</span>${d.rg_risk.cases.map((c) => `<span class="chip">Caso ${c.status === 'closed' ? 'cerrado' : 'abierto'} · ${new Date(c.opened_at).toLocaleDateString('es-CO')}</span>`).join('')}</div>
+          ${d.rg_risk.signals.map((x) => `<div class="muted"><b>${esc(x.label)}</b>: ${esc(x.detail)}</div>`).join('')}` : ''}
         ${d.bonus_abuse && (d.bonus_abuse.signals.length || d.bonus_abuse.valuable) ? `<h3 style="margin-top:12px">Abuso de bonos</h3>
           <div class="row"><span class="chip ${d.bonus_abuse.tier === 'high' ? 'bad' : d.bonus_abuse.tier === 'watch' ? '' : 'brand'}">${d.bonus_abuse.tier === 'high' ? 'Riesgo alto' : d.bonus_abuse.tier === 'watch' ? 'Vigilar' : 'Valioso'} · ${d.bonus_abuse.score}/100</span><span class="muted">Bono sugerido ×${d.bonus_abuse.multiplier}${d.bonus_abuse.review ? ' · revisión: ' + esc(d.bonus_abuse.review.status) : ''}</span></div>
           ${d.bonus_abuse.signals.map((x) => `<div class="muted"><b>${esc(x.label)}</b>: ${esc(x.detail)}</div>`).join('')}` : ''}
@@ -979,6 +1000,10 @@ const BIND = {
       try { await api('/journeys', { method: 'POST', body: body() }); const d = await api(`/journeys/${encodeURIComponent(B.def.id)}/submit`, { method: 'POST' }); $('#draftout').innerHTML = `<p class="ok">v${d.version} enviado a aprobación. Cambia al rol «Aprobador».</p>`; }
       catch (e) { $('#draftout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
     };
+  },
+  rg() {
+    document.querySelectorAll('[data-rgtake]').forEach((b) => b.onclick = async () => { try { await api(`/risk/rg-cases/${encodeURIComponent(b.dataset.rgtake)}/take`, { method: 'POST' }); flash('Caso asignado a ti.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } });
+    document.querySelectorAll('[data-rgclose]').forEach((b) => b.onclick = async () => { try { await api(`/risk/rg-cases/${encodeURIComponent(b.dataset.rgclose)}/close`, { method: 'POST', body: { outcome: $('#rgout').value, note: $('#rgnote').value } }); flash('Caso cerrado y registrado en la auditoría.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } });
   },
   approval() {
     const act = (attr, action) => document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.onclick = async () => {

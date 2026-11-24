@@ -23,6 +23,7 @@ export type SegmentDefinition = {
 const FIELDS: Record<string, (p: PlayerProfile, d: Derived) => unknown> = {
   'kyc': (p) => p.kyc?.value,
   'rg': (p) => p.rg?.value,
+  'risk.level': (p) => p.risk?.value ?? 'none',
   'country': (p) => p.country?.value,
   'locale': (p) => p.locale?.value,
   'brand_id': (p) => p.brand_id,
