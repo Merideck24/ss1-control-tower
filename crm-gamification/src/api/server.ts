@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createApp, seedTenant, type App } from '../app.ts';
 import { seedAcquisitionHistory } from '../demoAcquisition.ts';
 import { route, type AskFn } from './router.ts';
+import type { WriterFn } from '../content/studio.ts';
 import { Ss1IdentityProvider } from '../integration/ss1Identity.ts';
 import { handleWebhook, MAX_BODY_BYTES } from '../integration/webhook.ts';
 import { OffsetClock } from '../shared/util.ts';
@@ -19,6 +20,13 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
 }
 
 /** El copiloto con Claude solo se habilita si hay credenciales Anthropic en el entorno. */
+/** Escritor de borradores con Claude, solo si hay credenciales de Anthropic (E6). */
+async function loadWriter(): Promise<WriterFn | undefined> {
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN && !process.env.ANTHROPIC_PROFILE) return undefined;
+  const { claudeWriter } = await import('../content/claudeWriter.ts');
+  return claudeWriter();
+}
+
 async function loadAsk(): Promise<AskFn | undefined> {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN && !process.env.ANTHROPIC_PROFILE) return undefined;
   const { askCopilot } = await import('../copilot/agent.ts');
@@ -29,7 +37,7 @@ async function loadAsk(): Promise<AskFn | undefined> {
  * Autenticación: con `Authorization: Bearer` se valida contra la API de SS1 y el servidor decide los roles.
  * Las cabeceras de desarrollo (x-roles) solo se aceptan si `devAuth` está activo (CRM_DEV_AUTH=1).
  */
-export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string; webhookSecrets?: Record<string, string> } = {}) {
+export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string; webhookSecrets?: Record<string, string>; write?: WriterFn } = {}) {
   return async (req: IncomingMessage, res: import('node:http').ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (!url.pathname.startsWith('/api/')) {
@@ -61,7 +69,7 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
     }
     const token = actor ? /^Bearer\s+(\S+)$/i.exec(headers.authorization ?? '')?.[1] : undefined;
     const ss1 = token && auth.identity ? { apiBase: auth.apiBase ?? 'https://api.syssoft1.com', token } : undefined;
-    const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: parsed }, { ask, actor, ss1 });
+    const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: parsed }, { ask, write: auth.write, actor, ss1 });
     res.writeHead(out.status, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(out.body, null, 2));
   };
@@ -76,9 +84,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   heartbeat();
   setInterval(heartbeat, 60_000).unref();
   const ask = await loadAsk();
+  const write = await loadWriter();
   const identity = new Ss1IdentityProvider({ apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', profilePath: process.env.SS1_PROFILE_PATH, tenantMap: process.env.CRM_TENANT_MAP ? JSON.parse(process.env.CRM_TENANT_MAP) : {} });
   const devAuth = process.env.CRM_DEV_AUTH === '1';
   const port = Number(process.env.PORT ?? 3000);
   const webhookSecrets = process.env.CRM_WEBHOOK_SECRETS ? JSON.parse(process.env.CRM_WEBHOOK_SECRETS) as Record<string, string> : {};
-  createServer(createHandler(app, ask, { identity, devAuth, apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', webhookSecrets })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
+  createServer(createHandler(app, ask, { identity, devAuth, apiBase: process.env.SS1_API_BASE ?? 'https://api.syssoft1.com', webhookSecrets, write })).listen(port, () => console.log(`SS1 CRM & Gamificación → http://localhost:${port}${ask ? ' (copiloto Claude habilitado)' : ''}${write ? ' (borradores con IA habilitados)' : ''}${devAuth ? ' · auth de desarrollo ACTIVA' : ' · auth SS1'}`));
 }

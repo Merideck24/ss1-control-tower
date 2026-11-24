@@ -204,7 +204,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -490,6 +490,7 @@ const ICON_PATHS = {
   loyalty: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   copilot: '<path d="M12 3a7 7 0 0 1 7 7c0 3-2 5-4 6v3H9v-3c-2-1-4-3-4-6a7 7 0 0 1 7-7z"/><path d="M10 21h4"/>',
   gamification: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  content: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   onsite: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>',
   rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
@@ -874,6 +875,31 @@ const VIEWS = {
       <textarea id="tin" rows="5">{"metric": "kyc_verified_rate"}</textarea>
       <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
   },
+  async content() {
+    const [d, cat] = await Promise.all([api('/content/drafts'), can('journeys.draft') ? api('/journeys/builder') : null]);
+    const ST = { draft: ['', 'Borrador'], pending_approval: ['warn', 'Pendiente de aprobación'], approved: ['ok', 'Aprobado: plantilla creada'], rejected: ['bad', 'Rechazado'] };
+    const LOC = { es: 'Español', en: 'Inglés', pt: 'Portugués' };
+    const form = !can('journeys.draft') ? '' : `<div class="card"><h3>Pedir un borrador ${d.ai_enabled ? '<span class="chip brand">Claude</span>' : '<span class="chip">Texto base (sin IA)</span>'}</h3>
+      <div class="row"><label>Clave de plantilla <input id="ctkey" value="fin_de_semana_puntos" size="22"></label>
+        <label>Propósito <select id="ctpur"><option value="marketing">Marketing</option><option value="service">Servicio</option></select></label>
+        <label>Tono <select id="cttone"><option>cercano</option><option>formal</option><option>entusiasta</option></select></label>
+        <label>Variables <input id="ctvars" value="level" size="16" placeholder="separadas por coma"></label></div>
+      <label>Objetivo del mensaje <input id="ctgoal" style="width:100%" value="Invitar a jugar este fin de semana para sumar puntos hacia el siguiente nivel de fidelidad"></label>
+      <div class="row">${['es', 'en', 'pt'].map((l) => `<label><input type="checkbox" data-ctloc="${l}" ${l !== 'pt' ? 'checked' : ''}> ${LOC[l]}</label>`).join('')}<label><input type="checkbox" id="ctsms" checked> Incluir SMS</label><button id="ctgen">Generar borrador</button></div>
+      <p class="muted">${esc(d.note)}</p></div><br>`;
+    const issues = (x) => x.moderation.length ? `<ul class="issues">${x.moderation.map((i) => `<li class="${i.severity === 'block' ? 'error' : 'warning'}">${i.severity === 'block' ? 'Bloquea' : 'Revisar'} · ${esc(LOC[i.locale] ?? i.locale ?? '')}${i.field ? ' ' + esc(i.field) : ''}: ${esc(i.message)}</li>`).join('')}</ul>` : '<p class="ok">Moderación sin observaciones.</p>';
+    const editable = (x) => (x.status === 'draft' || x.status === 'rejected') && can('journeys.draft');
+    const draftCard = (x) => `<div class="card" style="margin-bottom:12px"><div class="row" style="justify-content:space-between"><b>${esc(x.brief.key)}</b><span class="${ST[x.status][0]}">${ST[x.status][1]}</span></div>
+      <div class="muted">${esc(x.brief.goal)} · ${x.brief.purpose === 'service' ? 'servicio' : 'marketing'} · ${x.source === 'claude' ? `escrito por ${esc(x.model ?? 'Claude')}` : 'texto base sin IA'} · ${new Date(x.created_at).toLocaleString('es-CO')}${x.reject_reason ? ` · rechazo: ${esc(x.reject_reason)}` : ''}</div>
+      ${Object.entries(x.texts).map(([l, t]) => `<div style="margin-top:8px"><b>${esc(LOC[l] ?? l)}</b>
+        ${editable(x) ? `<input data-ce="${esc(x.id)}" data-l="${l}" data-f="subject" value="${esc(t.subject ?? '')}" style="width:100%;margin:4px 0" aria-label="Asunto ${l}"><textarea data-ce="${esc(x.id)}" data-l="${l}" data-f="body" rows="3" aria-label="Texto ${l}">${esc(t.body)}</textarea>${t.sms !== undefined ? `<input data-ce="${esc(x.id)}" data-l="${l}" data-f="sms" value="${esc(t.sms)}" style="width:100%;margin-top:4px" aria-label="SMS ${l}">` : ''}`
+          : `<div><i>${esc(t.subject ?? '')}</i></div><div>${esc(t.body)}</div>${t.sms ? `<div class="muted">SMS: ${esc(t.sms)}</div>` : ''}`}</div>`).join('')}
+      ${issues(x)}
+      <div class="row">${editable(x) ? `<button class="ghost" data-csave="${esc(x.id)}">Guardar cambios y revisar</button>` : ''}${x.status === 'draft' && can('journeys.submit') ? `<button data-csub="${esc(x.id)}">Enviar a aprobación</button>` : ''}
+        ${x.status === 'pending_approval' && can('journeys.approve') ? `<button data-cok="${esc(x.id)}">Aprobar y crear plantilla</button><input id="crr-${esc(x.id)}" placeholder="Motivo del rechazo" size="22"><button class="ghost" data-cno="${esc(x.id)}">Rechazar</button>` : ''}</div></div>`;
+    const tpls = cat ? `<div class="card scroll"><h3>Plantillas disponibles</h3><table><tr><th>Clave</th><th>Asunto</th><th>Tipo</th></tr>${cat.templates.map((t) => `<tr><td>${esc(t.key)}</td><td>${esc(t.subject)}</td><td>${t.purpose === 'service' ? 'servicio' : 'promocional'}</td></tr>`).join('')}</table></div>` : '';
+    return `${form}<h3>Borradores</h3>${d.drafts.map(draftCard).join('') || '<p class="muted">Aún no hay borradores.</p>'}<br>${tpls}`;
+  },
   async onsite() {
     const [d, players] = await Promise.all([api('/onsite/campaigns'), api('/players?sort=recent')]);
     const PL = { home_banner: 'Banner de inicio', lobby_popup: 'Popup del lobby', cashier_banner: 'Banner del cajero', sportsbook_banner: 'Banner de deportes' };
@@ -1039,6 +1065,24 @@ const BIND = {
       try { await api('/journeys', { method: 'POST', body: body() }); const d = await api(`/journeys/${encodeURIComponent(B.def.id)}/submit`, { method: 'POST' }); $('#draftout').innerHTML = `<p class="ok">v${d.version} enviado a aprobación. Cambia al rol «Aprobador».</p>`; }
       catch (e) { $('#draftout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
     };
+  },
+  content() {
+    const act = async (path, body, msg) => { try { await api(path, { method: 'POST', body }); flash(msg, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } };
+    if ($('#ctgen')) $('#ctgen').onclick = async () => {
+      const brief = { key: $('#ctkey').value.trim(), goal: $('#ctgoal').value, purpose: $('#ctpur').value, tone: $('#cttone').value, vars: $('#ctvars').value.split(',').map((v) => v.trim()).filter(Boolean),
+        locales: [...document.querySelectorAll('[data-ctloc]')].filter((c) => c.checked).map((c) => c.dataset.ctloc), include_sms: $('#ctsms').checked };
+      $('#ctgen').disabled = true; flash('Generando borrador…');
+      try { const r = await api('/content/drafts', { method: 'POST', body: brief }); const b = r.moderation.filter((i) => i.severity === 'block').length; flash(b ? `Borrador listo con ${b} observaciones que bloquean: corrígelas abajo.` : 'Borrador listo: revísalo y envíalo a aprobación.', b ? 'warn' : 'ok'); show(); }
+      catch (e) { flash(e.message, 'bad'); $('#ctgen').disabled = false; }
+    };
+    document.querySelectorAll('[data-csave]').forEach((b) => b.onclick = () => {
+      const id = b.dataset.csave, texts = {};
+      document.querySelectorAll(`[data-ce="${id}"]`).forEach((i) => { texts[i.dataset.l] ??= {}; texts[i.dataset.l][i.dataset.f] = i.value; });
+      act(`/content/drafts/${id}/edit`, { texts }, 'Cambios guardados y revisados de nuevo.');
+    });
+    document.querySelectorAll('[data-csub]').forEach((b) => b.onclick = () => act(`/content/drafts/${b.dataset.csub}/submit`, {}, 'Enviado a aprobación. Lo aprueba otra persona con rol Aprobador.'));
+    document.querySelectorAll('[data-cok]').forEach((b) => b.onclick = () => act(`/content/drafts/${b.dataset.cok}/approve`, {}, 'Aprobado: la plantilla ya se puede usar en recorridos.'));
+    document.querySelectorAll('[data-cno]').forEach((b) => b.onclick = () => act(`/content/drafts/${b.dataset.cno}/reject`, { reason: $(`#crr-${b.dataset.cno}`).value }, 'Borrador rechazado.'));
   },
   onsite() {
     document.querySelectorAll('[data-osa]').forEach((b) => b.onclick = async () => {

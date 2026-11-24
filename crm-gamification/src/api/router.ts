@@ -14,6 +14,8 @@ import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } f
 import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
 import { RISK_RULES } from '../risk/riskMonitor.ts';
 import { PLACEMENTS, type Placement } from '../onsite/onsite.ts';
+import { baseWriter, type WriterFn } from '../content/studio.ts';
+import { moderate, MODERATION_RULES } from '../content/moderation.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
 import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
 import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
@@ -46,6 +48,7 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
+  'content.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'onsite.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'rg.monitor': ['rg_officer', 'tenant_admin', 'auditor'],
   'rg.act': ['rg_officer'],
@@ -93,7 +96,7 @@ export function controlTower(app: App, tenant: string) {
 /** `ss1` lo entrega el servidor cuando la petición trae un token del admin ya validado. */
 export type Ss1Context = { apiBase: string; token: string; fetchImpl?: typeof fetch };
 
-export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; actor?: Actor; ss1?: Ss1Context } = {}): Promise<ApiResponse> {
+export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; write?: WriterFn; actor?: Actor; ss1?: Ss1Context } = {}): Promise<ApiResponse> {
   // con identidad SS1 el servidor entrega el actor ya validado; las cabeceras solo valen en desarrollo/demo
   const actor = opts.actor ?? sessionFrom(req.headers);
   const T = actor.tenant_id;
@@ -277,6 +280,27 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         if (r.candidates.some((c) => !c.allowed)) blocked++;
       }
       return ok({ players: rows.length, actions: [...by].map(([action, v]) => ({ action, ...v })).sort((a, b) => b.players - a.players), with_blocked_candidates: blocked, note: 'Recomendaciones; se ejecutan solo mediante recorridos aprobados. Efectos supuestos a calibrar con grupos de control.' });
+    }
+    if (r0 === 'GET /content/drafts') {
+      if (!can(actor, 'content.read')) return forbid('content.read');
+      return ok({ drafts: app.content.drafts(T), ai_enabled: Boolean(opts.write), moderation_version: MODERATION_RULES.version,
+        note: opts.write ? 'La IA escribe borradores; la moderación y la aprobación de otra persona son obligatorias antes de que exista la plantilla.' : 'Sin credenciales de Anthropic: se genera un texto base sin IA para editar. La moderación y la aprobación son las mismas.' });
+    }
+    if (r0 === 'POST /content/drafts') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(await app.content.generate(actor, req.body as never, opts.write ?? baseWriter), 201);
+    }
+    if (r0 === 'POST /content/moderate') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      const b = req.body as { texts?: Record<string, { subject?: string; body: string; sms?: string }>; purpose?: 'marketing' | 'service'; vars?: string[] };
+      return ok({ issues: moderate(b.texts ?? {}, { purpose: b.purpose === 'service' ? 'service' : 'marketing', allowedVars: b.vars ?? [] }), version: MODERATION_RULES.version });
+    }
+    if ((r = m(/^POST \/content\/drafts\/([\w-]+)\/(edit|submit|approve|reject)$/))) {
+      const perm = r[2] === 'edit' ? 'journeys.draft' : r[2] === 'submit' ? 'journeys.submit' : 'journeys.approve';
+      if (!can(actor, perm)) return forbid(perm);
+      if (r[2] === 'edit') return ok(app.content.edit(actor, r[1], (req.body.texts ?? {}) as never));
+      if (r[2] === 'submit') return ok(app.content.submit(actor, r[1]));
+      return ok(app.content.decide(actor, r[1], r[2] === 'approve', String(req.body.reason ?? '')));
     }
     if (r0 === 'GET /onsite/campaigns') {
       if (!can(actor, 'onsite.read')) return forbid('onsite.read');

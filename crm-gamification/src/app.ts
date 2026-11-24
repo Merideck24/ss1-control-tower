@@ -25,6 +25,7 @@ import { MockBonusService, RewardService } from './rewards/rewards.ts';
 import { SplitTracker } from './experiments/bandit.ts';
 import { RiskMonitor } from './risk/riskMonitor.ts';
 import { OnsiteService } from './onsite/onsite.ts';
+import { ContentStudio } from './content/studio.ts';
 import { DAY, systemClock, type Clock } from './shared/util.ts';
 
 export type App = ReturnType<typeof createApp>;
@@ -134,7 +135,8 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
     return a && { multiplier: a.multiplier, reason: a.signals.map((s) => s.code).join(',') || (a.valuable ? 'valuable' : 'ok') };
   });
 
-  return { onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  const content = new ContentStudio({ audit, clock, channels });
+  return { content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

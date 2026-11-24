@@ -97,3 +97,15 @@ Canales: `inapp`, `email`, `webpush`, `sms`, `whatsapp`, `telegram`. Plantillas:
 | `POST /onsite/campaigns/:id/submit` · `approve` · `pause` · `resume` | `journeys.submit` · `journeys.approve` · `journeys.pause` | Ciclo de aprobación (autor ≠ aprobador) |
 | `GET /onsite/serve/:player?placement=&request_id=&locale=` | `players.read` (en producción, credencial de servicio del sitio) | Contenido a mostrar o `null` con los motivos de lo no mostrado; registra la impresión |
 | `POST /onsite/events/:player` | `players.read` | `{ campaign_id, type: click \| dismiss, request_id }`, idempotente |
+
+## Plantillas con IA y moderación (E6)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /content/drafts` | `content.read` | Borradores con moderación y si la IA está habilitada |
+| `POST /content/drafts` | `journeys.draft` | `{ key, goal, purpose, tone?, locales, vars, include_sms? }` → borrador (Claude o texto base) ya moderado |
+| `POST /content/moderate` | `journeys.draft` | Revisa textos sin guardar: `{ texts, purpose, vars }` |
+| `POST /content/drafts/:id/edit` · `submit` | `journeys.draft` · `journeys.submit` | Edición humana con nueva revisión; envío solo sin bloqueos |
+| `POST /content/drafts/:id/approve` · `reject` | `journeys.approve` | Otra persona aprueba (crea la plantilla) o rechaza con motivo |
+
+Servidor: con `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` o un perfil `ant` se habilita el escritor con Claude (`CONTENT_MODEL`, por defecto `claude-opus-5-5`, con respaldo del servidor ante rechazos). La versión estática nunca incluye el SDK.
