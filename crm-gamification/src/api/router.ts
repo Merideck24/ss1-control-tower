@@ -13,6 +13,7 @@ import { DomainError, HOUR } from '../shared/util.ts';
 import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
 import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
 import { RISK_RULES } from '../risk/riskMonitor.ts';
+import { PLACEMENTS, type Placement } from '../onsite/onsite.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
 import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
 import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
@@ -45,6 +46,7 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
+  'onsite.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'rg.monitor': ['rg_officer', 'tenant_admin', 'auditor'],
   'rg.act': ['rg_officer'],
   'abuse.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'rg_officer'],
@@ -275,6 +277,34 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         if (r.candidates.some((c) => !c.allowed)) blocked++;
       }
       return ok({ players: rows.length, actions: [...by].map(([action, v]) => ({ action, ...v })).sort((a, b) => b.players - a.players), with_blocked_candidates: blocked, note: 'Recomendaciones; se ejecutan solo mediante recorridos aprobados. Efectos supuestos a calibrar con grupos de control.' });
+    }
+    if (r0 === 'GET /onsite/campaigns') {
+      if (!can(actor, 'onsite.read')) return forbid('onsite.read');
+      const st = app.onsite.stats(T);
+      const now = app.clock.now().toISOString();
+      return ok({ placements: PLACEMENTS, campaigns: app.onsite.campaigns(T).sort((a, b) => a.placement.localeCompare(b.placement) || b.priority - a.priority).map((c) => ({ ...c, live: c.status === 'active' && c.starts_at <= now && c.ends_at > now, stats: st.get(c.id) ?? { impressions: 0, unique_players: 0, clicks: 0, ctr: null, dismisses: 0 } })),
+        note: 'El sitio pide qué mostrar en cada ubicación. Se aplican las mismas reglas que a los mensajes (consentimiento in-app, juego responsable, casos de riesgo abiertos), la prioridad, el tope diario por jugador y los descartes. Solo texto plano y enlaces https de la marca.' });
+    }
+    if (r0 === 'POST /onsite/campaigns') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.onsite.save(actor, req.body as never), 201);
+    }
+    if ((r = m(/^POST \/onsite\/campaigns\/([\w-]+)\/(submit|approve|pause|resume)$/))) {
+      const perm = r[2] === 'submit' ? 'journeys.submit' : r[2] === 'approve' ? 'journeys.approve' : 'journeys.pause';
+      if (!can(actor, perm)) return forbid(perm);
+      return ok(r[2] === 'submit' ? app.onsite.submit(actor, r[1]) : r[2] === 'approve' ? app.onsite.approve(actor, r[1]) : app.onsite.setPaused(actor, r[1], r[2] === 'pause'));
+    }
+    if ((r = m(/^GET \/onsite\/serve\/([\w-]+)$/))) {
+      if (!can(actor, 'players.read')) return forbid('players.read');
+      const p = app.ingestor.get(T, r[1]);
+      if (!p) return { status: 404, body: { error: 'not_found', message: `No existe el jugador ${r[1]}` } };
+      const placement = req.query.get('placement') as Placement;
+      if (!PLACEMENTS.includes(placement)) return { status: 422, body: { error: 'invalid_placement', message: `Usa: ${PLACEMENTS.join(', ')}` } };
+      return ok(app.onsite.serve(p, placement, { locale: req.query.get('locale') ?? p.locale?.value ?? 'es', request_id: req.query.get('request_id') ?? '' }));
+    }
+    if ((r = m(/^POST \/onsite\/events\/([\w-]+)$/))) {
+      if (!can(actor, 'players.read')) return forbid('players.read');
+      return ok(app.onsite.track(T, r[1], { campaign_id: String(req.body.campaign_id ?? ''), type: String(req.body.type ?? '') as never, request_id: String(req.body.request_id ?? '') }));
     }
     if (r0 === 'GET /risk/rg-monitor') {
       if (!can(actor, 'rg.monitor')) return forbid('rg.monitor');

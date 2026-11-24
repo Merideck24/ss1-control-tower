@@ -148,6 +148,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     for (const t of app.tenants) app.policy.markRgFeedSynced(t);
     app.runtime.runDue();
   }
+  seedDemoOnsite(app, tenant);
   // demo: presupuesto de bonos calibrado para quedar cerca del umbral de alerta
   const b = app.rewards.budget(tenant, 'welcome_fs_10');
   const it = app.rewards.item(tenant, 'welcome_fs_10');
@@ -225,4 +226,36 @@ export function seedDemoSplit(app: App, tenant: string) {
       { id: 'end', type: 'exit' }],
   });
   app.registry.submit(author, 'jab_welcome_message'); app.registry.approve(approver, 'jab_welcome_message'); app.registry.publish(author, 'jab_welcome_message');
+}
+
+/** Demo F3: banners y popups aprobados, con impresiones y clics sintéticos del día. */
+export function seedDemoOnsite(app: App, tenant: string) {
+  const author = { id: 'analyst@ss1', tenant_id: tenant };
+  const approver = { id: 'approver@ss1', tenant_id: tenant };
+  const now = app.clock.now().getTime();
+  const win = { starts_at: new Date(now - 20 * DAY).toISOString(), ends_at: new Date(now + 30 * DAY).toISOString() };
+  const cs = [
+    { id: 'verifica_cuenta', name: 'Completa tu verificación', placement: 'home_banner', purpose: 'service', priority: 90, max_impressions_per_day: 3, rules: { field: 'kyc', op: 'eq', value: 'pending' },
+      content: { es: { title: 'Completa tu verificación', body: 'Verifica tu cuenta para depositar y retirar sin demoras.', cta_label: 'Verificar ahora', cta_url: 'https://www.rumbawin.com/perfil/verificacion' } } },
+    { id: 'torneo_semana', name: 'Torneo deportivo de la semana', placement: 'home_banner', purpose: 'marketing', priority: 60, max_impressions_per_day: 2, rules: { field: 'lifecycle', op: 'in', value: ['nuevo', 'activo', 'reactivado'] },
+      content: { es: { title: 'Torneo de la semana', body: 'Suma puntos con tus apuestas deportivas y sube en la tabla.', cta_label: 'Ver tabla', cta_url: 'https://www.rumbawin.com/torneos' } } },
+    { id: 'te_extranamos', name: 'Regreso: misión de bienvenida', placement: 'lobby_popup', purpose: 'marketing', priority: 70, max_impressions_per_day: 1, rules: { field: 'lifecycle', op: 'eq', value: 'en_riesgo' },
+      content: { es: { title: 'Te extrañamos', body: 'Tienes una misión esperando: completa 3 apuestas esta semana y gana XP.', cta_label: 'Ver misión', cta_url: 'https://www.rumbawin.com/misiones' } } },
+    { id: 'limites_cajero', name: 'Herramientas de control en el cajero', placement: 'cashier_banner', purpose: 'service', priority: 50, max_impressions_per_day: 3, rules: { field: 'stats.deposit_count', op: 'gte', value: 3 },
+      content: { es: { title: 'Juega con control', body: 'Puedes fijar un límite de depósito diario, semanal o mensual.', cta_label: 'Fijar límite', cta_url: 'https://www.rumbawin.com/perfil/limites' } } },
+  ] as const;
+  for (const c of cs) { app.onsite.save(author, { ...c, ...win } as never); app.onsite.submit(author, c.id); app.onsite.approve(approver, c.id); }
+  // tráfico sintético: una visita a inicio y al lobby por jugador con actividad en 30 días
+  for (const p of app.ingestor.all(tenant)) {
+    const last = Date.parse(p.timeline.at(-1)?.occurred_at ?? '1970-01-01');
+    if (now - last > 30 * DAY) continue;
+    for (const placement of ['home_banner', 'lobby_popup'] as const) {
+      const rid = `demo-${p.player_id}-${placement}`;
+      const s = app.onsite.serve(p, placement, { request_id: rid });
+      if (!s.campaign_id) continue;
+      const u = stableBucket(`${rid}:click`);
+      if (u < 0.09) app.onsite.track(tenant, p.player_id, { campaign_id: s.campaign_id, type: 'click', request_id: rid });
+      else if (u > 0.93) app.onsite.track(tenant, p.player_id, { campaign_id: s.campaign_id, type: 'dismiss', request_id: rid });
+    }
+  }
 }

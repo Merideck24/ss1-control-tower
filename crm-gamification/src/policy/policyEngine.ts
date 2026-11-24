@@ -33,6 +33,8 @@ export type DecisionRequest = {
   purpose: Purpose;
   channel?: Channel;
   incentive?: boolean; // acción con costo (bono, free spin…)
+  /** Contenido mostrado en el sitio (F3): no es un envío, no cuenta para los topes de frecuencia. */
+  surface?: 'onsite';
 };
 
 export const DEFAULT_POLICY: MarketPolicy = {
@@ -136,7 +138,7 @@ export class PolicyEngine {
       if (!policy.incentives_allowed) reasons.push('incentives_not_allowed_in_market');
       if (policy.require_kyc_for_incentives && profile.kyc?.value !== 'verified') reasons.push('kyc_not_verified');
     }
-    if (channel) {
+    if (channel && req.surface !== 'onsite') {
       const f = this.frequency(profile);
       if (f.last_24h >= policy.max_marketing_per_day) reasons.push('frequency_cap');
       const perChannel = policy.max_marketing_per_day_by_channel?.[channel];

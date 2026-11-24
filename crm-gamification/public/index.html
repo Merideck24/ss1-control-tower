@@ -106,6 +106,8 @@
   .phone { max-width: 360px; margin: 0 auto; border: 1px solid var(--line); border-radius: 28px; padding: 20px; background: var(--panel); box-shadow: var(--shadow); }
   .scroll { overflow-x: auto; }
   .card ol li { overflow-wrap: anywhere; }
+  .row > label { max-width: 100%; }
+  .row > label > input:not([type=checkbox]) { max-width: 100%; box-sizing: border-box; }
   .perf-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 4px 0 16px; }
   .perf-head h2 { font-size: 21px; font-weight: 500; margin: 0; text-wrap: balance; color: var(--ink); }
   .kpis { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
@@ -202,7 +204,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -488,6 +490,7 @@ const ICON_PATHS = {
   loyalty: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   copilot: '<path d="M12 3a7 7 0 0 1 7 7c0 3-2 5-4 6v3H9v-3c-2-1-4-3-4-6a7 7 0 0 1 7-7z"/><path d="M10 21h4"/>',
   gamification: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  onsite: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>',
   rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
 };
@@ -871,6 +874,38 @@ const VIEWS = {
       <textarea id="tin" rows="5">{"metric": "kyc_verified_rate"}</textarea>
       <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
   },
+  async onsite() {
+    const [d, players] = await Promise.all([api('/onsite/campaigns'), api('/players?sort=recent')]);
+    const PL = { home_banner: 'Banner de inicio', lobby_popup: 'Popup del lobby', cashier_banner: 'Banner del cajero', sportsbook_banner: 'Banner de deportes' };
+    const ST = { draft: ['', 'Borrador'], pending_approval: ['warn', 'Pendiente de aprobación'], active: ['ok', 'Activa'], paused: ['warn', 'En pausa'], ended: ['', 'Terminada'] };
+    const act = (c) => {
+      if ((c.status === 'draft' || c.status === 'paused' && !c.approved_by) && can('journeys.submit')) return `<button class="ghost" data-osa="submit" data-osid="${esc(c.id)}">Enviar a aprobación</button>`;
+      if (c.status === 'pending_approval' && can('journeys.approve')) return `<button data-osa="approve" data-osid="${esc(c.id)}">Aprobar</button>`;
+      if (c.status === 'active' && can('journeys.pause')) return `<button class="ghost" data-osa="pause" data-osid="${esc(c.id)}">Pausar</button>`;
+      if (c.status === 'paused' && c.approved_by && can('journeys.pause')) return `<button class="ghost" data-osa="resume" data-osid="${esc(c.id)}">Reanudar</button>`;
+      return '';
+    };
+    const rule = (r) => r.op === 'in' ? `${r.field} ∈ ${r.value.join(', ')}` : `${r.field} ${r.op} ${r.value}`;
+    const list = `<div class="card scroll"><h3>Campañas en el sitio</h3><table><tr><th>Ubicación</th><th>Campaña</th><th>Para quién</th><th class="num">Prioridad</th><th>Estado</th><th class="num">Impresiones</th><th class="num">Jugadores</th><th class="num">Clics (CTR)</th><th class="num">Descartes</th><th></th></tr>
+      ${d.campaigns.map((c) => `<tr><td>${esc(PL[c.placement])}</td><td><b>${esc(c.name)}</b><div class="muted">${esc(c.content.es.title)} · ${c.purpose === 'service' ? 'servicio' : 'marketing'}</div></td><td class="muted">${esc(rule(c.rules))}</td><td class="num">${c.priority}</td>
+        <td><span class="${ST[c.status][0]}">${ST[c.status][1]}</span>${c.status === 'active' && !c.live ? ' <span class="muted">(fuera de vigencia)</span>' : ''}</td><td class="num">${int(c.stats.impressions)}</td><td class="num">${int(c.stats.unique_players)}</td>
+        <td class="num">${int(c.stats.clicks)} <span class="muted">(${c.stats.ctr === null ? '—' : pct(c.stats.ctr, 1)})</span></td><td class="num">${int(c.stats.dismisses)}</td><td class="num">${act(c)}</td></tr>`).join('') || '<tr><td colspan="10" class="muted">Sin campañas.</td></tr>'}</table>
+      <p class="muted">${esc(d.note)}</p></div><br>`;
+    const preview = `<div class="card"><h3>Vista previa por jugador</h3><div class="row"><label>Jugador <select id="osp">${players.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label>
+      <label>Ubicación <select id="ospl">${d.placements.map((x) => `<option value="${x}">${esc(PL[x])}</option>`).join('')}</select></label><button class="ghost" id="osgo">Ver qué se muestra</button></div><div id="osout"></div></div><br>`;
+    const today = new Date(), plus = new Date(Date.now() + 14 * 864e5);
+    const form = !can('journeys.draft') ? '' : `<div class="card"><h3>Nueva campaña</h3>
+      <div class="row"><label>Identificador <input id="osid" value="promo_${today.getDate()}" size="14"></label><label>Nombre <input id="osname" value="Recarga de fin de semana" size="24"></label>
+        <label>Ubicación <select id="osplace">${d.placements.map((x) => `<option value="${x}">${esc(PL[x])}</option>`).join('')}</select></label>
+        <label>Propósito <select id="ospur"><option value="marketing">Marketing</option><option value="service">Servicio</option></select></label>
+        <label>Prioridad <input id="osprio" type="number" min="1" max="100" value="40" size="4"></label><label>Máx. al día por jugador <input id="osmax" type="number" min="1" value="2" size="3"></label></div>
+      <div class="row"><label>Desde <input id="osfrom" type="date" value="${today.toISOString().slice(0, 10)}"></label><label>Hasta <input id="osto" type="date" value="${plus.toISOString().slice(0, 10)}"></label>
+        <label>Mostrar si <select id="osfield"><option>lifecycle</option><option>kyc</option><option>stats.deposit_count</option><option>persona</option><option>rfm.segment</option><option>risk.level</option></select></label>
+        <label>Operador <select id="osop"><option value="eq">=</option><option value="neq">≠</option><option value="gte">≥</option><option value="lte">≤</option></select></label><label>Valor <input id="osval" value="activo" size="10"></label></div>
+      <div class="row"><label>Título <input id="ostitle" value="Fin de semana con misiones" size="30" maxlength="60"></label><label>Texto <input id="osbody" value="Completa misiones este fin de semana y gana XP extra." size="46" maxlength="240"></label></div>
+      <div class="row"><label>Botón <input id="oscta" value="Ver misiones" size="14"></label><label>Enlace <input id="osurl" value="https://www.rumbawin.com/misiones" size="34"></label><button id="ossave">Guardar borrador</button></div><div id="osformout"></div></div>`;
+    return list + preview + form;
+  },
   async rg() {
     const r = await api('/risk/rg-monitor');
     const S = r.summary;
@@ -1005,6 +1040,32 @@ const BIND = {
       catch (e) { $('#draftout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
     };
   },
+  onsite() {
+    document.querySelectorAll('[data-osa]').forEach((b) => b.onclick = async () => {
+      try { await api(`/onsite/campaigns/${b.dataset.osid}/${b.dataset.osa}`, { method: 'POST' }); flash({ submit: 'Enviada a aprobación. La aprueba otra persona con rol Aprobador.', approve: 'Aprobada: ya se muestra en el sitio.', pause: 'Campaña en pausa: deja de mostrarse.', resume: 'Campaña reanudada.' }[b.dataset.osa], 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    });
+    const rid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+    $('#osgo').onclick = async () => {
+      const pid = encodeURIComponent($('#osp').value), r1 = rid();
+      try {
+        const s = await api(`/onsite/serve/${pid}?placement=${$('#ospl').value}&request_id=${r1}`);
+        const why = s.skipped.length ? `<p class="muted">No mostradas: ${s.skipped.map((x) => `${esc(x.campaign_id)} (${esc(x.reason.replace(/_/g, ' '))})`).join(' · ')}</p>` : '';
+        $('#osout').innerHTML = s.content ? `<div class="card" style="background:var(--bg);border-left:3px solid var(--brand);max-width:520px"><b>${esc(s.content.title)}</b><p style="margin:6px 0">${esc(s.content.body)}</p>
+          <div class="row">${s.content.cta_label ? `<button id="osclick">${esc(s.content.cta_label)}</button>` : ''}<button class="ghost" id="osdismiss">Cerrar</button></div></div>${why}` : `<p class="muted">No hay contenido para este jugador en esta ubicación.</p>${why}`;
+        const track = async (type) => { await api(`/onsite/events/${pid}`, { method: 'POST', body: { campaign_id: s.campaign_id, type, request_id: r1 } }); flash(type === 'click' ? 'Clic registrado.' : 'Descartado: no se le mostrará en 7 días.', 'ok'); };
+        if ($('#osclick')) $('#osclick').onclick = () => track('click');
+        if ($('#osdismiss')) $('#osdismiss').onclick = () => track('dismiss');
+      } catch (e) { flash(e.message, 'bad'); }
+    };
+    if ($('#ossave')) $('#ossave').onclick = async () => {
+      const v = $('#osval').value.trim(), num = v !== '' && !isNaN(Number(v));
+      const body = { id: $('#osid').value.trim(), name: $('#osname').value, placement: $('#osplace').value, purpose: $('#ospur').value, priority: Number($('#osprio').value), max_impressions_per_day: Number($('#osmax').value),
+        starts_at: new Date($('#osfrom').value + 'T00:00:00Z').toISOString(), ends_at: new Date($('#osto').value + 'T23:59:59Z').toISOString(), rules: { field: $('#osfield').value, op: $('#osop').value, value: num ? Number(v) : v },
+        content: { es: { title: $('#ostitle').value, body: $('#osbody').value, ...($('#oscta').value ? { cta_label: $('#oscta').value } : {}), ...($('#osurl').value ? { cta_url: $('#osurl').value } : {}) } } };
+      try { const c = await api('/onsite/campaigns', { method: 'POST', body }); flash(`Borrador «${c.name}» guardado. Envíalo a aprobación desde la tabla.`, 'ok'); show(); }
+      catch (e) { $('#osformout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+  },
   rg() {
     document.querySelectorAll('[data-rgtake]').forEach((b) => b.onclick = async () => { try { await api(`/risk/rg-cases/${encodeURIComponent(b.dataset.rgtake)}/take`, { method: 'POST' }); flash('Caso asignado a ti.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } });
     document.querySelectorAll('[data-rgclose]').forEach((b) => b.onclick = async () => { try { await api(`/risk/rg-cases/${encodeURIComponent(b.dataset.rgclose)}/close`, { method: 'POST', body: { outcome: $('#rgout').value, note: $('#rgnote').value } }); flash('Caso cerrado y registrado en la auditoría.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } });
@@ -1017,10 +1078,11 @@ const BIND = {
   },
   loyalty() {
     const load = async () => {
-      const [d, ib] = await Promise.all([api('/players/' + encodeURIComponent($('#lp').value)), api('/players/' + encodeURIComponent($('#lp').value) + '/inbox')]);
+      const [d, ib, hb] = await Promise.all([api('/players/' + encodeURIComponent($('#lp').value)), api('/players/' + encodeURIComponent($('#lp').value) + '/inbox'), api(`/onsite/serve/${encodeURIComponent($('#lp').value)}?placement=home_banner&request_id=widget-${encodeURIComponent($('#lp').value)}-${new Date().toISOString().slice(0, 10)}`).catch(() => null)]);
       const l = d.loyalty;
       $('#lout').innerHTML = `<div class="phone">
         <div class="row" style="justify-content:space-between"><span class="muted">RumbaWin · Temporada ${esc(l.season)}</span><a href="#inbox" class="chip ${ib.unread ? 'brand' : ''}" aria-label="Bandeja: ${ib.unread} sin leer">🔔 ${ib.unread}</a></div>
+        ${hb?.content ? `<div class="card" style="margin:8px 0;border-left:3px solid var(--brand)"><b>${esc(hb.content.title)}</b><div>${esc(hb.content.body)}</div>${hb.content.cta_label ? `<div class="muted">${esc(hb.content.cta_label)} →</div>` : ''}</div>` : ''}
         <h2 style="margin:6px 0">Nivel ${esc(l.level)}</h2>
         <div class="bar" role="progressbar" aria-valuenow="${l.percent_to_next}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso al siguiente nivel"><span style="width:${l.percent_to_next}%"></span></div>
         <p>${l.next_level ? `${l.percent_to_next} % hacia <b>${esc(l.next_level)}</b> · faltan ${l.points_to_next} pts` : 'Nivel máximo'}</p>

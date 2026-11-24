@@ -87,3 +87,13 @@ Evento interno `rg.risk_signal` (`source: crm.risk`): `{ level, score, signals }
 | `POST /players/:id/inbox/read-all` | `player.preferences` | Marca todo como leído |
 
 Canales: `inapp`, `email`, `webpush`, `sms`, `whatsapp`, `telegram`. Plantillas: `channels.sms` (texto corto por idioma) y `channels.whatsapp` (`name`, `lang`, `params`). `GET /players?sort=recent` ordena por actividad reciente. Servidor: `CRM_PROVIDERS_LIVE=1` desactiva el transporte simulado.
+
+## Contenido en el sitio (F3)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /onsite/campaigns` | `onsite.read` | Campañas con estado, vigencia y métricas (impresiones, jugadores, clics, CTR, descartes) |
+| `POST /onsite/campaigns` | `journeys.draft` | Borrador: `{ id, name, placement, purpose, rules, content: { es: { title, body, cta_label?, cta_url? } }, priority, starts_at, ends_at, max_impressions_per_day, dismiss_days? }` |
+| `POST /onsite/campaigns/:id/submit` · `approve` · `pause` · `resume` | `journeys.submit` · `journeys.approve` · `journeys.pause` | Ciclo de aprobación (autor ≠ aprobador) |
+| `GET /onsite/serve/:player?placement=&request_id=&locale=` | `players.read` (en producción, credencial de servicio del sitio) | Contenido a mostrar o `null` con los motivos de lo no mostrado; registra la impresión |
+| `POST /onsite/events/:player` | `players.read` | `{ campaign_id, type: click \| dismiss, request_id }`, idempotente |
