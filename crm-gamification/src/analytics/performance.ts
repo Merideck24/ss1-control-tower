@@ -213,6 +213,13 @@ export class PerformanceStore {
     for (const h of f.instruments) add(`pay:${h}`, 'payment');
     return [...out].map(([player_id, via]) => ({ player_id, via }));
   }
+  /** Inversión de una campaña desde una fecha (YYYY-MM-DD), en unidades mínimas. */
+  spendSince(tenant: string, campaign: string, fromDate: string): number {
+    let s = 0; for (const x of this.#spend.get(tenant)?.values() ?? []) if (x.campaign_id === campaign && x.date >= fromDate) s += x.spend_minor; return s;
+  }
+  campaignMeta(tenant: string, campaign: string): { name: string; channel: string } {
+    return campaign === ORGANIC.campaign_id ? { name: ORGANIC.campaign_name, channel: ORGANIC.channel } : this.#campaignNames.get(`${tenant}::${campaign}`) ?? { name: campaign, channel: 'unknown' };
+  }
   fact(tenant: string, player: string): Readonly<PlayerFacts> | undefined { return this.#players.get(`${tenant}::${player}`); }
 
   /** Hechos por jugador (solo lectura) para los modelos predictivos. */

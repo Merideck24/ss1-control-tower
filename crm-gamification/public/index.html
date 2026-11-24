@@ -506,10 +506,26 @@ function renderTabs() {
 $('#menuBtn').onclick = () => document.body.classList.toggle('nav-open');
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');
 
+/** H6: botón «CSV» en cada tarjeta con tabla. Neutraliza fórmulas y respeta comillas. */
+function tableToCsv(t) {
+  const cell = (s) => { s = s.replace(/\s+/g, ' ').trim(); if (/^[=+\-@]/.test(s) && !/^-?[\d.,]+\s*%?$/.test(s)) s = "'" + s; return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  // se conservan todas las celdas (columnas alineadas); solo se quitan botones y campos
+  const text = (c) => { const x = c.cloneNode(true); x.querySelectorAll('button, input, select, textarea').forEach((e) => e.remove()); x.querySelectorAll('br').forEach((e) => e.replaceWith(' ')); return x.textContent ?? ''; };
+  return '﻿' + [...t.rows].map((r) => [...r.cells].map((c) => cell(text(c))).join(',')).join('\r\n') + '\r\n';
+}
+function addCsvButtons(root) {
+  root.querySelectorAll('.card').forEach((card, i) => {
+    const t = card.querySelector('table'); const h = card.querySelector('h3');
+    if (!t || !h || h.querySelector('.csvbtn') || t.rows.length < 2) return;
+    const b = document.createElement('button'); b.className = 'ghost csvbtn'; b.textContent = 'CSV'; b.title = 'Descargar la tabla en CSV'; b.style.cssText = 'float:right;padding:2px 10px;font-size:11px';
+    b.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([tableToCsv(t)], { type: 'text/csv;charset=utf-8' })); a.download = `${current}-${(h.firstChild?.textContent ?? 'tabla').trim().toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, '-').replace(/^-|-$/g, '') || i}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
+    h.appendChild(b);
+  });
+}
 async function show() {
   const v = $('#view');
   v.innerHTML = '<p class="muted">Cargando…</p>';
-  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); }
+  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); }
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
 }
 
@@ -819,7 +835,7 @@ const VIEWS = {
       <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
-    const [rs, md, nb, ab, sp, chs] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null, api('/experiments/splits'), api('/channels/status')]);
+    const [rs, md, nb, ab, sp, chs, ji, srcq] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null, api('/experiments/splits'), api('/channels/status'), api('/analytics/journey-impact'), can('performance.read') ? api('/analytics/sources') : null]);
     const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
     const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
       <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
@@ -857,7 +873,20 @@ const VIEWS = {
     const chCard = `<div class="card scroll"><h3>Canales de entrega</h3><table><tr><th>Canal</th><th class="num">Entregados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
       ${chs.channels.map((c) => `<tr><td>${esc(CHN[c.channel] ?? c.channel)}</td><td class="num">${int(c.accepted)}</td><td class="num">${int(c.failed)}</td><td class="num">${int(c.suppressed)}</td><td class="num">${int(c.deferred)}</td><td class="muted">${c.top_reasons.map((r) => `${esc(r.reason)} (${int(r.n)})`).join(' · ')}</td></tr>`).join('')}</table>
       <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} entregados, ${int(chs.inbox.read)} leídos (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
-    return `${models}${nbaCard}${chCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    const JN = (n) => n === null || n === undefined ? '—' : `${n >= 0 ? '+' : '−'}${moneyC(Math.abs(n))}`;
+    const impactCard = `<div class="card scroll"><h3>Ranking de recorridos por impacto</h3><table><tr><th>#</th><th>Recorrido</th><th class="num">Tratados / control</th><th class="num">Depósito tras entrar</th><th class="num">NGR por jugador (trat. / ctrl.)</th><th class="num">Incremento por jugador (IC 95 %)</th><th class="num">Costo</th><th class="num">ROI</th></tr>
+      ${ji.journeys.map((r, i) => `<tr><td>${r.rank_score === null ? '—' : i + 1}</td><td>${esc(r.name)}${r.lift.note ? `<br><span class="warn">${esc(r.lift.note)}</span>` : ''}</td><td class="num">${int(r.treatment.n)} / ${int(r.control.n)}${r.maturing ? `<br><span class="muted">${int(r.maturing)} madurando</span>` : ''}</td>
+        <td class="num">${pct(r.treatment.deposit_rate, 0)} / ${r.control.n ? pct(r.control.deposit_rate, 0) : '—'}</td><td class="num">${moneyC(r.treatment.ngr_per_player_minor)} / ${r.control.n ? moneyC(r.control.ngr_per_player_minor) : '—'}</td>
+        <td class="num"><b class="${r.lift.ngr_ci95_minor && r.lift.ngr_ci95_minor[0] > 0 ? 'ok' : r.lift.ngr_ci95_minor && r.lift.ngr_ci95_minor[1] < 0 ? 'bad' : ''}">${JN(r.lift.ngr_per_player_minor)}</b>${r.lift.ngr_ci95_minor ? `<br><span class="muted">[${JN(r.lift.ngr_ci95_minor[0])}; ${JN(r.lift.ngr_ci95_minor[1])}]</span>` : ''}</td>
+        <td class="num">${moneyC(r.cost_minor)}</td><td class="num">${r.roi === null ? '—' : pct(r.roi, 0)}</td></tr>`).join('')}</table>
+      ${ji.rewards.length ? `<p><b>Recompensas:</b> ${ji.rewards.map((w) => `${esc(w.reward_id)}: ${w.ngr_per_cost === null ? 'sin medición' : `${w.ngr_per_cost >= 0 ? '+' : '−'}$${Math.abs(w.ngr_per_cost).toFixed(2)} de NGR incremental por cada $1 de bono`}${w.reliable ? '' : ' (muestra insuficiente)'}`).join(' · ')}</p>` : ''}
+      <p class="muted">${esc(ji.note)} Verde: el intervalo está por encima de cero; rojo: por debajo. El orden descuenta la incertidumbre.</p></div><br>`;
+    const VD = { buena: ['ok', 'Buena'], vigilar: ['warn', 'Vigilar'], mala: ['bad', 'Mala'], sin_datos: ['muted', 'Sin datos'] };
+    const srcCard = !srcq ? '' : `<div class="card scroll"><h3>Calidad de fuentes de adquisición · ${srcq.days} días</h3><table><tr><th>Fuente</th><th class="num">Registros</th><th class="num">Primer depósito</th><th class="num">Valor previsto 30 d</th><th class="num">Activos a 7 d</th><th class="num">Abuso</th><th class="num">Riesgo JR</th><th class="num">Costo por FTD</th><th>Veredicto</th></tr>
+      ${srcq.sources.map((s) => `<tr><td>${esc(s.name)}<br><span class="muted">${esc(s.channel)}</span></td><td class="num">${int(s.registrations)}</td><td class="num">${pct(s.ftd_rate, 0)}</td><td class="num">${s.predicted_value_30d_minor === null ? '—' : moneyC(s.predicted_value_30d_minor)}</td><td class="num">${s.d7_active_rate === null ? '—' : pct(s.d7_active_rate, 0)}</td><td class="num">${pct(s.abuse_share, 0)}</td><td class="num">${pct(s.rg_share, 0)}</td><td class="num">${s.cost_per_ftd_minor === null ? '—' : moneyC(s.cost_per_ftd_minor)}</td>
+        <td><span class="${VD[s.verdict][0]}">${VD[s.verdict][1]}</span><br><span class="muted">${s.reasons.map(esc).join('; ')}</span></td></tr>`).join('')}</table>
+      <p class="muted">Promedio del período: primer depósito ${pct(srcq.baseline.ftd_rate, 0)}, valor previsto ${srcq.baseline.predicted_value_30d_minor === null ? '—' : moneyC(srcq.baseline.predicted_value_30d_minor)}, activos a 7 días ${srcq.baseline.d7_active_rate === null ? '—' : pct(srcq.baseline.d7_active_rate, 0)}. ${esc(srcq.note)}</p></div><br>`;
+    return `${models}${impactCard}${srcCard}${nbaCard}${chCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control (depósito en 14 días tras entrar)</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
         <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;

@@ -23,6 +23,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   new Headers(init?.headers).forEach((v, k) => { headers[k] = v; });
   const body = init?.body ? JSON.parse(String(init.body)) : {};
   const out = await route(app, { method: (init?.method ?? 'GET').toUpperCase(), path: url.pathname.slice(4), query: url.searchParams, headers, body });
+  if (out.contentType) return new Response(String(out.body), { status: out.status, headers: { 'content-type': out.contentType } });
   return new Response(JSON.stringify(out.body), { status: out.status, headers: { 'content-type': 'application/json' } });
 };
 (globalThis as { SS1_STATIC?: boolean }).SS1_STATIC = true;

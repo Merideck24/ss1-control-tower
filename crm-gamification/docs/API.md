@@ -117,3 +117,12 @@ Servidor: con `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` o un perfil `ant` se h
 | `GET /policies` | `policy.read` | Políticas vigentes con historial y propuestas |
 | `POST /policies/proposals` | `policy.propose` | `{ policy, justification? }`; justificación obligatoria si relaja una protección |
 | `POST /policies/proposals/:id/approve` · `reject` | `journeys.approve` | Otra persona aprueba (se aplica) o rechaza con motivo; propuesta obsoleta si cambió la versión base |
+
+## Impacto, fuentes y CSV (H4, H5, H6)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /analytics/journey-impact?window=14` | `analytics.read` | Ranking de recorridos por NGR incremental tras la entrada vs. control, con IC 95 %, ROI y valoración de recompensas; `&format=csv` descarga |
+| `GET /analytics/sources?days=30` | `performance.read` | Calidad temprana por fuente con veredicto y motivos; `&format=csv` descarga |
+
+`GET /analytics/campaigns` ahora mide «depósito en 14 días tras entrar» (`deposito_14d_tras_entrar`) en lugar de «alguna vez depositó». Las respuestas CSV llevan `content-type: text/csv` y nombre de archivo.

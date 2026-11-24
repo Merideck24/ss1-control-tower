@@ -9,7 +9,9 @@ import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
-import { DomainError, HOUR } from '../shared/util.ts';
+import { DomainError, HOUR, toCsv } from '../shared/util.ts';
+import { journeyImpact } from '../analytics/journeyImpact.ts';
+import { sourceQuality } from '../analytics/affiliates.ts';
 import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
 import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
 import { RISK_RULES } from '../risk/riskMonitor.ts';
@@ -23,7 +25,7 @@ import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
 const THEME_CACHE = new Map<string, { until: number; body: unknown }>();
 
 export type ApiRequest = { method: string; path: string; query: URLSearchParams; headers: Record<string, string | undefined>; body: Record<string, unknown> };
-export type ApiResponse = { status: number; body: unknown };
+export type ApiResponse = { status: number; body: unknown; contentType?: string; filename?: string };
 export type AskFn = (tools: CopilotTools, session: CopilotSession, question: string) => Promise<unknown>;
 
 /** Permisos por acción (RBAC). La interfaz los usa para mostrar solo lo permitido. */
@@ -498,10 +500,42 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, 'analytics.read')) return forbid('analytics.read');
       return ok(app.registry.live(T).filter((j) => j.purpose === 'marketing').map((j) => {
         const inst = app.runtime.instances(T, { journey_id: j.id });
-        const conv = (arm: string) => inst.filter((i) => i.arm === arm && (app.ingestor.get(T, i.player_id)?.stats.deposit_count ?? 0) > 0).length;
+        // conversión = depósito DESPUÉS de entrar y dentro de 14 días (no «alguna vez depositó»)
+        const entered = (i: (typeof inst)[number]) => Date.parse(i.trace[0]?.at ?? '');
+        const conv = (arm: string) => inst.filter((i) => i.arm === arm && [...(app.performance.fact(T, i.player_id)?.deposits.values() ?? [])].some((d) => d.at > entered(i) && d.at <= entered(i) + 14 * 24 * HOUR)).length;
         const cost = app.rewards.grants(T).filter((g) => g.status === 'confirmed' && g.idempotency_key.includes(`:${j.id}:`)).reduce((s, g) => s + g.value.amount_minor, 0);
-        return report({ campaign: j.id, window: { from: j.updated_at, to: app.clock.now().toISOString() }, primary_metric: 'has_deposit', treatment: { n: inst.filter((i) => i.arm === 'treatment').length, conversions: conv('treatment') }, control: { n: inst.filter((i) => i.arm === 'control').length, conversions: conv('control') }, cost_minor: cost, currency: 'COP' });
+        return report({ campaign: j.id, window: { from: j.updated_at, to: app.clock.now().toISOString() }, primary_metric: 'deposito_14d_tras_entrar', treatment: { n: inst.filter((i) => i.arm === 'treatment').length, conversions: conv('treatment') }, control: { n: inst.filter((i) => i.arm === 'control').length, conversions: conv('control') }, cost_minor: cost, currency: 'COP' });
       }));
+    }
+    if (r0 === 'GET /analytics/journey-impact') {
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      const windowDays = Math.min(60, Math.max(3, Number(req.query.get('window') ?? 14)));
+      const live = app.registry.live(T).filter((j) => j.purpose === 'marketing');
+      const names = new Map(live.map((j) => [j.id, j.name]));
+      const entries = app.runtime.instances(T).filter((i) => names.has(i.journey_id) && (i.arm === 'control' || i.status !== 'blocked_overlap')).map((i) => ({ journey_id: i.journey_id, player_id: i.player_id, arm: i.arm, at: Date.parse(i.trace[0]?.at ?? '') }));
+      const grants = app.rewards.grants(T).filter((g) => g.status === 'confirmed');
+      const costBy = (id: string) => grants.filter((g) => g.idempotency_key.includes(`:${id}:`)).reduce((s, g) => s + g.value.amount_minor, 0);
+      const rows = journeyImpact(entries, (p) => app.performance.fact(T, p), { now: app.clock.now().getTime(), windowDays, taxRate: app.performance.financeDefinition(T).gaming_tax_rate, costByJourney: costBy });
+      const rewardOf = (id: string) => live.find((j) => j.id === id)?.nodes.filter((n) => n.type === 'grant_reward').map((n) => (n as { reward_id: string }).reward_id) ?? [];
+      const out = rows.map((r) => ({ ...r, name: names.get(r.journey_id) ?? r.journey_id, rewards: rewardOf(r.journey_id) }));
+      const rewards = [...new Set(out.flatMap((r) => r.rewards))].map((rid) => { const js = out.filter((r) => r.rewards.includes(rid) && r.lift.incremental_ngr_minor !== null); const cost = js.reduce((s, r) => s + r.cost_minor, 0); const inc = js.reduce((s, r) => s + (r.lift.incremental_ngr_minor ?? 0), 0);
+        return { reward_id: rid, journeys: js.map((r) => r.journey_id), cost_minor: cost, incremental_ngr_minor: js.length ? inc : null, ngr_per_cost: js.length && cost ? inc / cost : null, reliable: js.length > 0 && js.every((r) => r.lift.reliable) }; });
+      if (req.query.get('format') === 'csv') return { status: 200, contentType: 'text/csv; charset=utf-8', filename: 'impacto-recorridos.csv', body: toCsv(['recorrido', 'nombre', 'ventana_dias', 'tratados', 'control', 'deposito_trat', 'deposito_ctrl', 'ngr_jugador_trat', 'ngr_jugador_ctrl', 'incremento_ngr_jugador', 'ic95_bajo', 'ic95_alto', 'incremento_total', 'costo', 'roi', 'confiable'],
+        out.map((r) => [r.journey_id, r.name, r.window_days, r.treatment.n, r.control.n, r.treatment.deposit_rate.toFixed(4), r.control.deposit_rate.toFixed(4), r.treatment.ngr_per_player_minor / 100, r.control.ngr_per_player_minor / 100, r.lift.ngr_per_player_minor === null ? null : r.lift.ngr_per_player_minor / 100, r.lift.ngr_ci95_minor ? r.lift.ngr_ci95_minor[0] / 100 : null, r.lift.ngr_ci95_minor ? r.lift.ngr_ci95_minor[1] / 100 : null, r.lift.incremental_ngr_minor === null ? null : r.lift.incremental_ngr_minor / 100, r.cost_minor / 100, r.roi === null ? null : r.roi.toFixed(3), r.lift.reliable])) };
+      return ok({ window_days: windowDays, journeys: out, rewards, note: `Resultados medidos después de entrar al recorrido y durante ${windowDays} días, contra el grupo de control. NGR = apuestas − premios − impuesto − bonos de la ventana. Solo cuentan entradas con la ventana cumplida.` });
+    }
+    if (r0 === 'GET /analytics/sources') {
+      if (!can(actor, 'performance.read')) return forbid('performance.read');
+      const days = Math.min(90, Math.max(7, Number(req.query.get('days') ?? 30)));
+      const now = app.clock.now().getTime();
+      const preds = app.models(T).predictions;
+      const abuse = new Set(app.abuseAll(T).filter((a) => a.tier !== 'ok').map((a) => a.player_id));
+      const rg = new Set(app.risk.cases(T).map((c) => c.player_id));
+      const from = new Date(now - days * 24 * HOUR).toISOString().slice(0, 10);
+      const q = sourceQuality({ facts: app.performance.playerFacts(T), now, days, predictedValue: (p) => preds.get(p)?.value_30d_minor, abuseFlag: (p) => abuse.has(p), rgCase: (p) => rg.has(p), spend: (c) => app.performance.spendSince(T, c, from), name: (c) => app.performance.campaignMeta(T, c) });
+      if (req.query.get('format') === 'csv') return { status: 200, contentType: 'text/csv; charset=utf-8', filename: 'calidad-fuentes.csv', body: toCsv(['fuente', 'canal', 'registros', 'ftd', 'tasa_ftd', 'valor_previsto_30d', 'activos_d7', 'abuso', 'riesgo_jr', 'inversion', 'costo_por_ftd', 'valor_sobre_cpa', 'veredicto', 'motivos'],
+        q.sources.map((s) => [s.name, s.channel, s.registrations, s.ftd, s.ftd_rate.toFixed(4), s.predicted_value_30d_minor === null ? null : s.predicted_value_30d_minor / 100, s.d7_active_rate === null ? null : s.d7_active_rate.toFixed(4), s.abuse_share.toFixed(4), s.rg_share.toFixed(4), s.spend_minor / 100, s.cost_per_ftd_minor === null ? null : s.cost_per_ftd_minor / 100, s.value_to_cpa === null ? null : s.value_to_cpa.toFixed(2), s.verdict, s.reasons.join('; ')])) };
+      return ok({ days, ...q, note: 'Calidad temprana de los jugadores que trae cada fuente, comparada con el promedio del período. El valor previsto viene del modelo de valor a 30 días; «valor sobre CPA» < 1 indica que la fuente no se paga con lo previsto.' });
     }
     if (r0 === 'GET /performance') {
       if (!can(actor, 'performance.read')) return forbid('performance.read');

@@ -70,6 +70,7 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
     const token = actor ? /^Bearer\s+(\S+)$/i.exec(headers.authorization ?? '')?.[1] : undefined;
     const ss1 = token && auth.identity ? { apiBase: auth.apiBase ?? 'https://api.syssoft1.com', token } : undefined;
     const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: parsed }, { ask, write: auth.write, actor, ss1 });
+    if (out.contentType) { res.writeHead(out.status, { 'content-type': out.contentType, ...(out.filename ? { 'content-disposition': `attachment; filename="${out.filename}"` } : {}) }); return res.end(String(out.body)); }
     res.writeHead(out.status, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(out.body, null, 2));
   };
