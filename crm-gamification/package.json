@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "build:static": "node scripts/build-static.mjs",
     "db:migrate": "node src/persistence/migrate.ts",
+    "openapi": "node scripts/openapi.ts",
     "test:db": "node --test test/db_postgres.test.ts",
     "start:prod": "node src/api/server.ts"
   },

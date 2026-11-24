@@ -14,6 +14,9 @@ import { journeyImpact } from '../analytics/journeyImpact.ts';
 import { sourceQuality } from '../analytics/affiliates.ts';
 import { CSV_TYPES, csvToEvents } from '../ingestion/csvImport.ts';
 import { WEBHOOK_EVENTS } from '../integration/outbound.ts';
+import { PERM_SCOPES } from '../integration/serviceKeys.ts';
+import { findEndpoint } from './catalog.ts';
+import { buildOpenApi, API_VERSION } from './openapi.ts';
 import { computeRfm, distribution, lifecycleOf, LIFECYCLE_LABELS, RFM_LABELS } from '../analytics/rfm.ts';
 import { ABUSE_RULES } from '../analytics/bonusAbuse.ts';
 import { RISK_RULES } from '../risk/riskMonitor.ts';
@@ -53,6 +56,7 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
   'ingest.csv': ['tenant_admin'],
+  'events.write': ['tenant_admin'],
   'policy.read': ['tenant_admin', 'approver', 'rg_officer', 'auditor', 'crm_analyst'],
   'policy.propose': ['tenant_admin', 'rg_officer'],
   'content.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
@@ -64,7 +68,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'audit.read': ['auditor', 'tenant_admin', 'approver'],
 };
 
-const can = (a: Actor, perm: string) => PERMISSIONS[perm]?.some((r) => a.roles.includes(r)) ?? false;
+// llaves de servicio: el permiso debe estar cubierto por uno de sus alcances (las aprobaciones nunca lo están)
+const can = (a: Actor, perm: string) => a.scopes ? (PERM_SCOPES[perm] ?? []).some((s) => a.scopes!.includes(s)) : PERMISSIONS[perm]?.some((r) => a.roles.includes(r)) ?? false;
 const forbid = (perm: string): ApiResponse => ({ status: 403, body: { error: 'forbidden', message: `Tu rol no tiene permiso para esta acción. Roles con permiso: ${PERMISSIONS[perm].join(', ')}` } });
 
 /**
@@ -112,17 +117,37 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
   const actor = opts.actor ?? sessionFrom(req.headers);
   const T = actor.tenant_id;
   const ok = (body: unknown, status = 200): ApiResponse => ({ status, body });
-  let path = req.path;
-  try { path = decodeURIComponent(req.path); } catch { /* ruta mal codificada: se usa tal cual */ }
+  // versión estable de la API: /api/v1/… equivale a /api/…
+  const rawPath = req.path.startsWith('/v1/') ? req.path.slice(3) : req.path;
+  let path = rawPath;
+  try { path = decodeURIComponent(rawPath); } catch { /* ruta mal codificada: se usa tal cual */ }
   const r0 = `${req.method} ${path}`;
+  if (r0 === 'GET /openapi.json') return ok(buildOpenApi());
+  if (r0 === 'GET /health') return ok({ status: 'ok', api_version: API_VERSION, tenants: app.tenants.length });
+  // llaves de servicio: solo rutas del catálogo que declaren uno de sus alcances
+  if (actor.scopes) {
+    const ep = findEndpoint(req.method, path);
+    if (!ep || !ep.scope || !actor.scopes.includes(ep.scope)) return { status: 403, body: { error: 'scope_required', message: ep?.scope ? `La llave necesita el alcance «${ep.scope}».` : 'Esta operación no está disponible para llaves de servicio.' } };
+  }
   const m = (pattern: RegExp) => r0.match(pattern);
   let r: RegExpMatchArray | null;
   try {
     if (!app.tenants.includes(T)) return { status: 403, body: { error: 'tenant_unknown', message: `Tenant ${T} no habilitado` } };
-    if (r0 === 'GET /health') return ok({ ok: true });
     if (r0 === 'GET /session') return ok({ actor, permissions: Object.keys(PERMISSIONS).filter((p) => can(actor, p)), copilot_tools: app.copilot.definitionsFor(copilotSession(actor)).map((t) => t.name), copilot_ask: Boolean(opts.ask) });
     const brand = req.query.get('brand') || undefined;
     if (r0 === 'GET /control-tower') return ok(controlTower(app, T, brand));
+    if (r0 === 'GET /integration/service-keys') {
+      if (!can(actor, 'integration.read')) return forbid('integration.read');
+      return ok({ keys: app.serviceKeys.list(T), note: 'Envía la llave como «Authorization: Bearer ss1crm_…». Solo llega a rutas cuyo alcance tenga; nunca a aprobaciones. Límite de 600 peticiones por minuto.' });
+    }
+    if (r0 === 'POST /integration/service-keys') {
+      if (!can(actor, 'integration.sync')) return forbid('integration.sync');
+      return ok(app.serviceKeys.create(actor, req.body as never), 201);
+    }
+    if ((r = m(/^POST \/integration\/service-keys\/([\w-]+)\/revoke$/))) {
+      if (!can(actor, 'integration.sync')) return forbid('integration.sync');
+      return ok(app.serviceKeys.revoke(actor, r[1]));
+    }
     if (r0 === 'GET /webhooks') {
       if (!can(actor, 'integration.read')) return forbid('integration.read');
       const ds = app.webhooks.deliveries(T);
@@ -166,6 +191,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
         note: conv.errors.length ? 'No se cargó nada: corrige las filas con error y vuelve a subir el archivo (todo o nada).' : dry ? 'Validación sin cambios. Envía con dry_run=false para cargar.' : 'Carga aplicada. Volver a subir el mismo archivo no duplica eventos.', types: Object.keys(CSV_TYPES) });
     }
     if (r0 === 'POST /events') {
+      if (!can(actor, 'events.write')) return forbid('events.write');
       if (req.body.tenant_id !== T) return { status: 403, body: { error: 'tenant_mismatch' } };
       const out = app.ingestor.ingest(req.body);
       return ok({ status: out.status, reason: out.reason }, out.status === 'rejected' ? 422 : 202);

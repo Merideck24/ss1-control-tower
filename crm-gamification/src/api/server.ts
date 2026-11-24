@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createApp, seedTenant, type App } from '../app.ts';
 import { seedAcquisitionHistory } from '../demoAcquisition.ts';
 import { route, type AskFn } from './router.ts';
+import { RateLimiter } from '../integration/serviceKeys.ts';
 import type { WriterFn } from '../content/studio.ts';
 import { Ss1IdentityProvider } from '../integration/ss1Identity.ts';
 import { handleWebhook, MAX_BODY_BYTES } from '../integration/webhook.ts';
@@ -37,6 +38,8 @@ async function loadAsk(): Promise<AskFn | undefined> {
  * Autenticación: con `Authorization: Bearer` se valida contra la API de SS1 y el servidor decide los roles.
  * Las cabeceras de desarrollo (x-roles) solo se aceptan si `devAuth` está activo (CRM_DEV_AUTH=1).
  */
+const RATE = new RateLimiter(Number(process.env.CRM_SERVICE_RATE_PER_MIN ?? 600));
+
 export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1IdentityProvider; devAuth?: boolean; apiBase?: string; webhookSecrets?: Record<string, string>; write?: WriterFn } = {}) {
   return async (req: IncomingMessage, res: import('node:http').ServerResponse) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -58,7 +61,25 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
     let parsed: Record<string, unknown> = {};
     try { parsed = await body(req); } catch { res.writeHead(400, { 'content-type': 'application/json' }); return res.end('{"error":"invalid_json"}'); }
     const headers = req.headers as Record<string, string>;
+    const json = (status: number, b: unknown, extra: Record<string, string> = {}) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', ...extra }); return res.end(JSON.stringify(b)); };
+    // Públicos: estado y especificación (sin datos de negocio)
+    const apiPath = url.pathname.replace(/^\/api(\/v1)?/, '');
+    if (req.method === 'GET' && (apiPath === '/health' || apiPath === '/openapi.json')) {
+      const out = await route(app, { method: 'GET', path: apiPath, query: url.searchParams, headers: {}, body: {} }, { actor: { id: 'public', tenant_id: '', roles: [] } });
+      return json(out.status, out.body, { 'cache-control': 'no-store' });
+    }
     let actor;
+    const bearer = /^Bearer\s+(\S+)$/i.exec(headers.authorization ?? '')?.[1];
+    if (bearer?.startsWith('ss1crm_')) {
+      // Llave de servicio (máquina a máquina): tenant y alcances salen de la llave, nunca de cabeceras
+      const svc = app.serviceKeys.authenticate(bearer);
+      if (!svc) return json(401, { error: 'invalid_service_key', message: 'Llave de servicio no válida o revocada.' });
+      const lim = RATE.take(svc.key_id);
+      if (!lim.ok) return json(429, { error: 'rate_limited', message: 'Demasiadas peticiones con esta llave.' }, { 'retry-after': String(lim.retry_after_s) });
+      const out = await route(app, { method: req.method ?? 'GET', path: url.pathname.slice(4), query: url.searchParams, headers: { 'x-tenant-id': svc.tenant_id }, body: parsed }, { actor: svc as never });
+      if (out.contentType) { res.writeHead(out.status, { 'content-type': out.contentType }); return res.end(String(out.body)); }
+      return json(out.status, out.body);
+    }
     if (headers.authorization && auth.identity) {
       const r = await auth.identity.resolve(headers.authorization, headers['x-tenant-id']);
       if (!r.ok) { res.writeHead(r.status, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: r.error })); }

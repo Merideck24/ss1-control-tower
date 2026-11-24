@@ -29,6 +29,7 @@ import { ContentStudio } from './content/studio.ts';
 import { PolicyGovernance } from './policy/governance.ts';
 import { OutboundWebhooks, type WebhookEvent } from './integration/outbound.ts';
 import { InMemoryBus } from './integration/bus.ts';
+import { ServiceKeys } from './integration/serviceKeys.ts';
 import { DAY, systemClock, type Clock } from './shared/util.ts';
 
 export type App = ReturnType<typeof createApp>;
@@ -147,7 +148,8 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
     'abuse.review_cleared': 'abuse.reviewed', 'abuse.review_confirmed': 'abuse.reviewed', 'policy.approved': 'policy.approved', 'content.approved': 'content.approved', 'onsite.approved': 'onsite.approved' };
   audit.listeners.push((e) => { const ev = AUDIT_TO_EVENT[e.action]; if (ev) webhooks.emit(e.tenant_id, ev, { subject: e.subject, actor: e.actor, at: e.at, audit_seq: e.seq, details: e.details }); });
   channels.onReceipt = (r) => { if (r.status === 'accepted' || r.status === 'failed') webhooks.emit(r.tenant_id, r.status === 'accepted' ? 'delivery.accepted' : 'delivery.failed', { player_id: r.player_id, channel: r.channel, template: r.template, status: r.status, reason: r.reason ?? null, at: r.at }); };
-  return { bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  const serviceKeys = new ServiceKeys({ audit, clock });
+  return { serviceKeys, bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

@@ -3,7 +3,8 @@ import { DomainError, sha256, type Clock } from '../shared/util.ts';
 import { hasIncentive, validateJourney, type JourneyDefinition } from './model.ts';
 
 export type Role = 'crm_analyst' | 'approver' | 'support' | 'rg_officer' | 'tenant_admin' | 'auditor' | 'copilot';
-export type Actor = { id: string; tenant_id: string; roles: Role[] };
+/** `scopes`: solo en llaves de servicio (máquina a máquina); las personas usan roles. */
+export type Actor = { id: string; tenant_id: string; roles: Role[]; scopes?: string[] };
 
 const deepFreeze = <T,>(o: T): T => { Object.values(o as object).forEach((v) => v && typeof v === 'object' && deepFreeze(v)); return Object.freeze(o); };
 

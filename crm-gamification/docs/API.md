@@ -1,5 +1,7 @@
 # API REST (MVP)
 
+> La referencia completa y verificada está en **`contracts/openapi.json`** (OpenAPI 3.1, `/api/v1`). Este documento resume y agrupa.
+
 Base: `/api`. Las rutas viven en `src/api/router.ts` (puro); `server.ts` lo expone por HTTP y `browser.ts` lo ejecuta en la demo estática. Cada acción exige un permiso (`PERMISSIONS`) y devuelve `403` con los roles válidos si falta. Sesión de desarrollo por cabeceras — **reemplazar por identidad SS1 (OIDC) antes de producción**:
 
 | Cabecera | Ejemplo | Uso |

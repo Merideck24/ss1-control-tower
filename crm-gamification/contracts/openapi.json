@@ -1,0 +1,5381 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SS1 CRM y Gamificación — API de integración",
+    "version": "1.0.0",
+    "description": "API del CRM para el ecosistema SS1. Base: `/api/v1` (también se acepta `/api`). Personas: token del admin (admin.syssoft1.com) validado contra api.syssoft1.com; los roles salen de las habilidades CASL. Sistemas: llave de servicio con alcances. Todas las respuestas son JSON salvo `format=csv`. Montos en unidades mínimas con moneda ISO. Errores: `{ error, message }`."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Operación"
+    },
+    {
+      "name": "Ingesta"
+    },
+    {
+      "name": "Jugadores"
+    },
+    {
+      "name": "Segmentos"
+    },
+    {
+      "name": "Analítica"
+    },
+    {
+      "name": "Recorridos"
+    },
+    {
+      "name": "Rendimiento"
+    },
+    {
+      "name": "Recompensas"
+    },
+    {
+      "name": "Gamificación"
+    },
+    {
+      "name": "Riesgo"
+    },
+    {
+      "name": "Contenido"
+    },
+    {
+      "name": "Sitio"
+    },
+    {
+      "name": "Políticas"
+    },
+    {
+      "name": "Integración"
+    },
+    {
+      "name": "Copiloto"
+    },
+    {
+      "name": "Auditoría"
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Estado del servicio (sin autenticación)",
+        "operationId": "getHealth",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/session": {
+      "get": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Sesión actual: actor, permisos y herramientas del copiloto",
+        "operationId": "getSession",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/brands": {
+      "get": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Marcas del tenant con número de jugadores",
+        "operationId": "getBrands",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `players:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:read",
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/control-tower": {
+      "get": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Estado operativo: entregas, supresiones, recorridos, latencia",
+        "operationId": "getControlTower",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/runtime/tick": {
+      "post": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Procesar esperas vencidas",
+        "operationId": "postRuntimeTick",
+        "description": "Permiso de rol: `runtime.tick` (crm_analyst, tenant_admin, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "runtime.tick"
+        ]
+      }
+    },
+    "/v1/runtime/pause": {
+      "post": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Pausa o reanudación general de envíos",
+        "operationId": "postRuntimePause",
+        "description": "Permiso de rol: `runtime.global_pause` (tenant_admin, rg_officer). No disponible para llaves de servicio. Cuerpo: `{ paused: boolean, reason }`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ paused: boolean, reason }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "runtime.global_pause"
+        ]
+      }
+    },
+    "/v1/events": {
+      "post": {
+        "tags": [
+          "Ingesta"
+        ],
+        "summary": "Enviar un evento normalizado (contracts/events.asyncapi.yaml)",
+        "operationId": "postEvents",
+        "description": "Permiso de rol: `events.write` (tenant_admin). Llaves de servicio: alcance `events:write`. Cuerpo: `EventEnvelope`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "EventEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "events:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "events:write",
+        "x-ss1-permission": [
+          "events.write"
+        ]
+      }
+    },
+    "/v1/ingest/csv": {
+      "post": {
+        "tags": [
+          "Ingesta"
+        ],
+        "summary": "Carga por lotes CSV (todo o nada, idempotente)",
+        "operationId": "postIngestCsv",
+        "description": "Permiso de rol: `ingest.csv` (tenant_admin). Llaves de servicio: alcance `events:write`. Cuerpo: `{ event_type, csv, dry_run, mode, brand_id }`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ event_type, csv, dry_run, mode, brand_id }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "events:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "events:write",
+        "x-ss1-permission": [
+          "ingest.csv"
+        ]
+      }
+    },
+    "/v1/players": {
+      "get": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Buscar jugadores",
+        "operationId": "getPlayers",
+        "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `players:read`.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:read",
+        "x-ss1-permission": [
+          "players.read"
+        ]
+      }
+    },
+    "/v1/players/{player_id}": {
+      "get": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Perfil 360 con procedencia, elegibilidad, segmentación y riesgo",
+        "operationId": "getPlayersPlayer_id",
+        "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `players:read`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:read",
+        "x-ss1-permission": [
+          "players.read"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/inbox": {
+      "get": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Bandeja del jugador",
+        "operationId": "getPlayersPlayer_idInbox",
+        "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `players:read`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:read",
+        "x-ss1-permission": [
+          "players.read"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/inbox/read-all": {
+      "post": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Marcar toda la bandeja como leída",
+        "operationId": "postPlayersPlayer_idInboxReadAll",
+        "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "player.preferences"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/inbox/{message_id}/{action}": {
+      "post": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Marcar un mensaje como leído o archivarlo",
+        "operationId": "postPlayersPlayer_idInboxMessage_idAction",
+        "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "read",
+                "archive"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "player.preferences"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/gamification-preference": {
+      "post": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Activar o desactivar la gamificación del jugador",
+        "operationId": "postPlayersPlayer_idGamificationPreference",
+        "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`. Cuerpo: `{ opt_out: boolean }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ opt_out: boolean }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "player.preferences"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/coins": {
+      "post": {
+        "tags": [
+          "Jugadores"
+        ],
+        "summary": "Ajuste manual de monedas (auditado)",
+        "operationId": "postPlayersPlayer_idCoins",
+        "description": "Permiso de rol: `alerts.configure` (tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ amount, reason, request_id }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ amount, reason, request_id }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "alerts.configure"
+        ]
+      }
+    },
+    "/v1/segments/fields": {
+      "get": {
+        "tags": [
+          "Segmentos"
+        ],
+        "summary": "Campos disponibles para reglas",
+        "operationId": "getSegmentsFields",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/segments/preview": {
+      "post": {
+        "tags": [
+          "Segmentos"
+        ],
+        "summary": "Previsualizar un segmento",
+        "operationId": "postSegmentsPreview",
+        "description": "Permiso de rol: `segments.preview` (crm_analyst, approver, tenant_admin). Llaves de servicio: alcance `segments:read`. Cuerpo: `{ rules, exclusions? }`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ rules, exclusions? }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "segments:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "segments:read",
+        "x-ss1-permission": [
+          "segments.preview"
+        ]
+      }
+    },
+    "/v1/segments/rfm": {
+      "get": {
+        "tags": [
+          "Segmentos"
+        ],
+        "summary": "Distribución RFM y ciclo de vida",
+        "operationId": "getSegmentsRfm",
+        "description": "Permiso de rol: `segments.preview` (crm_analyst, approver, tenant_admin). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "segments.preview"
+        ]
+      }
+    },
+    "/v1/personas": {
+      "get": {
+        "tags": [
+          "Segmentos"
+        ],
+        "summary": "Personas (k-means)",
+        "operationId": "getPersonas",
+        "description": "Permiso de rol: `segments.preview` (crm_analyst, approver, tenant_admin). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "segments.preview"
+        ]
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Modelos predictivos y su validación",
+        "operationId": "getModels",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/nba/summary": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Mejor acción siguiente: resumen",
+        "operationId": "getNbaSummary",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/journeys": {
+      "get": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Versiones de recorridos con validación",
+        "operationId": "getJourneys",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": []
+      },
+      "post": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Guardar borrador",
+        "operationId": "postJourneys",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `JourneyDefinition`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "JourneyDefinition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/journeys/builder": {
+      "get": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Catálogo del constructor visual",
+        "operationId": "getJourneysBuilder",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/journeys/review": {
+      "post": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Revisión en vivo de un borrador",
+        "operationId": "postJourneysReview",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `JourneyDefinition`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "JourneyDefinition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/journeys/overlap": {
+      "get": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Grupos de solapamiento, bloqueos y riesgos",
+        "operationId": "getJourneysOverlap",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/journeys/{journey_id}/{action}": {
+      "post": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Ciclo de aprobación y publicación",
+        "operationId": "postJourneysJourney_idAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.publish` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "journey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submit",
+                "approve",
+                "publish",
+                "pause",
+                "resume"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve",
+          "journeys.publish",
+          "journeys.pause"
+        ]
+      }
+    },
+    "/v1/journeys/{journey_id}/simulate": {
+      "post": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Simular sin efectos",
+        "operationId": "postJourneysJourney_idSimulate",
+        "description": "Permiso de rol: `journeys.simulate` (crm_analyst, approver, tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ player_id, payload }`.",
+        "parameters": [
+          {
+            "name": "journey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ player_id, payload }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.simulate"
+        ]
+      }
+    },
+    "/v1/experiments/splits": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Experimentos A/B/n",
+        "operationId": "getExperimentsSplits",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/analytics/campaigns": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Tratamiento vs. control por recorrido",
+        "operationId": "getAnalyticsCampaigns",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/analytics/journey-impact": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Ranking de recorridos por NGR incremental",
+        "operationId": "getAnalyticsJourneyImpact",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/analytics/sources": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Calidad de fuentes de adquisición",
+        "operationId": "getAnalyticsSources",
+        "description": "Permiso de rol: `performance.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "performance.read"
+        ]
+      }
+    },
+    "/v1/channels/status": {
+      "get": {
+        "tags": [
+          "Analítica"
+        ],
+        "summary": "Entregas por canal y bandeja",
+        "operationId": "getChannelsStatus",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/performance": {
+      "get": {
+        "tags": [
+          "Rendimiento"
+        ],
+        "summary": "Adquisición y finanzas por campaña",
+        "operationId": "getPerformance",
+        "description": "Permiso de rol: `performance.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "performance.read"
+        ]
+      }
+    },
+    "/v1/performance/payback": {
+      "get": {
+        "tags": [
+          "Rendimiento"
+        ],
+        "summary": "Payback por cohorte",
+        "operationId": "getPerformancePayback",
+        "description": "Permiso de rol: `performance.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "weeks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "performance.read"
+        ]
+      }
+    },
+    "/v1/kpi-alerts": {
+      "get": {
+        "tags": [
+          "Rendimiento"
+        ],
+        "summary": "Alertas de KPI",
+        "operationId": "getKpiAlerts",
+        "description": "Permiso de rol: `alerts.read` (crm_analyst, approver, tenant_admin, auditor, rg_officer). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "alerts.read"
+        ]
+      }
+    },
+    "/v1/kpi-alerts/{alert_id}/ack": {
+      "post": {
+        "tags": [
+          "Rendimiento"
+        ],
+        "summary": "Reconocer una alerta",
+        "operationId": "postKpiAlertsAlert_idAck",
+        "description": "Permiso de rol: `alerts.ack` (crm_analyst, approver, tenant_admin, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "alerts.ack"
+        ]
+      }
+    },
+    "/v1/kpi-alerts/config": {
+      "put": {
+        "tags": [
+          "Rendimiento"
+        ],
+        "summary": "Configurar umbrales de alertas",
+        "operationId": "putKpiAlertsConfig",
+        "description": "Permiso de rol: `alerts.configure` (tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "alerts.configure"
+        ]
+      }
+    },
+    "/v1/rewards": {
+      "get": {
+        "tags": [
+          "Recompensas"
+        ],
+        "summary": "Catálogo, presupuestos y otorgamientos recientes",
+        "operationId": "getRewards",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/rewards/reconcile": {
+      "post": {
+        "tags": [
+          "Recompensas"
+        ],
+        "summary": "Conciliar con el servicio de bonos",
+        "operationId": "postRewardsReconcile",
+        "description": "Permiso de rol: `rewards.reconcile` (tenant_admin, approver). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "rewards.reconcile"
+        ]
+      }
+    },
+    "/v1/gamification/missions": {
+      "get": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Misiones y estadísticas",
+        "operationId": "getGamificationMissions",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Guardar misión",
+        "operationId": "postGamificationMissions",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/gamification/missions/{mission_id}/{action}": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Activar o pausar misión",
+        "operationId": "postGamificationMissionsMission_idAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "activate",
+                "pause"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve",
+          "journeys.pause"
+        ]
+      }
+    },
+    "/v1/gamification/tournaments": {
+      "get": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Torneos y clasificaciones",
+        "operationId": "getGamificationTournaments",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Guardar torneo",
+        "operationId": "postGamificationTournaments",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/gamification/tournaments/{tournament_id}/{action}": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Activar o cerrar torneo",
+        "operationId": "postGamificationTournamentsTournament_idAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` (crm_analyst, tenant_admin, approver). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "tournament_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "activate",
+                "finalize"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve"
+        ]
+      }
+    },
+    "/v1/gamification/minigames": {
+      "get": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Mini-juegos",
+        "operationId": "getGamificationMinigames",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/gamification/minigames/{game_id}/verify": {
+      "get": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Verificar resultados con la semilla revelada",
+        "operationId": "getGamificationMinigamesGame_idVerify",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "player_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nonce",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/gamification/minigames/{game_id}/{action}": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Girar (jugador) o rotar semilla (admin)",
+        "operationId": "postGamificationMinigamesGame_idAction",
+        "description": "Permiso de rol: `player.preferences` o `alerts.configure` (support, tenant_admin). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "game_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "spin",
+                "rotate-seed"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "player.preferences",
+          "alerts.configure"
+        ]
+      }
+    },
+    "/v1/gamification/store": {
+      "get": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Tienda y predicciones",
+        "operationId": "getGamificationStore",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/gamification/store/items": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Guardar artículo de la tienda",
+        "operationId": "postGamificationStoreItems",
+        "description": "Permiso de rol: `alerts.configure` (tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "alerts.configure"
+        ]
+      }
+    },
+    "/v1/gamification/store/redeem": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Canjear (idempotente por request_id)",
+        "operationId": "postGamificationStoreRedeem",
+        "description": "Permiso de rol: `player.preferences` (support, tenant_admin). Llaves de servicio: alcance `players:write`. Cuerpo: `{ player_id, item_id, request_id }`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ player_id, item_id, request_id }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "player.preferences"
+        ]
+      }
+    },
+    "/v1/gamification/predictions": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Guardar predicción",
+        "operationId": "postGamificationPredictions",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/gamification/predictions/{prediction_id}/{action}": {
+      "post": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Elegir (jugador) o resolver (aprobador)",
+        "operationId": "postGamificationPredictionsPrediction_idAction",
+        "description": "Permiso de rol: `player.preferences` o `journeys.approve` (support, tenant_admin, approver). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "prediction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pick",
+                "resolve"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "player.preferences",
+          "journeys.approve"
+        ]
+      }
+    },
+    "/v1/risk/bonus-abuse": {
+      "get": {
+        "tags": [
+          "Riesgo"
+        ],
+        "summary": "Abuso de bonos",
+        "operationId": "getRiskBonusAbuse",
+        "description": "Permiso de rol: `abuse.read` (crm_analyst, approver, tenant_admin, auditor, rg_officer). Llaves de servicio: alcance `abuse:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "abuse:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "abuse:read",
+        "x-ss1-permission": [
+          "abuse.read"
+        ]
+      }
+    },
+    "/v1/risk/bonus-abuse/{player_id}/review": {
+      "post": {
+        "tags": [
+          "Riesgo"
+        ],
+        "summary": "Revisión humana de abuso",
+        "operationId": "postRiskBonusAbusePlayer_idReview",
+        "description": "Permiso de rol: `abuse.review` (approver, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "abuse.review"
+        ]
+      }
+    },
+    "/v1/risk/rg-monitor": {
+      "get": {
+        "tags": [
+          "Riesgo"
+        ],
+        "summary": "Cola de juego responsable",
+        "operationId": "getRiskRgMonitor",
+        "description": "Permiso de rol: `rg.monitor` (rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `rg:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "rg:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "rg:read",
+        "x-ss1-permission": [
+          "rg.monitor"
+        ]
+      }
+    },
+    "/v1/risk/rg-cases/{case_id}/{action}": {
+      "post": {
+        "tags": [
+          "Riesgo"
+        ],
+        "summary": "Tomar o cerrar un caso",
+        "operationId": "postRiskRgCasesCase_idAction",
+        "description": "Permiso de rol: `rg.act` (rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "take",
+                "close"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "rg.act"
+        ]
+      }
+    },
+    "/v1/content/drafts": {
+      "get": {
+        "tags": [
+          "Contenido"
+        ],
+        "summary": "Borradores de plantillas",
+        "operationId": "getContentDrafts",
+        "description": "Permiso de rol: `content.read` (crm_analyst, approver, tenant_admin, auditor). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "content.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Contenido"
+        ],
+        "summary": "Pedir borrador (IA o texto base)",
+        "operationId": "postContentDrafts",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/content/moderate": {
+      "post": {
+        "tags": [
+          "Contenido"
+        ],
+        "summary": "Moderar textos sin guardar",
+        "operationId": "postContentModerate",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/content/drafts/{draft_id}/{action}": {
+      "post": {
+        "tags": [
+          "Contenido"
+        ],
+        "summary": "Editar, enviar, aprobar o rechazar",
+        "operationId": "postContentDraftsDraft_idAction",
+        "description": "Permiso de rol: `journeys.draft` o `journeys.submit` o `journeys.approve` (crm_analyst, tenant_admin, approver). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "edit",
+                "submit",
+                "approve",
+                "reject"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft",
+          "journeys.submit",
+          "journeys.approve"
+        ]
+      }
+    },
+    "/v1/onsite/campaigns": {
+      "get": {
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Campañas en el sitio y métricas",
+        "operationId": "getOnsiteCampaigns",
+        "description": "Permiso de rol: `onsite.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "onsite.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Guardar campaña",
+        "operationId": "postOnsiteCampaigns",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/onsite/campaigns/{campaign_id}/{action}": {
+      "post": {
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Ciclo de aprobación",
+        "operationId": "postOnsiteCampaignsCampaign_idAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submit",
+                "approve",
+                "pause",
+                "resume"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve",
+          "journeys.pause"
+        ]
+      }
+    },
+    "/v1/onsite/serve/{player_id}": {
+      "get": {
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Contenido a mostrar al jugador en una ubicación",
+        "operationId": "getOnsiteServePlayer_id",
+        "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `onsite:serve`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "placement",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "onsite:serve"
+            ]
+          }
+        ],
+        "x-ss1-scope": "onsite:serve",
+        "x-ss1-permission": [
+          "players.read"
+        ]
+      }
+    },
+    "/v1/onsite/events/{player_id}": {
+      "post": {
+        "tags": [
+          "Sitio"
+        ],
+        "summary": "Registrar clic o descarte",
+        "operationId": "postOnsiteEventsPlayer_id",
+        "description": "Permiso de rol: `players.read` (crm_analyst, approver, support, rg_officer, tenant_admin, auditor). Llaves de servicio: alcance `onsite:serve`. Cuerpo: `{ campaign_id, type, request_id }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ campaign_id, type, request_id }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "onsite:serve"
+            ]
+          }
+        ],
+        "x-ss1-scope": "onsite:serve",
+        "x-ss1-permission": [
+          "players.read"
+        ]
+      }
+    },
+    "/v1/policies": {
+      "get": {
+        "tags": [
+          "Políticas"
+        ],
+        "summary": "Políticas vigentes, historial y propuestas",
+        "operationId": "getPolicies",
+        "description": "Permiso de rol: `policy.read` (tenant_admin, approver, rg_officer, auditor, crm_analyst). Llaves de servicio: alcance `policies:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "policies:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "policies:read",
+        "x-ss1-permission": [
+          "policy.read"
+        ]
+      }
+    },
+    "/v1/policies/proposals": {
+      "post": {
+        "tags": [
+          "Políticas"
+        ],
+        "summary": "Proponer cambios",
+        "operationId": "postPoliciesProposals",
+        "description": "Permiso de rol: `policy.propose` (tenant_admin, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "policy.propose"
+        ]
+      }
+    },
+    "/v1/policies/proposals/{proposal_id}/{action}": {
+      "post": {
+        "tags": [
+          "Políticas"
+        ],
+        "summary": "Aprobar o rechazar",
+        "operationId": "postPoliciesProposalsProposal_idAction",
+        "description": "Permiso de rol: `journeys.approve` (approver). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "approve",
+                "reject"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.approve"
+        ]
+      }
+    },
+    "/v1/integration/ss1/theme": {
+      "get": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Tema del admin (colores y logo)",
+        "operationId": "getIntegrationSs1Theme",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/integration/ss1/trigger-catalog": {
+      "get": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Catálogo de disparadores del admin",
+        "operationId": "getIntegrationSs1TriggerCatalog",
+        "description": "Permiso de rol: `integration.read` (crm_analyst, approver, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "integration.read"
+        ]
+      }
+    },
+    "/v1/integration/ss1/sync": {
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Sincronizar datos desde el admin",
+        "operationId": "postIntegrationSs1Sync",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/integration/service-keys": {
+      "get": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Llaves de servicio (sin secretos)",
+        "operationId": "getIntegrationServiceKeys",
+        "description": "Permiso de rol: `integration.read` (crm_analyst, approver, tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "integration.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Crear llave de servicio (el secreto se muestra una vez)",
+        "operationId": "postIntegrationServiceKeys",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ name, scopes }`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ name, scopes }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/integration/service-keys/{key_id}/revoke": {
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Revocar llave de servicio",
+        "operationId": "postIntegrationServiceKeysKey_idRevoke",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Esta especificación",
+        "operationId": "getOpenapi.json",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/webhooks": {
+      "get": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Webhooks salientes",
+        "operationId": "getWebhooks",
+        "description": "Permiso de rol: `integration.read` (crm_analyst, approver, tenant_admin). Llaves de servicio: alcance `webhooks:manage`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "webhooks:manage"
+            ]
+          }
+        ],
+        "x-ss1-scope": "webhooks:manage",
+        "x-ss1-permission": [
+          "integration.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Crear suscripción",
+        "operationId": "postWebhooks",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). Llaves de servicio: alcance `webhooks:manage`. Cuerpo: `{ url, events, description? }`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ url, events, description? }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "webhooks:manage"
+            ]
+          }
+        ],
+        "x-ss1-scope": "webhooks:manage",
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/webhooks/{subscription_id}/{action}": {
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Pausar, reactivar o rotar secreto",
+        "operationId": "postWebhooksSubscription_idAction",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). Llaves de servicio: alcance `webhooks:manage`.",
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "resume",
+                "rotate"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "webhooks:manage"
+            ]
+          }
+        ],
+        "x-ss1-scope": "webhooks:manage",
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/webhooks/deliveries/{delivery_id}/retry": {
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Reintentar entrega",
+        "operationId": "postWebhooksDeliveriesDelivery_idRetry",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). Llaves de servicio: alcance `webhooks:manage`.",
+        "parameters": [
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "webhooks:manage"
+            ]
+          }
+        ],
+        "x-ss1-scope": "webhooks:manage",
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/webhooks/dispatch": {
+      "post": {
+        "tags": [
+          "Integración"
+        ],
+        "summary": "Enviar entregas pendientes",
+        "operationId": "postWebhooksDispatch",
+        "description": "Permiso de rol: `integration.sync` (tenant_admin). Llaves de servicio: alcance `webhooks:manage`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "webhooks:manage"
+            ]
+          }
+        ],
+        "x-ss1-scope": "webhooks:manage",
+        "x-ss1-permission": [
+          "integration.sync"
+        ]
+      }
+    },
+    "/v1/copilot/tools": {
+      "get": {
+        "tags": [
+          "Copiloto"
+        ],
+        "summary": "Herramientas disponibles para el rol",
+        "operationId": "getCopilotTools",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/copilot/tools/{tool}": {
+      "post": {
+        "tags": [
+          "Copiloto"
+        ],
+        "summary": "Ejecutar herramienta",
+        "operationId": "postCopilotToolsTool",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "tool",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/copilot/ask": {
+      "post": {
+        "tags": [
+          "Copiloto"
+        ],
+        "summary": "Pregunta en lenguaje natural (Claude)",
+        "operationId": "postCopilotAsk",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/audit": {
+      "get": {
+        "tags": [
+          "Auditoría"
+        ],
+        "summary": "Registro de auditoría encadenado",
+        "operationId": "getAudit",
+        "description": "Permiso de rol: `audit.read` (auditor, tenant_admin, approver). Llaves de servicio: alcance `audit:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "audit:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "audit:read",
+        "x-ss1-permission": [
+          "audit.read"
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ss1AdminToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token del usuario del admin de SS1; el CRM lo valida contra api.syssoft1.com y deriva tenant y roles."
+      },
+      "serviceKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "ss1crm_<key_id>_<secreto>",
+        "description": "Llave de servicio. Alcances: `events:write` (Enviar eventos (tiempo real y lotes CSV)); `players:read` (Leer perfiles, bandeja y marcas); `players:write` (Acciones del jugador desde el sitio: bandeja, preferencias, canjes, giros, predicciones); `onsite:serve` (Pedir contenido en el sitio y registrar impresiones/clics); `analytics:read` (Control Tower, rendimiento, modelos, alertas e informes); `journeys:read` (Leer recorridos, recompensas y definiciones de gamificación); `segments:read` (Previsualizar segmentos); `rg:read` (Leer la cola de juego responsable); `abuse:read` (Leer el riesgo de abuso de bonos); `policies:read` (Leer políticas por mercado); `audit:read` (Exportar la auditoría (SIEM)); `webhooks:manage` (Gestionar webhooks salientes). Límite: 600 peticiones por minuto por llave (429 con Retry-After)."
+      }
+    },
+    "parameters": {
+      "TenantId": {
+        "name": "X-Tenant-Id",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Con token del admin, el tenant sale del token; con llave de servicio, de la llave. Solo se usa en desarrollo."
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "error"
+              ],
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

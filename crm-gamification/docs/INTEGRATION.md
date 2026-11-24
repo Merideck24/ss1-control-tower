@@ -154,3 +154,37 @@ Salvaguardas:
 ## Webhooks salientes (CRM → SS1)
 
 El backoffice de SS1 puede suscribirse a eventos del CRM (entregas, recompensas, casos de juego responsable, aprobaciones) desde la pestaña «Integraciones». Cada entrega va firmada con el mismo esquema que el webhook de ingesta (`t=<seg>,v1=<HMAC-SHA256>`), así que el receptor reutiliza `verifySignature`. La entrega es al menos una vez: el receptor debe deduplicar por `X-SS1-CRM-Delivery`. Cuando SS1 defina un broker (Kafka o RabbitMQ), el mismo flujo se publica en el tema `crm.outbound.<tenant>` mediante la interfaz `EventBus` (`src/integration/bus.ts`).
+
+## API de integración v1 (sistemas de SS1 → CRM)
+
+- **Base:** `/api/v1`. También se acepta `/api` sin versión, por compatibilidad.
+- **Especificación:** OpenAPI 3.1 en `contracts/openapi.json`, también servida en `GET /api/v1/openapi.json`. Se genera con `npm run openapi` desde `src/api/catalog.ts`.
+- **Verificación automática:** una prueba falla si:
+  - una ruta del enrutador falta en el catálogo o sobra en él;
+  - el permiso documentado no es el que exige la ruta;
+  - el archivo publicado quedó desactualizado.
+- **Estado:** `GET /api/v1/health` responde sin autenticación.
+
+### Llaves de servicio (máquina a máquina)
+
+Para que el PAM, el sitio, el cajero o el backoffice llamen al CRM sin un usuario humano:
+
+1. Un administrador del tenant crea la llave con `POST /api/v1/integration/service-keys` y le asigna sus alcances. Por ejemplo, el sitio recibe `players:read`, `players:write` y `onsite:serve`, y el PAM `events:write`. La llave (`ss1crm_<id>_<secreto>`) se muestra una sola vez; solo se guarda su hash.
+2. El sistema la envía como `Authorization: Bearer ss1crm_…`. El tenant sale de la llave, y las cabeceras `X-Tenant-Id` y `X-Roles` se ignoran.
+3. **Doble control:**
+   - la ruta debe declarar en el catálogo uno de los alcances de la llave;
+   - si la ruta exige un permiso de rol, ese permiso debe estar cubierto por un alcance.
+
+   Ninguna llave puede aprobar, publicar ni gestionar llaves.
+4. Límite de 600 peticiones por minuto por llave; al superarlo responde `429` con `Retry-After`. Revocar una llave la invalida al instante. Crear y revocar quedan en la auditoría.
+
+| Alcance | Para |
+|---|---|
+| `events:write` | Enviar eventos (tiempo real o CSV) |
+| `players:read` / `players:write` | Leer perfiles y bandeja / acciones del jugador desde el sitio |
+| `onsite:serve` | Banners y popups del sitio |
+| `analytics:read` | Control Tower, rendimiento, modelos e informes |
+| `journeys:read`, `segments:read` | Leer configuración y previsualizar segmentos |
+| `rg:read`, `abuse:read`, `policies:read` | Lectura de riesgo y políticas |
+| `audit:read` | Exportar la auditoría a un SIEM |
+| `webhooks:manage` | Gestionar webhooks salientes |
