@@ -814,7 +814,7 @@ const VIEWS = {
       <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
-    const [rs, md, nb, ab, sp] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null, api('/experiments/splits')]);
+    const [rs, md, nb, ab, sp, chs] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null, api('/experiments/splits'), api('/channels/status')]);
     const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
     const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
       <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
@@ -848,13 +848,17 @@ const VIEWS = {
       ${x.variants.map((v) => `<tr><td>${esc(v.label)}</td><td class="num">${int(v.assigned)}</td><td class="num">${int(v.decided)}</td><td class="num">${int(v.conversions)}</td>
         <td class="num">${v.rate === null ? '—' : `${pct(v.rate, 1)} <span class="muted">[${pct(v.ci95[0], 1)}; ${pct(v.ci95[1], 1)}]</span>`}</td><td class="num">${v.p_best === null ? '—' : pct(v.p_best, 0)}</td><td class="num">${pct(v.allocation, 0)}</td></tr>`).join('')}</table>
       <p>${esc(x.decision)}</p>`).join('')}<p class="muted">${esc(sp.note)}</p></div><br>`;
-    return `${models}${nbaCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    const CHN = { inapp: 'In-app (bandeja)', email: 'Email', webpush: 'Push web', sms: 'SMS', whatsapp: 'WhatsApp', telegram: 'Telegram' };
+    const chCard = `<div class="card scroll"><h3>Canales de entrega</h3><table><tr><th>Canal</th><th class="num">Entregados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
+      ${chs.channels.map((c) => `<tr><td>${esc(CHN[c.channel] ?? c.channel)}</td><td class="num">${int(c.accepted)}</td><td class="num">${int(c.failed)}</td><td class="num">${int(c.suppressed)}</td><td class="num">${int(c.deferred)}</td><td class="muted">${c.top_reasons.map((r) => `${esc(r.reason)} (${int(r.n)})`).join(' · ')}</td></tr>`).join('')}</table>
+      <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} entregados, ${int(chs.inbox.read)} leídos (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
+    return `${models}${nbaCard}${chCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
         <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
   },
   async loyalty() {
-    const list = await api('/players');
+    const list = await api('/players?sort=recent');
     return `<div class="row"><label>Jugador <select id="lp">${list.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label></div><div id="lout"></div>`;
   },
   async copilot() {
@@ -1013,13 +1017,18 @@ const BIND = {
   },
   loyalty() {
     const load = async () => {
-      const d = await api('/players/' + encodeURIComponent($('#lp').value));
+      const [d, ib] = await Promise.all([api('/players/' + encodeURIComponent($('#lp').value)), api('/players/' + encodeURIComponent($('#lp').value) + '/inbox')]);
       const l = d.loyalty;
       $('#lout').innerHTML = `<div class="phone">
-        <div class="muted">RumbaWin · Temporada ${esc(l.season)}</div>
+        <div class="row" style="justify-content:space-between"><span class="muted">RumbaWin · Temporada ${esc(l.season)}</span><a href="#inbox" class="chip ${ib.unread ? 'brand' : ''}" aria-label="Bandeja: ${ib.unread} sin leer">🔔 ${ib.unread}</a></div>
         <h2 style="margin:6px 0">Nivel ${esc(l.level)}</h2>
         <div class="bar" role="progressbar" aria-valuenow="${l.percent_to_next}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso al siguiente nivel"><span style="width:${l.percent_to_next}%"></span></div>
         <p>${l.next_level ? `${l.percent_to_next} % hacia <b>${esc(l.next_level)}</b> · faltan ${l.points_to_next} pts` : 'Nivel máximo'}</p>
+        <h3 id="inbox">Bandeja ${ib.unread ? `<span class="chip brand">${ib.unread} sin leer</span>` : ''}</h3>
+        ${ib.items.slice(0, 6).map((m) => `<div class="card" style="margin-bottom:6px;${m.read_at ? 'opacity:.7' : 'border-left:3px solid var(--brand)'}"><div class="row" style="justify-content:space-between;margin:0"><b>${esc(m.title || m.template)}</b><span class="chip">${m.category === 'transactional' ? 'Aviso' : 'Promoción'}</span></div>
+          <div>${esc(m.body)}</div><div class="muted">${new Date(m.created_at).toLocaleString('es-CO')} · vence ${new Date(m.expires_at).toLocaleDateString('es-CO')}</div>
+          ${can('player.preferences') ? `<div class="row" style="margin:4px 0 0">${m.read_at ? '' : `<button class="ghost" data-ibread="${esc(m.id)}">Marcar leído</button>`}<button class="ghost" data-ibarch="${esc(m.id)}">Archivar</button></div>` : ''}</div>`).join('') || '<p class="muted">Sin mensajes.</p>'}
+        ${ib.items.length > 6 ? `<p class="muted">y ${ib.items.length - 6} más</p>` : ''}${ib.unread && can('player.preferences') ? '<button class="ghost" id="ibreadall">Marcar todo como leído</button>' : ''}
         <h3>Recompensas</h3>${(() => {
           const asOf = d.as_of ? Date.parse(d.as_of) : Date.now();
           const rs = [...d.profile.rewards].sort((a, b) => b.expires_at.localeCompare(a.expires_at));
@@ -1043,6 +1052,10 @@ const BIND = {
         <h3>Preferencias</h3><label><input type="checkbox" id="optin" ${d.gamification.opt_out ? '' : 'checked'} ${can('player.preferences') ? '' : 'disabled'}> Recibir avisos de progreso y misiones</label>
         ${can('player.preferences') ? '' : '<p class="muted">Solo soporte o administración pueden cambiarla desde el backoffice.</p>'}</div>`;
       const rid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+      const pid = encodeURIComponent($('#lp').value);
+      document.querySelectorAll('[data-ibread]').forEach((b) => b.onclick = async () => { try { await api(`/players/${pid}/inbox/${encodeURIComponent(b.dataset.ibread)}/read`, { method: 'POST' }); load(); } catch (e) { flash(e.message, 'bad'); } });
+      document.querySelectorAll('[data-ibarch]').forEach((b) => b.onclick = async () => { try { await api(`/players/${pid}/inbox/${encodeURIComponent(b.dataset.ibarch)}/archive`, { method: 'POST' }); flash('Mensaje archivado.', 'ok'); load(); } catch (e) { flash(e.message, 'bad'); } });
+      if ($('#ibreadall')) $('#ibreadall').onclick = async () => { try { const r = await api(`/players/${pid}/inbox/read-all`, { method: 'POST' }); flash(`${r.marked} mensajes marcados como leídos.`, 'ok'); load(); } catch (e) { flash(e.message, 'bad'); } };
       document.querySelectorAll('[data-redeem]').forEach((b) => b.onclick = async () => {
         try { const r = await api('/gamification/store/redeem', { method: 'POST', body: { player_id: $('#lp').value, item_id: b.dataset.redeem, request_id: rid() } }); flash(r.status === 'fulfilled' ? 'Canje entregado.' : `Canje reembolsado: ${r.reason}`, r.status === 'fulfilled' ? 'ok' : 'warn'); load(); }
         catch (e) { flash(e.message, 'bad'); }

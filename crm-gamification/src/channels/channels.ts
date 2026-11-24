@@ -8,6 +8,8 @@ export type Template = {
   category: 'transactional' | 'promotional';
   purpose: Purpose;
   content: Partial<Record<Locale, { subject?: string; body: string }>>;
+  /** F2: variantes por canal. SMS: texto corto propio; WhatsApp: plantilla aprobada por Meta y sus variables. */
+  channels?: { sms?: Partial<Record<Locale, string>>; whatsapp?: { name: string; lang: string; params?: string[] } };
 };
 
 export type DeliveryStatus = 'accepted' | 'failed' | 'suppressed' | 'deferred';
@@ -26,9 +28,10 @@ export type Receipt = {
   attempts: number;
 };
 
+export type OutboundMessage = { to: string; subject?: string; body: string; idempotency_key: string; tenant_id?: string; player_id?: string; template?: string; category?: Template['category']; sms_body?: string; whatsapp_template?: { name: string; lang: string }; whatsapp_params?: string[] };
 export interface ChannelAdapter {
   channel: Channel;
-  send(msg: { to: string; subject?: string; body: string; idempotency_key: string }): { ok: true; provider_message_id: string } | { ok: false; reason: string; retryable: boolean };
+  send(msg: OutboundMessage): { ok: true; provider_message_id: string } | { ok: false; reason: string; retryable: boolean };
 }
 
 /** Adaptador en memoria (simula proveedor con idempotencia y fallos inyectables). */
@@ -37,7 +40,7 @@ export class MemoryAdapter implements ChannelAdapter {
   outbox: { to: string; subject?: string; body: string; idempotency_key: string }[] = [];
   failNext = 0;
   constructor(channel: Channel) { this.channel = channel; }
-  send(msg: { to: string; subject?: string; body: string; idempotency_key: string }) {
+  send(msg: OutboundMessage) {
     if (this.failNext > 0) { this.failNext--; return { ok: false as const, reason: 'provider_unavailable', retryable: true }; }
     const dup = this.outbox.find((m) => m.idempotency_key === msg.idempotency_key);
     if (!dup) this.outbox.push(msg);
@@ -62,6 +65,8 @@ export class ChannelHub {
   #receipts = new Map<string, Receipt>();
   #clock: Clock;
   maxAttempts = 3;
+  /** F2: SS1 resuelve teléfono o chat al enviar; el CRM no los almacena. */
+  contacts?: (tenant: string, player: string, channel: Channel) => string | undefined;
   constructor(clock: Clock) { this.#clock = clock; }
 
   register(a: ChannelAdapter): void { this.#adapters.set(a.channel, a); }
@@ -83,13 +88,23 @@ export class ChannelHub {
     if (!t) return this.recordNonDelivery({ ...base, status: 'failed', reason: 'template_not_found' });
     const adapter = this.#adapters.get(req.channel);
     if (!adapter) return this.recordNonDelivery({ ...base, status: 'failed', reason: 'channel_not_configured' });
+    let address = req.address;
+    if (req.channel === 'sms' || req.channel === 'whatsapp' || req.channel === 'telegram') {
+      const c = this.contacts?.(req.tenant_id, req.player_id, req.channel);
+      if (!c) return this.recordNonDelivery({ ...base, status: 'failed', reason: `no_contact_for_${req.channel}` });
+      address = c;
+    }
     const rendered = render(t, req.locale, req.vars);
+    const fill = (s: string) => s.replace(/\{\{(\w+)\}\}/g, (_, k) => String(req.vars[k] ?? ''));
+    const extra = { tenant_id: req.tenant_id, player_id: req.player_id, template: t.key, category: t.category,
+      ...(t.channels?.sms ? { sms_body: fill(t.channels.sms[req.locale] ?? t.channels.sms.es ?? rendered.body) } : {}),
+      ...(t.channels?.whatsapp ? { whatsapp_template: { name: t.channels.whatsapp.name, lang: t.channels.whatsapp.lang }, whatsapp_params: (t.channels.whatsapp.params ?? []).map((k) => String(req.vars[k] ?? '')) } : {}) };
     // reintentos acotados por llamada; el total acumulado queda en el recibo
     let attempts = existing?.attempts ?? 0;
     let last: ReturnType<ChannelAdapter['send']> = { ok: false, reason: 'not_attempted', retryable: true };
     for (let i = 0; i < this.maxAttempts; i++) {
       attempts++;
-      last = adapter.send({ to: req.address, ...rendered, idempotency_key: req.idempotency_key });
+      last = adapter.send({ to: address, ...rendered, ...extra, idempotency_key: req.idempotency_key });
       if (last.ok || !last.retryable) break;
     }
     const r: Receipt = last.ok

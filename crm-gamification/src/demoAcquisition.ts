@@ -1,6 +1,6 @@
 import { ev, type App } from './app.ts';
 import type { EventEnvelope } from './domain/events.ts';
-import { DAY, HOUR } from './shared/util.ts';
+import { DAY, HOUR, stableBucket } from './shared/util.ts';
 
 /** Generador determinista (mulberry32) para que la demo sea reproducible. */
 function rng(seed: number) {
@@ -55,6 +55,8 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     events.push(ev(tenant, player, 'rg.status_changed', { status: r() < (c?.rgRisk ?? 0.03) ? 'self_excluded' : 'none' }, iso(regAt + 60_000)));
     events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: 'inapp', granted: r() < 0.85 }, iso(regAt + 60_000)));
     events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: 'email', granted: r() < 0.6 }, iso(regAt + 60_000)));
+    // consentimientos de los canales nuevos con hash estable (no altera la secuencia aleatoria de la demo)
+    for (const [ch, rate] of [['sms', 0.5], ['whatsapp', 0.35], ['telegram', 0.12]] as const) if (stableBucket(`${player}:${ch}`) < rate) events.push(ev(tenant, player, 'consent.changed', { purpose: 'marketing', channel: ch, granted: true }, iso(regAt + 120_000)));
     if (r() < 0.82) events.push(ev(tenant, player, 'player.verified', { kyc_status: 'verified' }, iso(regAt + (2 + r() * 30) * HOUR)));
     if (r() >= prof.ftdRate) return;
     const ftdAt = regAt + r() * 2 * DAY;
@@ -201,8 +203,8 @@ export function seedDemoOverlap(app: App, tenant: string) {
       id: j.id, brand_id: 'rumbawin', name: j.name, purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'deposit.settled' },
       overlap: { group: 'promo', priority: j.priority }, entry: 'wait',
       nodes: j.condition
-        ? [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'big' }, { id: 'big', type: 'condition', rule: { field: 'stats.deposits_minor', op: 'gte', value: 500_000_00 }, on_true: 'msg', on_false: 'end' }, { id: 'msg', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }]
-        : [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'msg' }, { id: 'msg', type: 'message', channel: 'email', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }],
+        ? [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'big' }, { id: 'big', type: 'condition', rule: { field: 'stats.deposits_minor', op: 'gte', value: 500_000_00 }, on_true: 'msg', on_false: 'end' }, { id: 'msg', type: 'message', channel: 'sms', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }]
+        : [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'msg' }, { id: 'msg', type: 'message', channel: 'sms', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }],
     });
     app.registry.submit(author, j.id); app.registry.approve(approver, j.id); app.registry.publish(author, j.id);
   }
@@ -216,7 +218,8 @@ export function seedDemoSplit(app: App, tenant: string) {
     id: 'jab_welcome_message', brand_id: 'rumbawin', name: 'Verificado → mensaje de bienvenida A/B/n', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'player.verified' }, entry: 'ab',
     nodes: [
       { id: 'ab', type: 'split', mode: 'bandit', metric: { event: 'deposit.settled', window_hours: 72 }, min_explore_pct: 10, warmup_per_variant: 30,
-        variants: [{ id: 'a', label: 'In-app', weight: 1, next: 'inapp' }, { id: 'b', label: 'Email', weight: 1, next: 'email' }, { id: 'c', label: 'Sin mensaje', weight: 1, next: 'end' }] },
+        variants: [{ id: 'a', label: 'In-app', weight: 1, next: 'inapp' }, { id: 'b', label: 'Email', weight: 1, next: 'email' }, { id: 'c', label: 'Sin mensaje', weight: 1, next: 'end' }, { id: 'd', label: 'WhatsApp', weight: 1, next: 'wa' }] },
+      { id: 'wa', type: 'message', channel: 'whatsapp', template: 'loyalty_halfway', next: 'end' },
       { id: 'inapp', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' },
       { id: 'email', type: 'message', channel: 'email', template: 'loyalty_halfway', next: 'end' },
       { id: 'end', type: 'exit' }],

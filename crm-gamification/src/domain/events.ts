@@ -23,7 +23,8 @@ export const EVENT_TYPES = [
 export const NON_PLAYER_EVENTS: readonly EventType[] = ['marketing.spend_reported'];
 export type EventType = (typeof EVENT_TYPES)[number];
 
-export type Channel = 'inapp' | 'email' | 'webpush';
+export const CHANNELS = ['inapp', 'email', 'webpush', 'sms', 'whatsapp', 'telegram'] as const;
+export type Channel = (typeof CHANNELS)[number];
 export type Purpose = 'service' | 'marketing';
 export type RgStatus = 'none' | 'cooling_off' | 'self_excluded' | 'limited';
 export type KycStatus = 'pending' | 'verified' | 'rejected';

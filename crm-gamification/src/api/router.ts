@@ -4,7 +4,7 @@ import { report } from '../experiments/experiments.ts';
 import { journeyAsList, validateJourney } from '../journeys/model.ts';
 import { autoLayout, reviewJourney } from '../journeys/builder.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
-import { EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
+import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
 import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
@@ -114,13 +114,16 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
     if (r0 === 'GET /players') {
       if (!can(actor, 'players.read')) return forbid('players.read');
       const q = req.query.get('q') ?? '';
-      return ok(app.ingestor.all(T).filter((p) => p.player_id.includes(q)).slice(0, 100).map((p) => ({ player_id: p.player_id, kyc: p.kyc?.value, rg: p.rg?.value, deposits_minor: p.stats.deposits_minor, currency: p.stats.currency, level: app.loyalty.program(T, p.brand_id) ? app.loyalty.progress(T, p.brand_id, p.player_id).level : null })));
+      const recent = req.query.get('sort') === 'recent';
+      const all = app.ingestor.all(T).filter((p) => p.player_id.includes(q));
+      if (recent) all.sort((a, b) => (b.timeline.at(-1)?.occurred_at ?? '').localeCompare(a.timeline.at(-1)?.occurred_at ?? ''));
+      return ok(all.slice(0, 100).map((p) => ({ player_id: p.player_id, kyc: p.kyc?.value, rg: p.rg?.value, deposits_minor: p.stats.deposits_minor, currency: p.stats.currency, level: app.loyalty.program(T, p.brand_id) ? app.loyalty.progress(T, p.brand_id, p.player_id).level : null })));
     }
     if ((r = m(/^GET \/players\/([\w-]+)$/))) {
       if (!can(actor, 'players.read')) return forbid('players.read');
       const p = app.ingestor.get(T, r[1]);
       if (!p) return { status: 404, body: { error: 'not_found', message: `No existe el jugador ${r[1]} en ${T}` } };
-      const decisions = Object.fromEntries((['inapp', 'email', 'webpush'] as const).map((c) => [c, app.policy.decide({ profile: p, purpose: 'marketing', channel: c })]));
+      const decisions = Object.fromEntries(CHANNELS.map((c) => [c, app.policy.decide({ profile: p, purpose: 'marketing', channel: c })]));
       return ok({
         as_of: app.clock.now().toISOString(),
         profile: profileView(p),
@@ -146,6 +149,26 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
         rg_risk: can(actor, 'rg.monitor') ? { ...app.risk.assess(T, p.player_id, p.timezone?.value), cases: app.risk.cases(T).filter((c) => c.player_id === p.player_id) } : undefined,
         bonus_abuse: can(actor, 'abuse.read') ? app.abuse(T, p.player_id) ?? null : undefined,
       });
+    }
+    if ((r = m(/^GET \/players\/([\w-]+)\/inbox$/))) {
+      if (!can(actor, 'players.read')) return forbid('players.read');
+      return ok({ ...app.adapters.inapp.list(T, r[1], { include_archived: req.query.get('archived') === '1' }), as_of: app.clock.now().toISOString() });
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/inbox\/read-all$/))) {
+      if (!can(actor, 'player.preferences')) return forbid('player.preferences');
+      return ok(app.adapters.inapp.markAllRead(T, r[1]));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/inbox\/([^/]+)\/(read|archive)$/))) {
+      if (!can(actor, 'player.preferences')) return forbid('player.preferences');
+      return ok(r[3] === 'read' ? app.adapters.inapp.markRead(T, r[1], r[2]) : app.adapters.inapp.archive(T, r[1], r[2]));
+    }
+    if (r0 === 'GET /channels/status') {
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      const rs = app.channels.receipts(T);
+      return ok({ channels: CHANNELS.map((c) => { const x = rs.filter((r) => r.channel === c); const reasons = new Map<string, number>(); for (const r of x) if (r.status !== 'accepted' && r.reason) { const k = r.reason.split(':')[0]; reasons.set(k, (reasons.get(k) ?? 0) + 1); }
+        return { channel: c, accepted: x.filter((r) => r.status === 'accepted').length, failed: x.filter((r) => r.status === 'failed').length, suppressed: x.filter((r) => r.status === 'suppressed').length, deferred: x.filter((r) => r.status === 'deferred').length, top_reasons: [...reasons].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([reason, n]) => ({ reason, n })) }; }),
+        inbox: app.adapters.inapp.stats(T),
+        transport: app.demoProviders ? 'simulado (demo)' : 'sin configurar', note: 'SMS, WhatsApp y Telegram usan transporte simulado y contactos sintéticos en la demo. En producción, el gateway de SS1 resuelve teléfono y chat al enviar e inyecta las credenciales; el CRM no los almacena.' });
     }
     if (r0 === 'GET /segments/fields') return ok(SEGMENT_FIELDS);
     if (r0 === 'GET /models') {
@@ -315,7 +338,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; acto
     if (r0 === 'GET /journeys/builder') {
       return ok({
         events: EVENT_TYPES.filter((e) => !NON_PLAYER_EVENTS.includes(e)),
-        channels: ['inapp', 'email', 'webpush'],
+        channels: CHANNELS,
         templates: app.channels.templates(T).map((t) => ({ key: t.key, purpose: t.purpose, category: t.category, subject: t.content.es?.subject ?? t.key })),
         rewards: app.rewards.catalog(T).map((i) => ({ id: i.id, reward_type: i.reward_type, value: i.value, approved: Boolean(i.approved_by) })),
         fields: SEGMENT_FIELDS,

@@ -59,7 +59,7 @@ components:
     playerVerified:
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [kyc_status], properties: { kyc_status: { type: string, enum: [pending, verified, rejected] } } } } }] }
     consentChanged:
-      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [purpose, channel, granted], properties: { purpose: { type: string, enum: [service, marketing] }, channel: { type: string, enum: [inapp, email, webpush] }, granted: { type: boolean } } } } }] }
+      payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [purpose, channel, granted], properties: { purpose: { type: string, enum: [service, marketing] }, channel: { type: string, enum: [inapp, email, webpush, sms, whatsapp, telegram] }, granted: { type: boolean } } } } }] }
     rgRiskSignal:
       summary: Señal interna del monitor de riesgo (source crm.risk); dispara intervenciones de servicio, nunca promociones
       payload: { allOf: [{ $ref: '#/components/schemas/Envelope' }, { properties: { payload: { type: object, required: [level, score, signals], properties: { level: { type: string, enum: [medium, high] }, score: { type: integer, minimum: 0, maximum: 100 }, signals: { type: array, items: { type: string, enum: [deposit_velocity, loss_chasing, night_play, escalating_stakes] } } } } } }] }

@@ -34,6 +34,9 @@ const FIELDS: Record<string, (p: PlayerProfile, d: Derived) => unknown> = {
   'consent.marketing.email': (p) => p.consents['marketing:email']?.value ?? false,
   'consent.marketing.inapp': (p) => p.consents['marketing:inapp']?.value ?? false,
   'consent.marketing.webpush': (p) => p.consents['marketing:webpush']?.value ?? false,
+  'consent.marketing.sms': (p) => p.consents['marketing:sms']?.value ?? false,
+  'consent.marketing.whatsapp': (p) => p.consents['marketing:whatsapp']?.value ?? false,
+  'consent.marketing.telegram': (p) => p.consents['marketing:telegram']?.value ?? false,
   'rewards.active_count': (p) => p.rewards.length,
   'lifecycle': (p, d) => lifecycleOf(p, d.now),
   // RFM depende de toda la población del tenant: disponible en segmentos (runSegment), no en condiciones de recorridos

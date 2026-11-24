@@ -9,7 +9,7 @@ import { OffsetClock } from './shared/util.ts';
 import { abilitiesToRoles, DEFAULT_ALLOWED_ORIGINS } from './integration/ss1Auth.ts';
 import { deriveBrandTokens, parseThemeConfig } from './integration/theme.ts';
 
-const app = createApp(new OffsetClock());
+const app = createApp(new OffsetClock(), { demoProviders: true });
 for (const t of ['tenant-rumbawin', 'tenant-demo-b']) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
 for (const t of app.tenants) app.policy.markRgFeedSynced(t);
 setInterval(() => app.tenants.forEach((t) => app.policy.markRgFeedSynced(t)), 60_000);

@@ -76,3 +76,14 @@ Paso `split`: `{ mode: 'fixed' \| 'bandit', metric: { event, window_hours }, var
 | `POST /risk/rg-cases/:id/close` | `rg.act` | `{ outcome: contacted \| limits_suggested \| escalated_to_rg \| no_action, note }`; auditado |
 
 Evento interno `rg.risk_signal` (`source: crm.risk`): `{ level, score, signals }`. `GET /players/:id` incluye `rg_risk` solo para roles con `rg.monitor`.
+
+## Canales y bandeja (F2, F4)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /channels/status` | `analytics.read` | Entregados, fallidos, suprimidos y diferidos por canal, con motivos; estado de la bandeja y del transporte |
+| `GET /players/:id/inbox` | `players.read` | Bandeja vigente (`?archived=1` incluye archivados) y no leídos |
+| `POST /players/:id/inbox/:msg/read` · `/archive` | `player.preferences` | Marca leído o archiva |
+| `POST /players/:id/inbox/read-all` | `player.preferences` | Marca todo como leído |
+
+Canales: `inapp`, `email`, `webpush`, `sms`, `whatsapp`, `telegram`. Plantillas: `channels.sms` (texto corto por idioma) y `channels.whatsapp` (`name`, `lang`, `params`). `GET /players?sort=recent` ordena por actividad reciente. Servidor: `CRM_PROVIDERS_LIVE=1` desactiva el transporte simulado.

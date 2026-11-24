@@ -68,7 +68,7 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const app = createApp(new OffsetClock());
+  const app = createApp(new OffsetClock(), { demoProviders: !process.env.CRM_PROVIDERS_LIVE });
   const demoTenants = ['tenant-rumbawin', 'tenant-demo-b'];
   for (const t of demoTenants) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
   // demo: simula el latido del feed de juego responsable (en producción lo publica la fuente)
