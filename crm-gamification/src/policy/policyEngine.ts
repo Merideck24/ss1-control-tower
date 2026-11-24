@@ -79,6 +79,8 @@ export class PolicyEngine {
   constructor(clock: Clock) { this.#clock = clock; }
 
   setPolicy(tenant_id: string, p: MarketPolicy): void { this.#policies.set(`${tenant_id}::${p.brand_id}::${p.market}`, p); }
+  /** Políticas vigentes del tenant (una por marca y mercado). */
+  listPolicies(tenant_id: string): MarketPolicy[] { return [...this.#policies].filter(([k]) => k.startsWith(`${tenant_id}::`)).map(([, p]) => p); }
   policyFor(profile: PlayerProfile): MarketPolicy | undefined {
     return this.#policies.get(`${profile.tenant_id}::${profile.brand_id}::${profile.country?.value ?? '??'}`);
   }

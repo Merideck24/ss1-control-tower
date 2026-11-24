@@ -109,3 +109,11 @@ Canales: `inapp`, `email`, `webpush`, `sms`, `whatsapp`, `telegram`. Plantillas:
 | `POST /content/drafts/:id/approve` · `reject` | `journeys.approve` | Otra persona aprueba (crea la plantilla) o rechaza con motivo |
 
 Servidor: con `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` o un perfil `ant` se habilita el escritor con Claude (`CONTENT_MODEL`, por defecto `claude-opus-5-5`, con respaldo del servidor ante rechazos). La versión estática nunca incluye el SDK.
+
+## Políticas por mercado (I3)
+
+| Método y ruta | Permiso | Descripción |
+|---|---|---|
+| `GET /policies` | `policy.read` | Políticas vigentes con historial y propuestas |
+| `POST /policies/proposals` | `policy.propose` | `{ policy, justification? }`; justificación obligatoria si relaja una protección |
+| `POST /policies/proposals/:id/approve` · `reject` | `journeys.approve` | Otra persona aprueba (se aplica) o rechaza con motivo; propuesta obsoleta si cambió la versión base |

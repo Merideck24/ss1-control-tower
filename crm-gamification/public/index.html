@@ -204,7 +204,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -490,6 +490,7 @@ const ICON_PATHS = {
   loyalty: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   copilot: '<path d="M12 3a7 7 0 0 1 7 7c0 3-2 5-4 6v3H9v-3c-2-1-4-3-4-6a7 7 0 0 1 7-7z"/><path d="M10 21h4"/>',
   gamification: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+  policies: '<path d="M12 3v18M5 7h14M5 7l-2 6h4zM19 7l-2 6h4z"/><path d="M8 21h8"/>',
   content: '<path d="M4 20h4l10-10-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
   onsite: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>',
   rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
@@ -875,6 +876,31 @@ const VIEWS = {
       <textarea id="tin" rows="5">{"metric": "kyc_verified_rate"}</textarea>
       <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
   },
+  async policies() {
+    const d = await api('/policies');
+    const F = { channels_enabled: 'Canales habilitados', max_marketing_per_day: 'Máx. marketing al día', max_marketing_per_week: 'Máx. marketing por semana', quiet_hours: 'Horario silencioso', incentives_allowed: 'Incentivos permitidos', require_kyc_for_incentives: 'KYC para incentivos', rg_feed_max_staleness_ms: 'Antigüedad máx. del feed JR' };
+    const fname = (f) => f.startsWith('max_marketing_per_day_by_channel.') ? `Máx. diario por ${f.split('.')[1]}` : F[f] ?? f;
+    const fval = (f, v) => v === null || v === undefined ? '—' : f === 'quiet_hours' ? `${v.start}:00–${v.end}:00` : f === 'rg_feed_max_staleness_ms' ? `${Math.round(v / 60000)} min` : typeof v === 'boolean' ? (v ? 'sí' : 'no') : Array.isArray(v) ? v.join(', ') : String(v);
+    const cards = d.policies.map((p) => `<div class="card"><h3>${esc(p.market)} · ${esc(p.brand_id)} <span class="chip brand">${esc(p.version)}</span>${p.pending ? ` <span class="chip warn">${p.pending} propuesta(s) pendiente(s)</span>` : ''}</h3>
+      <table>${['channels_enabled', 'max_marketing_per_day', 'max_marketing_per_week', 'quiet_hours', 'incentives_allowed', 'require_kyc_for_incentives', 'rg_feed_max_staleness_ms'].map((f) => `<tr><th>${esc(F[f])}</th><td>${esc(fval(f, p[f]))}</td></tr>`).join('')}
+      <tr><th>Máx. diario por canal</th><td>${Object.entries(p.max_marketing_per_day_by_channel ?? {}).map(([c, n]) => `${esc(c)} ${n}`).join(' · ') || '—'}</td></tr></table>
+      <p class="muted">${p.history.length ? `Versiones aprobadas: ${p.history.map((h) => `${esc(h.version)} (${esc(h.approved_by)}, ${new Date(h.at).toLocaleDateString('es-CO')})`).join(' · ')}` : 'Versión inicial de la configuración.'}</p>
+      ${can('policy.propose') ? `<button class="ghost" data-pedit="${esc(p.market)}">Proponer cambios</button>` : ''}</div>`).join('<br>');
+    const ST = { pending: ['warn', 'Pendiente'], approved: ['ok', 'Aprobada y aplicada'], rejected: ['bad', 'Rechazada'], superseded: ['muted', 'Obsoleta'] };
+    const props = `<div class="card scroll"><h3>Propuestas</h3>${d.proposals.map((x) => `<div style="margin-bottom:14px"><div class="row"><b>${esc(x.market)} · ${esc(x.proposed.version)}</b><span class="${ST[x.status][0]}">${ST[x.status][1]}</span><span class="muted">por ${esc(x.proposed_by)}${x.decided_by ? ` · decidió ${esc(x.decided_by)}` : ''}${x.base_version ? ` · sobre ${esc(x.base_version)}` : ' · mercado nuevo'}</span></div>
+        <table><tr><th>Campo</th><th>Antes</th><th>Después</th><th></th></tr>${x.changes.map((c) => `<tr><td>${esc(fname(c.field))}</td><td>${esc(fval(c.field.split('.')[0], c.from))}</td><td>${esc(fval(c.field.split('.')[0], c.to))}</td><td>${c.loosens ? '<span class="warn">Relaja una protección</span>' : ''}</td></tr>`).join('')}</table>
+        ${x.justification ? `<div class="muted">Justificación: ${esc(x.justification)}</div>` : ''}${x.reject_reason ? `<div class="bad">Rechazo: ${esc(x.reject_reason)}</div>` : ''}
+        ${x.status === 'pending' && can('journeys.approve') ? `<div class="row"><button data-pok="${esc(x.id)}">Aprobar y aplicar</button><input id="prr-${esc(x.id)}" placeholder="Motivo del rechazo" size="24"><button class="ghost" data-pno="${esc(x.id)}">Rechazar</button></div>` : ''}</div>`).join('') || '<p class="muted">Sin propuestas.</p>'}
+      <p class="muted">${esc(d.note)}</p></div>`;
+    const form = !can('policy.propose') ? '' : `<div class="card" id="pform" style="display:none"><h3>Proponer cambios · <span id="pfm"></span></h3>
+      <div class="row"><label>Mercado <input id="pf_market" size="3" maxlength="2"></label><label>Máx. al día <input id="pf_day" type="number" min="0" max="10" size="3"></label><label>Máx. por semana <input id="pf_week" type="number" min="0" max="50" size="3"></label>
+        <label>Silencio desde <input id="pf_qs" type="number" min="0" max="23" size="3"></label><label>hasta <input id="pf_qe" type="number" min="0" max="23" size="3"></label><label>Feed JR máx. (min) <input id="pf_stale" type="number" min="15" max="1440" size="5"></label></div>
+      <div class="row">${d.channels.map((c) => `<label><input type="checkbox" data-pfch="${c}"> ${esc(c)}</label><input type="number" min="0" max="10" data-pfcap="${c}" size="2" aria-label="Máx. diario ${esc(c)}">`).join('')}</div>
+      <div class="row"><label><input type="checkbox" id="pf_inc"> Incentivos permitidos</label><label><input type="checkbox" id="pf_kyc"> KYC obligatorio para incentivos</label></div>
+      <label>Justificación (obligatoria si el cambio relaja una protección) <input id="pf_why" style="width:100%"></label>
+      <div class="row"><button id="pfsend">Enviar propuesta</button><button class="ghost" id="pfcancel">Cancelar</button></div><div id="pfout"></div></div><br>`;
+    return `${form}<div class="grid">${cards}</div><br>${props}`;
+  },
   async content() {
     const [d, cat] = await Promise.all([api('/content/drafts'), can('journeys.draft') ? api('/journeys/builder') : null]);
     const ST = { draft: ['', 'Borrador'], pending_approval: ['warn', 'Pendiente de aprobación'], approved: ['ok', 'Aprobado: plantilla creada'], rejected: ['bad', 'Rechazado'] };
@@ -1064,6 +1090,31 @@ const BIND = {
       if (B.issues.some((i) => i.severity === 'error')) { $('#draftout').innerHTML = '<p class="bad">Corrige las observaciones en rojo antes de enviar.</p>'; return; }
       try { await api('/journeys', { method: 'POST', body: body() }); const d = await api(`/journeys/${encodeURIComponent(B.def.id)}/submit`, { method: 'POST' }); $('#draftout').innerHTML = `<p class="ok">v${d.version} enviado a aprobación. Cambia al rol «Aprobador».</p>`; }
       catch (e) { $('#draftout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+  },
+  policies() {
+    const act = async (path, body, msg) => { try { await api(path, { method: 'POST', body }); flash(msg, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); } };
+    document.querySelectorAll('[data-pok]').forEach((b) => b.onclick = () => act(`/policies/proposals/${b.dataset.pok}/approve`, {}, 'Política aprobada: ya se aplica a las decisiones nuevas.'));
+    document.querySelectorAll('[data-pno]').forEach((b) => b.onclick = () => act(`/policies/proposals/${b.dataset.pno}/reject`, { reason: $(`#prr-${b.dataset.pno}`).value }, 'Propuesta rechazada.'));
+    if (!$('#pform')) return;
+    let cur = null;
+    document.querySelectorAll('[data-pedit]').forEach((b) => b.onclick = async () => {
+      const d = await api('/policies'); cur = d.policies.find((p) => p.market === b.dataset.pedit);
+      $('#pform').style.display = ''; $('#pfm').textContent = `${cur.market} · ${cur.version}`;
+      $('#pf_market').value = cur.market; $('#pf_day').value = cur.max_marketing_per_day; $('#pf_week').value = cur.max_marketing_per_week ?? ''; $('#pf_qs').value = cur.quiet_hours.start; $('#pf_qe').value = cur.quiet_hours.end; $('#pf_stale').value = Math.round(cur.rg_feed_max_staleness_ms / 60000);
+      document.querySelectorAll('[data-pfch]').forEach((c) => c.checked = cur.channels_enabled.includes(c.dataset.pfch));
+      document.querySelectorAll('[data-pfcap]').forEach((c) => c.value = cur.max_marketing_per_day_by_channel?.[c.dataset.pfcap] ?? '');
+      $('#pf_inc').checked = cur.incentives_allowed; $('#pf_kyc').checked = cur.require_kyc_for_incentives; $('#pf_why').value = '';
+      $('#pform').scrollIntoView({ behavior: 'smooth' });
+    });
+    $('#pfcancel').onclick = () => { $('#pform').style.display = 'none'; };
+    $('#pfsend').onclick = async () => {
+      const caps = {}; document.querySelectorAll('[data-pfcap]').forEach((c) => { if (c.value !== '') caps[c.dataset.pfcap] = Number(c.value); });
+      const policy = { brand_id: cur.brand_id, market: $('#pf_market').value.trim().toUpperCase(), channels_enabled: [...document.querySelectorAll('[data-pfch]')].filter((c) => c.checked).map((c) => c.dataset.pfch),
+        max_marketing_per_day: Number($('#pf_day').value), ...($('#pf_week').value !== '' ? { max_marketing_per_week: Number($('#pf_week').value) } : {}), max_marketing_per_day_by_channel: caps,
+        quiet_hours: { start: Number($('#pf_qs').value), end: Number($('#pf_qe').value) }, incentives_allowed: $('#pf_inc').checked, require_kyc_for_incentives: $('#pf_kyc').checked, rg_feed_max_staleness_ms: Number($('#pf_stale').value) * 60000 };
+      try { const p = await api('/policies/proposals', { method: 'POST', body: { policy, justification: $('#pf_why').value } }); flash(`Propuesta ${p.proposed.version} enviada${p.changes.some((c) => c.loosens) ? ' (relaja protecciones: quedó marcada)' : ''}. La aprueba otra persona.`, 'ok'); show(); }
+      catch (e) { $('#pfout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
     };
   },
   content() {

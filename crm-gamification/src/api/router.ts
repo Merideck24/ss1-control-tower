@@ -48,6 +48,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'gamification.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor', 'support'],
   'player.preferences': ['support', 'tenant_admin'],
   'integration.read': ['crm_analyst', 'approver', 'tenant_admin'],
+  'policy.read': ['tenant_admin', 'approver', 'rg_officer', 'auditor', 'crm_analyst'],
+  'policy.propose': ['tenant_admin', 'rg_officer'],
   'content.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'onsite.read': ['crm_analyst', 'approver', 'tenant_admin', 'auditor'],
   'rg.monitor': ['rg_officer', 'tenant_admin', 'auditor'],
@@ -280,6 +282,21 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
         if (r.candidates.some((c) => !c.allowed)) blocked++;
       }
       return ok({ players: rows.length, actions: [...by].map(([action, v]) => ({ action, ...v })).sort((a, b) => b.players - a.players), with_blocked_candidates: blocked, note: 'Recomendaciones; se ejecutan solo mediante recorridos aprobados. Efectos supuestos a calibrar con grupos de control.' });
+    }
+    if (r0 === 'GET /policies') {
+      if (!can(actor, 'policy.read')) return forbid('policy.read');
+      const props = app.governance.proposals(T);
+      return ok({ policies: app.policy.listPolicies(T).map((p) => ({ ...p, history: app.governance.history(T, p.brand_id, p.market), pending: props.filter((x) => x.status === 'pending' && x.market === p.market && x.brand_id === p.brand_id).length })),
+        proposals: props.slice(0, 30), channels: CHANNELS,
+        note: 'Cada cambio crea una versión nueva que aprueba otra persona; recién entonces se aplica. Lo que relaja una protección exige justificación. Las decisiones registran la versión de política que se usó.' });
+    }
+    if (r0 === 'POST /policies/proposals') {
+      if (!can(actor, 'policy.propose')) return forbid('policy.propose');
+      return ok(app.governance.propose(actor, req.body.policy as never, String(req.body.justification ?? '')), 201);
+    }
+    if ((r = m(/^POST \/policies\/proposals\/([\w.-]+)\/(approve|reject)$/))) {
+      if (!can(actor, 'journeys.approve')) return forbid('journeys.approve');
+      return ok(app.governance.decide(actor, r[1], r[2] === 'approve', String(req.body.reason ?? '')));
     }
     if (r0 === 'GET /content/drafts') {
       if (!can(actor, 'content.read')) return forbid('content.read');
