@@ -43,11 +43,12 @@ export class Ss1Client {
   /** Recorre todas las páginas de un listado Laravel (con tope de seguridad). */
   async *paginate(path: string, query: Record<string, string | number | undefined> = {}, maxPages = 200): AsyncGenerator<Record<string, unknown>> {
     for (let page = 1; page <= maxPages; page++) {
-      const body = (await this.get(path, { ...query, page, per_page: query.per_page ?? 100 })) as Record<string, unknown>;
+      const body = (await this.get(path, { per_page: 100, ...query, page })) as Record<string, unknown>;
       const rows = (Array.isArray(body) ? body : Array.isArray(body?.data) ? body.data : []) as Record<string, unknown>[];
       for (const r of rows) yield r;
-      const meta = (body?.meta ?? body) as Record<string, unknown>;
-      const last = Number(meta?.last_page ?? page);
+      // Laravel clásico (`last_page`, `meta.last_page`) o el formato del admin de SS1 (`pagination.total_pages`)
+      const meta = (body?.pagination ?? body?.meta ?? body) as Record<string, unknown>;
+      const last = Number(meta?.last_page ?? meta?.total_pages ?? page);
       if (Array.isArray(body) || rows.length === 0 || page >= last || (meta && 'next_page_url' in meta && !meta.next_page_url)) return;
     }
   }

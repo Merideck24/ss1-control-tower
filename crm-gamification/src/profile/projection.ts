@@ -88,7 +88,8 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
       break;
     case 'bet.settled': {
       const pl = (e as EventEnvelope<'bet.settled'>).payload;
-      next.stats.bets_count += 1;
+      // del admin de SS1 llegan movimientos sueltos: premio (stake 0) y reversión (stake negativo) no son apuestas nuevas
+      if (pl.stake.amount_minor > 0) next.stats.bets_count += 1;
       next.stats.stake_minor += pl.stake.amount_minor;
       next.stats.win_minor += pl.win?.amount_minor ?? 0;
       if (!next.stats.last_bet_at || e.occurred_at > next.stats.last_bet_at) next.stats.last_bet_at = e.occurred_at;

@@ -12,7 +12,7 @@
 | Base de datos | **Fase 1 hecha.** Ver el detalle abajo |
 | API de integración v1 | **Hecha.** Ver el detalle abajo |
 | Admin de SS1 | **4 vistas nativas** (Control Tower, Juego responsable, Políticas e Integraciones). Las otras 11 siguen embebidas |
-| Pruebas | 135 automáticas, más 4 contra PostgreSQL en CI. Las vistas Vue se renderizan con Vue y Vuetify reales |
+| Pruebas | 140 automáticas, más 4 contra PostgreSQL en CI. Las vistas Vue se renderizan con Vue y Vuetify reales |
 
 **Base de datos (fase 1):**
 
@@ -27,10 +27,11 @@
 
 ## Fase 1 · Conexión con SS1 (2 a 3 semanas)
 
-1. **SS1 confirma el contrato de datos:**
-   - la ruta del perfil (hoy se usa `/admin/bootstrap` como supuesto);
-   - los campos de jugadores, transacciones y apuestas;
-   - el endpoint de apuestas para calcular el GGR.
+1. **Contrato de datos** (leído del código del admin; ver `docs/SS1_DATA_CONTRACT.md`):
+   - hecho: rutas y campos de jugadores, transacciones financieras y apuestas (`/admin/transactions/report/all`), y la definición de GGR del admin;
+   - SS1 agrega `GET /admin/auth/me` (hoy no existe una ruta que resuelva el token);
+   - SS1 entrega un token de servicio válido para comprobar los campos con datos reales;
+   - SS1 indica dónde están el email, el idioma, la zona horaria, el afiliado y el consentimiento de marketing.
 2. Desplegar en staging con PostgreSQL. Variables: `DATABASE_URL`, `CRM_ALLOWED_ORIGINS`, `SS1_API_BASE`, `SS1_PROFILE_PATH` y `CRM_TENANT_MAP`.
 3. Crear en el backend del admin los permisos CASL de `integrations/ss1-admin/permissions.json` y asignarlos a los roles.
 4. Crear las llaves de servicio: el PAM con `events:write`, y el sitio con `players:read`, `players:write` y `onsite:serve`. Conectar los eventos en tiempo real (webhook firmado o `POST /api/v1/events`).
@@ -89,7 +90,7 @@ Cada migración agrega su prueba de renderizado.
 
 ## Decisiones que necesitamos de SS1
 
-1. Contrato de datos: ruta del perfil, campos y endpoint de apuestas.
+1. Contrato de datos: `GET /admin/auth/me`, token de servicio válido y campos del jugador que faltan (ver `docs/SS1_DATA_CONTRACT.md`).
 2. PostgreSQL gestionado: proveedor, región, copias de seguridad y retención.
 3. Dominio del CRM (p. ej. `crm.syssoft1.com`) y entornos (staging y producción).
 4. Responsables de cumplimiento y juego responsable que aprueban políticas por mercado.

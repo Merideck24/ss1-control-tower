@@ -24,7 +24,7 @@ import { PLACEMENTS, type Placement } from '../onsite/onsite.ts';
 import { baseWriter, type WriterFn } from '../content/studio.ts';
 import { moderate, MODERATION_RULES } from '../content/moderation.ts';
 import { Ss1Client } from '../integration/ss1Client.ts';
-import { mapTriggerCatalog, runConnector, SS1_ENDPOINTS } from '../integration/ss1Connectors.ts';
+import { CONNECTORS, connectorQuery, mapTriggerCatalog, runConnector, SS1_ENDPOINTS, type ConnectorName } from '../integration/ss1Connectors.ts';
 import { deriveBrandTokens, parseThemeConfig } from '../integration/theme.ts';
 
 const THEME_CACHE = new Map<string, { until: number; body: unknown }>();
@@ -661,13 +661,15 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!opts.ss1) return { status: 409, body: { error: 'not_integrated', message: 'Disponible solo con el CRM integrado a admin.syssoft1.com (token del admin).' } };
       const client = new Ss1Client({ apiBase: opts.ss1.apiBase, token: opts.ss1.token, fetchImpl: opts.ss1.fetchImpl });
       if (r0.startsWith('GET')) return ok({ triggers: mapTriggerCatalog(await client.get(SS1_ENDPOINTS.triggerCatalog)) });
-      const wanted = (Array.isArray(req.body.connectors) ? req.body.connectors : ['players', 'financial', 'withdrawals']).filter((c: unknown): c is 'players' | 'financial' | 'withdrawals' => c === 'players' || c === 'financial' || c === 'withdrawals');
+      const asked = Array.isArray(req.body.connectors) ? req.body.connectors : CONNECTORS;
+      // siempre en el orden de CONNECTORS: jugadores primero, para resolver el username de los movimientos de juego
+      const wanted = CONNECTORS.filter((c) => asked.includes(c));
       const since = typeof req.body.since === 'string' && !Number.isNaN(Date.parse(req.body.since)) ? req.body.since : undefined;
-      const ctx = { tenant_id: T, brand_id: String(req.body.brand_id ?? 'rumbawin') };
+      const ctx = { tenant_id: T, brand_id: String(req.body.brand_id ?? 'rumbawin'), usernames: new Map<string, string>() };
       const reports = [];
       // backfill (por defecto): sin recorridos ni bonos para hechos históricos; live: eventos nuevos con efectos
       const mode = req.body.mode === 'live' ? 'live' : 'backfill';
-      for (const c of wanted) reports.push(await runConnector(c, client, app.ingestor, ctx, since ? { updated_since: since } : {}, { replay: mode === 'backfill' }));
+      for (const c of wanted as ConnectorName[]) reports.push(await runConnector(c, client, app.ingestor, ctx, connectorQuery(c, since), { replay: mode === 'backfill' }));
       app.audit.record(T, actor.id, 'integration.ss1_sync', T, { connectors: wanted, mode, since: since ?? null, reports: reports.map((r) => ({ c: r.connector, fetched: r.fetched, ingested: r.ingested, error: r.error ?? null })) });
       return ok({ mode, requests: client.requests, reports });
     }

@@ -40,7 +40,7 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 135 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
+npm test          # 140 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
 npm run typecheck
 npm start         # http://localhost:3000 — demo con datos sintéticos (auth de desarrollo)
 npm run start:prod  # exige token del admin de SS1 (ver docs/INTEGRATION.md)
@@ -83,4 +83,4 @@ docs/                     plan, arquitectura, API y trazabilidad
 test/                     pruebas por requisito
 ```
 
-Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md) y [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
+Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md), [docs/TRACEABILITY.md](docs/TRACEABILITY.md), [docs/ROADMAP.md](docs/ROADMAP.md) y el [contrato de datos con SS1](docs/SS1_DATA_CONTRACT.md).

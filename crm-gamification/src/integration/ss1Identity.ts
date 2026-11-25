@@ -3,9 +3,11 @@
  * obtiene usuario, operador y permisos CASL, y decide los roles del CRM. El navegador
  * nunca decide roles en producción.
  *
- * Supuesto a confirmar con el equipo del admin: `GET /admin/bootstrap` con el Bearer del
- * usuario devuelve el usuario, su operador (client) y sus reglas CASL. La ruta y la
- * extracción son configurables; el extractor acepta las formas habituales.
+ * Contrato (ver docs/SS1_DATA_CONTRACT.md): el admin recibe la sesión solo al iniciar sesión
+ * (`POST /admin/auth/login` → `{ accessToken, userData, userAbilities }`) y no tiene un GET que la
+ * devuelva a partir del token. `/admin/bootstrap` existe pero trae catálogos, no el usuario.
+ * Se pide a SS1 `GET /admin/auth/me` con la misma forma que el login; la ruta es configurable
+ * (`SS1_PROFILE_PATH`) y el extractor acepta esa forma y otras habituales.
  */
 import type { Actor, Role } from '../journeys/registry.ts';
 import { sha256 } from '../shared/util.ts';
@@ -30,10 +32,10 @@ type Profile = { userId: string; name?: string; client?: string; rules: CaslRule
 export function extractProfile(body: unknown): Profile | null {
   const root = (body && typeof body === 'object' && 'data' in body ? (body as { data: unknown }).data : body) as Record<string, unknown> | null;
   if (!root || typeof root !== 'object') return null;
-  const user = (root.user ?? root.me ?? root.profile ?? root) as Record<string, unknown>;
+  const user = (root.userData ?? root.user ?? root.me ?? root.profile ?? root) as Record<string, unknown>;
   const id = user?.id ?? user?.user_id;
   if (id === undefined || id === null) return null;
-  const rulesRaw = (root.abilities ?? root.ability_rules ?? root.ability ?? root.permissions ?? user.abilities ?? user.ability_rules ?? []) as unknown[];
+  const rulesRaw = (root.userAbilities ?? root.abilities ?? root.ability_rules ?? root.ability ?? root.permissions ?? user.abilities ?? user.ability_rules ?? []) as unknown[];
   const rules: CaslRule[] = Array.isArray(rulesRaw)
     ? rulesRaw.flatMap((r) => {
         if (r && typeof r === 'object' && 'action' in r && 'subject' in r) return [r as CaslRule];
@@ -42,7 +44,7 @@ export function extractProfile(body: unknown): Profile | null {
       })
     : [];
   const client = (root.client ?? user.client) as Record<string, unknown> | undefined;
-  const clientKey = client?.slug ?? client?.id ?? user.client_id ?? root.client_id;
+  const clientKey = client?.slug ?? client?.id ?? user.clientId ?? user.client_id ?? root.client_id;
   return { userId: String(id), name: typeof user.name === 'string' ? user.name : undefined, client: clientKey === undefined || clientKey === null ? undefined : String(clientKey), rules };
 }
 
@@ -51,7 +53,9 @@ export class Ss1IdentityProvider {
   #cache = new Map<string, { until: number; profile: Profile | null }>();
   calls = 0;
   constructor(o: Ss1IdentityOptions) {
-    this.#o = { profilePath: '/admin/bootstrap', tenantMap: {}, cacheTtlMs: 60_000, negativeTtlMs: 10_000, fetchImpl: fetch, now: () => Date.now(), ...o };
+    // sin las claves `undefined` (p. ej. SS1_PROFILE_PATH sin definir), que de otro modo pisarían los valores por defecto
+    const given = Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Ss1IdentityOptions;
+    this.#o = { profilePath: '/admin/auth/me', tenantMap: {}, cacheTtlMs: 60_000, negativeTtlMs: 10_000, fetchImpl: fetch, now: () => Date.now(), ...given };
   }
 
   async #profile(token: string): Promise<Profile | null | 'upstream_error'> {

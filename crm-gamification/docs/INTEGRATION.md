@@ -62,8 +62,8 @@ onBeforeUnmount(() => removeEventListener('message', onMessage))
 
 `src/integration/ss1Identity.ts`. Con `Authorization: Bearer <token del admin>` el servidor:
 
-1. Llama a `GET ${SS1_API_BASE}${SS1_PROFILE_PATH}` (por defecto `https://api.syssoft1.com/admin/bootstrap`) con ese token.
-2. Extrae usuario, operador y reglas CASL. Acepta `{ data: { user, abilities } }`, `{ user, permissions: ["crm.read"] }`, `client.slug` o `client_id`, entre otras formas.
+1. Llama a `GET ${SS1_API_BASE}${SS1_PROFILE_PATH}` (por defecto `https://api.syssoft1.com/admin/auth/me`) con ese token. **Esa ruta todavía no existe en el admin:** hay que pedírsela a SS1, con la misma forma que devuelve el login (ver `docs/SS1_DATA_CONTRACT.md`, sección 1). `/admin/bootstrap` no sirve, porque trae catálogos y no el usuario.
+2. Extrae usuario, operador y reglas CASL. Acepta la sesión del admin `{ userData: { id, clientId }, userAbilities }` y otras formas habituales (`{ data: { user, abilities } }`, `{ user, permissions: ["crm.read"] }`, `client.slug`, `client_id`).
 3. Traduce el operador a tenant del CRM con `CRM_TENANT_MAP` (JSON, por ejemplo `{"rumbawin":"tenant-rumbawin"}`) y rechaza con 403 si la petición pide otro tenant.
 4. Decide los roles con la tabla CASL → roles. **Ignora `x-roles` del navegador.**
 5. Cachea el resultado 60 s por hash SHA-256 del token (nunca el token en claro) y los rechazos 10 s.
@@ -71,7 +71,7 @@ onBeforeUnmount(() => removeEventListener('message', onMessage))
 | Variable | Uso | Valor por defecto |
 |---|---|---|
 | `SS1_API_BASE` | API del admin | `https://api.syssoft1.com` |
-| `SS1_PROFILE_PATH` | Endpoint que devuelve usuario, operador y permisos | `/admin/bootstrap` (**confirmar con el equipo del admin**) |
+| `SS1_PROFILE_PATH` | Endpoint que devuelve usuario, operador y permisos | `/admin/auth/me` (**pedido a SS1**) |
 | `CRM_TENANT_MAP` | Operador del admin → tenant del CRM | `{}` (usa el slug) |
 | `CRM_DEV_AUTH` | Acepta cabeceras de desarrollo sin token. Solo demo local | desactivado |
 
@@ -81,19 +81,20 @@ Respuestas: 401 sin token o token inválido, 403 tenant ajeno, 502 si la API de 
 
 `src/integration/ss1Client.ts` y `src/integration/ss1Connectors.ts`.
 
-- **Cliente:** token del usuario del admin (delegado), tiempo límite de 15 s, reintentos con espera creciente ante 429/5xx (respeta `Retry-After`), sin reintento ante 401/403/404/422. Paginación Laravel (`data`, `current_page`, `last_page`, `next_page_url`, `meta`).
+- **Cliente:** token del usuario del admin (delegado), tiempo límite de 15 s, reintentos con espera creciente ante 429/5xx (respeta `Retry-After`), sin reintento ante 401/403/404/422. Paginación Laravel (`data`, `current_page`, `last_page`, `next_page_url`, `meta`) y la del admin (`pagination.total_pages`).
 - **Montos:** decimales en texto → unidades mínimas sin coma flotante (`toMinor`), con monedas sin decimales (CLP, JPY…).
 - **Idempotencia:** `event_id = ss1:<recurso>:<id>:<tipo>`; repetir una sincronización no duplica nada.
 
 | Conector | Endpoint | Eventos generados |
 |---|---|---|
-| `players` | `/admin/players` (configurable con `SS1_PLAYERS_PATH`) | `player.registered` (email enmascarado, atribución si trae afiliado o campaña) y `player.verified` si el KYC está aprobado |
-| `financial` | `/admin/transactions/financial` | `deposit.settled`, `deposit.reversed`, `withdrawal.settled` según tipo y estado |
+| `players` | `/admin/players` (configurable con `SS1_PLAYERS_PATH`) | `player.registered` (email enmascarado, atribución si trae afiliado o campaña), `player.verified` si el KYC está aprobado y `rg.status_changed` si hay autoexclusión vigente o límites |
+| `financial` | `/admin/transactions/financial` | `deposit.settled`, `deposit.reversed`, `withdrawal.settled` según tipo y estado (códigos numéricos del admin o texto) |
+| `games` | `/admin/transactions/report/all` | `bet.settled` por movimiento: DEBIT apuesta, CREDIT premio, ROLLBACK reversión. GGR igual a la definición del admin |
 | `withdrawals` | `/admin/withdrawal-requests` | `withdrawal.settled` (aprobados o pagados) |
 | catálogo | `/admin/bonus-campaigns/trigger-catalog` | Opciones de disparadores alineadas con las campañas de bonos del admin |
 
 API del CRM:
-- `POST /api/integration/ss1/sync` (solo `tenant_admin`): `{ connectors?: ["players","financial","withdrawals"], since?: ISO, mode?: "backfill" | "live" }`. Cada conector reporta leídos, ingeridos, duplicados, rechazados, omitidos (con ejemplos de motivo) y error; un conector fallido no detiene a los demás. Queda en auditoría.
+- `POST /api/integration/ss1/sync` (solo `tenant_admin`): `{ connectors?: ["players","financial","withdrawals","games"], since?: ISO, mode?: "backfill" | "live" }`. Los conectores corren siempre en ese orden: jugadores primero, porque los movimientos de juego traen el username y no el id. `since` se envía como `filter[fromDate]` a `financial` y `games`. Cada conector reporta leídos, ingeridos, duplicados, rechazados, omitidos (con ejemplos de motivo) y error; un conector fallido no detiene a los demás. Queda en auditoría.
 - **`backfill` (por defecto):** actualiza perfiles y métricas pero **no** dispara recorridos, mensajes, bonos ni avisos de fidelidad para hechos históricos. **`live`:** eventos nuevos con efectos.
 - `GET /api/integration/ss1/trigger-catalog` (analista, aprobador, admin).
 - Sin token del admin (demo estática o modo desarrollo) responden 409 `not_integrated`.
@@ -147,7 +148,7 @@ Salvaguardas:
 
 ## 7. Lo que falta para producción
 
-- Confirmar con el equipo del admin el endpoint de perfil (`SS1_PROFILE_PATH`), los campos de jugadores y transacciones, y si existe un endpoint de apuestas por jugador (GGR real).
+- Contrato de datos: ver `docs/SS1_DATA_CONTRACT.md`. Falta que SS1 agregue `GET /admin/auth/me`, entregue un token de servicio válido para comprobar los campos con datos reales e indique dónde están el email, el idioma, la zona horaria, el afiliado y el consentimiento de marketing del jugador.
 - Desplegar el CRM en un dominio de SS1 (por ejemplo `crm.syssoft1.com`) con persistencia (PostgreSQL) y configurar secretos.
 - Crear los permisos CASL nuevos y asignarlos a roles.
 
