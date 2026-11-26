@@ -1,0 +1,16 @@
+{
+ "userData": {
+  "id": "svc-crm-rw",
+  "clientId": 3
+ },
+ "userAbilities": [
+  {
+   "action": "read",
+   "subject": "players"
+  },
+  {
+   "action": "manage",
+   "subject": "bonus"
+  }
+ ]
+}

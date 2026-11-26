@@ -1,0 +1,77 @@
+[
+ {
+  "id": 101,
+  "transaction_type": "DEBIT",
+  "amount": "10,000.00",
+  "currency": "COP",
+  "player": "sint9001",
+  "status": true,
+  "is_free_spin": false,
+  "created_at": "2026-11-05 10:00:00"
+ },
+ {
+  "id": 102,
+  "transaction_type": "CREDIT",
+  "amount": "4,000.00",
+  "currency": "COP",
+  "player": "sint9001",
+  "status": true,
+  "is_free_spin": false,
+  "created_at": "2026-11-05 10:00:05"
+ },
+ {
+  "id": 103,
+  "transaction_type": "DEBIT",
+  "amount": "3,000.00",
+  "currency": "COP",
+  "player": "sint9001",
+  "status": true,
+  "created_at": "2026-11-05 10:01:00"
+ },
+ {
+  "id": 104,
+  "transaction_type": "ROLLBACK",
+  "amount": "3,000.00",
+  "currency": "COP",
+  "player": "sint9001",
+  "status": true,
+  "created_at": "2026-11-05 10:01:05"
+ },
+ {
+  "id": 105,
+  "transaction_type": "FREE_SPIN",
+  "amount": "500.00",
+  "currency": "COP",
+  "player": "sint9002",
+  "status": true,
+  "is_free_spin": true,
+  "created_at": "2026-11-05 10:02:00"
+ },
+ {
+  "id": 106,
+  "transaction_type": "DEBIT",
+  "amount": "99,000.00",
+  "currency": "COP",
+  "player": "sint9001",
+  "status": false,
+  "created_at": "2026-11-05 10:03:00"
+ },
+ {
+  "id": 107,
+  "transaction_type": "DEBIT",
+  "amount": "1,000.00",
+  "currency": "COP",
+  "player": "nadie",
+  "status": true,
+  "created_at": "2026-11-05 10:04:00"
+ },
+ {
+  "id": 108,
+  "transaction_type": "BONUS_WIN",
+  "amount": "1,000.00",
+  "currency": "COP",
+  "player": "sint9001",
+  "status": true,
+  "created_at": "2026-11-05 10:05:00"
+ }
+]

@@ -1,0 +1,26 @@
+[
+ {
+  "id": "S-W1",
+  "player_id": 9001,
+  "currency": "COP",
+  "amount": "5,000.00",
+  "status": "approved",
+  "created_at": "2026-11-05 13:00:00"
+ },
+ {
+  "id": "S-W2",
+  "player_id": 9002,
+  "currency": "COP",
+  "amount": "3,000.00",
+  "status": "rejected",
+  "created_at": "2026-11-05 13:00:00"
+ },
+ {
+  "id": "S-W3",
+  "player_id": 9001,
+  "currency": "COP",
+  "amount": "2,000.00",
+  "status": null,
+  "created_at": "2026-11-06 13:00:00"
+ }
+]

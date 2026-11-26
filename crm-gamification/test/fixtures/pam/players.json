@@ -1,0 +1,95 @@
+[
+ {
+  "id": 9001,
+  "username": "sint9001",
+  "client": 3,
+  "country": {
+   "value": "co",
+   "title": "Colombia"
+  },
+  "currency_iso": "COP",
+  "kyc_status": "approved",
+  "responsible_gaming": null,
+  "created_at": "2026-09-01 08:00:00",
+  "updated_at": "2026-11-01 08:00:00"
+ },
+ {
+  "id": 9002,
+  "username": "sint9002",
+  "client": 3,
+  "country": "CO",
+  "kyc_status": "pending",
+  "created_at": "2026-09-02 08:00:00"
+ },
+ {
+  "id": 9003,
+  "username": "sint9003",
+  "client": 3,
+  "country": {
+   "value": "co"
+  },
+  "kyc_status": "rejected",
+  "created_at": "2026-09-03 08:00:00"
+ },
+ {
+  "id": 9004,
+  "username": "sint9004",
+  "client": 3,
+  "country": {
+   "value": "co"
+  },
+  "kyc_status": "approved",
+  "responsible_gaming": {
+   "self_excluded_until": "2099-01-01 00:00:00"
+  },
+  "created_at": "2026-09-04 08:00:00",
+  "updated_at": "2026-11-02 08:00:00"
+ },
+ {
+  "id": 9005,
+  "username": "sint9005",
+  "client": 3,
+  "country": {
+   "value": "co"
+  },
+  "kyc_status": "approved",
+  "responsible_gaming": {
+   "self_excluded_until": "2020-01-01 00:00:00",
+   "has_deposit_limits": true
+  },
+  "created_at": "2026-09-05 08:00:00"
+ },
+ {
+  "id": 9006,
+  "client": 3,
+  "country": null,
+  "kyc_status": null,
+  "created_at": "2026-09-06 08:00:00"
+ },
+ {
+  "id": 9007,
+  "username": "sint9007",
+  "client": 3,
+  "kyc_status": "en_revision",
+  "created_at": "2026-09-07 08:00:00"
+ },
+ {
+  "id": 9008,
+  "username": "sint9008",
+  "client": 3,
+  "kyc_status": "approved",
+  "created_at": "no-es-fecha"
+ },
+ {
+  "username": "sinid",
+  "client": 3,
+  "created_at": "2026-09-09 08:00:00"
+ },
+ {
+  "id": 9010,
+  "username": "otro9010",
+  "client": 7,
+  "kyc_status": "approved",
+  "created_at": "2026-09-10 08:00:00"
+ }
+]

@@ -1,0 +1,10 @@
+{
+ "data": {
+  "id": "svc-crm-ro",
+  "client_id": 3,
+  "abilities": [
+   "players.read",
+   "transactions.read"
+  ]
+ }
+}

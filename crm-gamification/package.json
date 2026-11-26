@@ -16,7 +16,8 @@
     "openapi": "node scripts/openapi.ts",
     "admin:client": "node scripts/admin-client.ts",
     "test:db": "node --test test/db_postgres.test.ts",
-    "start:prod": "node src/api/server.ts"
+    "start:prod": "node src/api/server.ts",
+    "pam:contract": "node scripts/pam-contract.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

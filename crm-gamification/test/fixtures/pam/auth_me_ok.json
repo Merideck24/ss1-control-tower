@@ -1,0 +1,22 @@
+{
+ "userData": {
+  "id": "svc-crm-ro",
+  "clientId": 3,
+  "role": "service_readonly",
+  "timezone": "America/Bogota"
+ },
+ "userAbilities": [
+  {
+   "action": "read",
+   "subject": "players"
+  },
+  {
+   "action": "read",
+   "subject": "transactions"
+  },
+  {
+   "action": "read",
+   "subject": "withdrawals"
+  }
+ ]
+}

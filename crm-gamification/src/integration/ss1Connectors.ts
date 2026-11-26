@@ -33,6 +33,8 @@ const pick = (r: Row, path: string) => path.split('.').reduce<unknown>((o, k) =>
 
 export type MapContext = {
   tenant_id: string; brand_id: string; country?: string; timezone?: string;
+  /** Cliente del admin que corresponde a este tenant. Una fila que declare otro cliente se descarta. */
+  client?: string;
   /** username → id del jugador. Los movimientos de juego del admin traen el username; lo llena el conector de jugadores. */
   usernames?: Map<string, string>;
 };
@@ -51,6 +53,8 @@ export function mapPlayer(r: Row, ctx: MapContext): MapResult {
   const id = str(r.id, r.player_id, r.uuid);
   const at = iso(r.created_at ?? r.registered_at);
   if (!id || !at) return { events: [], skipped: [{ id, reason: 'player sin id o fecha' }] };
+  const rowClient = code(r.client ?? r.client_id);
+  if (ctx.client && rowClient && rowClient !== ctx.client) return { events: [], skipped: [{ id, reason: 'jugador de otro cliente: no pertenece a este tenant' }] };
   const email = str(r.email);
   const masked = email ? email.replace(/^(.).*(@.*)$/, '$1***$2') : 'oculto';
   const username = str(r.username);
@@ -90,7 +94,7 @@ export function mapFinancial(r: Row, ctx: MapContext): MapResult {
     if (ok) return { events: [{ ...base(ctx, 'ss1.payments', `txn:${id}`, 'withdrawal.settled', player, at), payload: { withdrawal_id: id, amount_minor: amount, currency } } as EventEnvelope], skipped: [] };
     return { events: [], skipped: [{ id, reason: `retiro en estado ${status || 'desconocido'}` }] };
   }
-  return { events: [], skipped: [{ id, reason: `tipo no soportado: ${type || 'vacío'}` }] };
+  return { events: [], skipped: [{ id, reason: `tipo no soportado: ${type || (rawType === undefined || rawType === null || rawType === '' ? 'vacío' : `código ${String(rawType).slice(0, 12)} desconocido`)}` }] };
 }
 
 /**
