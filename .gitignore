@@ -1,0 +1,3 @@
+# estado local de herramientas (no versionar)
+.claude/*.local.md
+.claude/settings.local.json
