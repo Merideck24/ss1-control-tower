@@ -7,6 +7,7 @@ import { fieldMeta, ruleText } from '../segments/ruleText.ts';
 import { autoLayout, reviewJourney } from '../journeys/builder.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
 import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
+import { isSent } from '../channels/channels.ts';
 import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
@@ -55,6 +56,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'journeys.publish': ['crm_analyst', 'tenant_admin', 'approver'],
   'journeys.pause': ['crm_analyst', 'tenant_admin', 'rg_officer', 'approver'],
   'journeys.close': ['tenant_admin', 'approver', 'rg_officer'],
+  'failures.read': ['crm_analyst', 'tenant_admin', 'support', 'auditor', 'approver'],
+  'failures.reprocess': ['crm_analyst', 'tenant_admin'],
   'journeys.simulate': ['crm_analyst', 'approver', 'tenant_admin'],
   'runtime.tick': ['crm_analyst', 'tenant_admin', 'rg_officer'],
   'runtime.global_pause': ['tenant_admin', 'rg_officer'],
@@ -115,7 +118,8 @@ export function controlTower(app: App, tenant: string, brand?: string) {
     deliveries: count(receipts, (r) => `${r.channel}:${r.status}`),
     suppression_reasons: count(receipts.filter((r) => r.status === 'suppressed').flatMap((r) => (r.reason ?? '').split(',')), (x) => x),
     deferred: receipts.filter((r) => r.status === 'deferred').length,
-    failures: receipts.filter((r) => r.status === 'failed').slice(-10),
+    failures: receipts.filter((r) => r.status === 'failed' || r.status === 'uncertain').slice(-10),
+    failure_queue_open: receipts.filter((r) => r.status === 'failed' || r.status === 'uncertain').length,
     budgets: app.rewards.catalog(tenant).map((i) => ({ reward_id: i.id, name: i.name, ...app.rewards.budget(tenant, i.id) })),
     alerts: app.policy.alerts().filter((a) => a.tenant_id === tenant).slice(-10),
     dead_letters: app.ingestor.deadLetters().length,
@@ -272,8 +276,8 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     if (r0 === 'GET /channels/status') {
       if (!can(actor, 'analytics.read')) return forbid('analytics.read');
       const rs = app.channels.receipts(T);
-      return ok({ channels: CHANNELS.map((c) => { const x = rs.filter((r) => r.channel === c); const reasons = new Map<string, number>(); for (const r of x) if (r.status !== 'accepted' && r.reason) { const k = r.reason.split(':')[0]; reasons.set(k, (reasons.get(k) ?? 0) + 1); }
-        return { channel: c, accepted: x.filter((r) => r.status === 'accepted').length, failed: x.filter((r) => r.status === 'failed').length, suppressed: x.filter((r) => r.status === 'suppressed').length, deferred: x.filter((r) => r.status === 'deferred').length, top_reasons: [...reasons].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([reason, n]) => ({ reason, n })) }; }),
+      return ok({ channels: CHANNELS.map((c) => { const x = rs.filter((r) => r.channel === c); const reasons = new Map<string, number>(); for (const r of x) if (!isSent(r.status) && r.reason) { const k = r.reason.split(':')[0]; reasons.set(k, (reasons.get(k) ?? 0) + 1); }
+        return { channel: c, accepted: x.filter((r) => isSent(r.status)).length, delivered: x.filter((r) => r.status === 'delivered').length, failed: x.filter((r) => r.status === 'failed').length, uncertain: x.filter((r) => r.status === 'uncertain' || r.status === 'requested').length, suppressed: x.filter((r) => r.status === 'suppressed').length, deferred: x.filter((r) => r.status === 'deferred').length, top_reasons: [...reasons].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([reason, n]) => ({ reason, n })) }; }),
         inbox: app.adapters.inapp.stats(T),
         transport: app.demoProviders ? 'simulado (demo)' : 'sin configurar', note: 'SMS, WhatsApp y Telegram usan transporte simulado y contactos sintéticos en la demo. En producción, el gateway de SS1 resuelve teléfono y chat al enviar e inyecta las credenciales; el CRM no los almacena.' });
     }
@@ -458,7 +462,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       return ok({ as_of: app.clock.now().toISOString(), rules: RISK_RULES,
         summary: { open: open.length, high: open.filter((c) => c.level === 'high').length, medium: open.filter((c) => c.level === 'medium').length, in_review: open.filter((c) => c.status === 'in_review').length, closed: cases.length - open.length, marketing_on_hold: open.filter((c) => c.level === 'high').length },
         signals: [...bySignal].map(([code, v]) => ({ code, ...v })).sort((a, b) => b.cases - a.cases),
-        interventions: { started: inst.length, messages_accepted: receipts.filter((r) => r.status === 'accepted').length, messages_not_sent: receipts.filter((r) => r.status !== 'accepted').length },
+        interventions: { started: inst.length, messages_accepted: receipts.filter((r) => isSent(r.status)).length, messages_not_sent: receipts.filter((r) => !isSent(r.status)).length },
         cases: cases.slice(0, 80),
         note: 'Señales calculadas al llegar cada evento. Un caso alto abierto pausa marketing e incentivos del jugador. Las restricciones oficiales (autoexclusión, límites) se deciden y registran en SS1.' });
     }
@@ -569,6 +573,26 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, perm)) return forbid(perm);
       const out = action === 'submit' ? app.registry.submit(actor, id) : action === 'approve' ? app.registry.approve(actor, id) : action === 'publish' ? app.registry.publish(actor, id) : action === 'close' ? app.registry.close(actor, id, String(req.body.reason ?? '')) : app.registry.setPaused(actor, id, action === 'pause', String(req.body.reason ?? 'manual'));
       return ok(out);
+    }
+    if (r0 === 'GET /failures') {
+      if (!can(actor, 'failures.read')) return forbid('failures.read');
+      const q = (k: string) => req.query.get(k) || undefined;
+      const items = app.failures.list(T, { brand: q('brand'), journey: q('journey'), channel: q('channel'), status: q('status'), reason: q('reason'), from: q('from'), to: q('to'), include_resolved: req.query.get('resolved') === '1' });
+      const tally = (f: (x: (typeof items)[number]) => string) => items.reduce<Record<string, number>>((a, x) => ((a[f(x)] = (a[f(x)] ?? 0) + 1), a), {});
+      return ok({ as_of: app.clock.now().toISOString(), total: items.length, by_class: tally((x) => x.class), by_channel: tally((x) => x.channel), items: items.slice(0, 500), can_reprocess: can(actor, 'failures.reprocess') });
+    }
+    if ((r = m(/^GET \/failures\/([^/]+)$/))) {
+      if (!can(actor, 'failures.read')) return forbid('failures.read');
+      const f = app.failures.get(T, decodeURIComponent(r[1]));
+      return f ? ok({ ...f, can_reprocess: can(actor, 'failures.reprocess') }) : { status: 404, body: { error: 'not_found', message: 'No existe esa falla en este tenant.' } };
+    }
+    if ((r = m(/^POST \/failures\/([^/]+)\/reprocess$/))) {
+      if (!can(actor, 'failures.reprocess')) return forbid('failures.reprocess');
+      const key = decodeURIComponent(r[1]);
+      const f = app.failures.get(T, key);
+      if (!f) return { status: 404, body: { error: 'not_found', message: 'No existe esa falla en este tenant.' } };
+      if (req.body.confirm !== true) return { status: 422, body: { error: 'confirmation_required', message: f.external_effect } };
+      return ok(await app.failures.reprocess(actor, key, String(req.body.reason ?? '')));
     }
     if ((r = m(/^GET \/journeys\/([\w-]+)\/runs$/))) {
       // seguimiento: instancias por estado y versión, supresiones con su motivo y fallas de entrega
@@ -730,7 +754,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     return { status: 404, body: { error: 'route_not_found', message: r0 } };
   } catch (e) {
     const err = e as DomainError;
-    const status = ['forbidden', 'tenant_mismatch', 'segregation_of_duties'].includes(err.code) ? 403 : err.code ? 422 : 500;
+    const status = ['forbidden', 'tenant_mismatch', 'segregation_of_duties'].includes(err.code) ? 403 : ['reprocess_in_progress', 'not_reprocessable'].includes(err.code) ? 409 : err.code ? 422 : 500;
     return { status, body: { error: err.code ?? 'internal_error', message: err.message } };
   }
 }

@@ -1,6 +1,6 @@
 import type { AuditLog } from '../audit/audit.ts';
 import { buildVars, TRIGGER_VARS } from './vars.ts';
-import type { ChannelHub, Locale } from '../channels/channels.ts';
+import { isSent, type ChannelHub, type Locale } from '../channels/channels.ts';
 import type { EventEnvelope } from '../domain/events.ts';
 import { assignArm } from '../experiments/experiments.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
@@ -230,8 +230,8 @@ export class JourneyRuntime {
             break;
           }
           const vars = this.#vars(profile, ctx.event ?? (inst.trigger_payload as EventEnvelope | undefined));
-          const receipt = this.#effects?.send({ tenant_id: inst.tenant_id, player_id: inst.player_id, address: profile.email_masked?.value ?? inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, vars, idempotency_key: key });
-          if (receipt?.status === 'accepted' && def.purpose === 'marketing') this.#policy.recordMarketingSend(profile, node.channel);
+          const receipt = this.#effects?.send({ tenant_id: inst.tenant_id, player_id: inst.player_id, address: profile.email_masked?.value ?? inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, vars, idempotency_key: key, origin: { journey_id: def.id, version: def.version, instance_id: inst.instance_id, node_id: node.id, purpose: def.purpose, trigger_event_id: inst.trigger_event_id } });
+          if (receipt && isSent(receipt.status) && def.purpose === 'marketing') this.#policy.recordMarketingSend(profile, node.channel);
           inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: this.#effects ? receipt!.status : 'simulated_send', decision, detail: receipt ? { reason: receipt.reason } : { template: node.template, vars } });
           inst.current = node.next;
           break;

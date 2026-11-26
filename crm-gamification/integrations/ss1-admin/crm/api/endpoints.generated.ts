@@ -57,6 +57,12 @@ export const CRM_ENDPOINTS = {
   getJourneysOverlap: { method: 'GET', path: '/journeys/overlap', params: [] as const, query: [] as const } as Op<{  }>,
   /** Ciclo de aprobación, publicación, pausa y cierre */
   postJourneysJourneyIdAction: { method: 'POST', path: '/journeys/{journey_id}/{action}', params: ['journey_id', 'action'] as const, query: [] as const } as Op<{ journey_id: string; action: 'submit' | 'approve' | 'publish' | 'pause' | 'resume' | 'close' }>,
+  /** Cola de fallas de entrega con filtros (marca, recorrido, canal, estado, motivo, fechas) · alcance analytics:read */
+  getFailures: { method: 'GET', path: '/failures', params: [] as const, query: ['brand', 'journey', 'channel', 'status', 'reason', 'from', 'to', 'resolved'] as const } as Op<{  }>,
+  /** Detalle de una falla con instrucciones e historial de reprocesos · alcance analytics:read */
+  getFailuresIdempotencyKey: { method: 'GET', path: '/failures/{idempotency_key}', params: ['idempotency_key'] as const, query: [] as const } as Op<{ idempotency_key: string }>,
+  /** Reprocesar una falla: concilia, revalida política y reenvía con la misma clave */
+  postFailuresIdempotencyKeyReprocess: { method: 'POST', path: '/failures/{idempotency_key}/reprocess', params: ['idempotency_key'] as const, query: [] as const } as Op<{ idempotency_key: string }>,
   /** Seguimiento: instancias por estado y versión, supresiones con motivo y fallas · alcance analytics:read */
   getJourneysJourneyIdRuns: { method: 'GET', path: '/journeys/{journey_id}/runs', params: ['journey_id'] as const, query: [] as const } as Op<{ journey_id: string }>,
   /** Simular sin efectos */

@@ -1,3 +1,4 @@
+import type { MemoryAdapter } from './channels/channels.ts';
 import { ev, type App } from './app.ts';
 import type { EventEnvelope } from './domain/events.ts';
 import { DAY, HOUR, stableBucket } from './shared/util.ts';
@@ -142,6 +143,20 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   const replay = typeof clock.advance === 'function' && events.length > 0;
   if (replay) clock.advance!(Date.parse(events[0].occurred_at) - clock.now().getTime());
   let lastHour = -1;
+  // demo: fallas de entrega en las últimas 48 h, con un plan fijo (mismas fallas en cada recarga) para la cola de fallas
+  const email = app.adapters.email as MemoryAdapter;
+  const send0 = email.send.bind(email);
+  const PLAN: Record<number, 'fail' | 'lost' | 'accepted' | 'reject'> = { 2: 'fail', 5: 'lost', 8: 'fail', 11: 'accepted', 14: 'reject' };
+  let emails = 0;
+  email.send = (m) => {
+    if (clock.now().getTime() > now - 2 * DAY) {
+      const plan = PLAN[++emails];
+      if (plan === 'fail') email.failNext = 3;
+      else if (plan === 'lost' || plan === 'accepted') email.timeoutNext = plan;
+      else if (plan === 'reject') email.rejectNext = 'address_rejected';
+    }
+    return send0(m);
+  };
   for (const e of events) {
     if (replay) {
       const delta = Date.parse(e.occurred_at) - clock.now().getTime();
@@ -156,6 +171,8 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     for (const t of app.tenants) app.policy.markRgFeedSynced(t);
     app.runtime.runDue();
   }
+  email.send = send0;
+  email.failNext = 0; email.timeoutNext = null; email.rejectNext = null;
   seedDemoOnsite(app, tenant);
   seedDemoInboxReads(app, tenant, now);
   // demo: presupuesto de bonos calibrado para quedar cerca del umbral de alerta

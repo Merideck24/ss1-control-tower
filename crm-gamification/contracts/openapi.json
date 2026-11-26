@@ -1683,6 +1683,249 @@
         ]
       }
     },
+    "/v1/failures": {
+      "get": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Cola de fallas de entrega con filtros (marca, recorrido, canal, estado, motivo, fechas)",
+        "operationId": "getFailures",
+        "description": "Permiso de rol: `failures.read` (crm_analyst, tenant_admin, support, auditor, approver). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "journey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resolved",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "failures.read"
+        ]
+      }
+    },
+    "/v1/failures/{idempotency_key}": {
+      "get": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Detalle de una falla con instrucciones e historial de reprocesos",
+        "operationId": "getFailuresIdempotencyKey",
+        "description": "Permiso de rol: `failures.read` (crm_analyst, tenant_admin, support, auditor, approver). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "idempotency_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "failures.read"
+        ]
+      }
+    },
+    "/v1/failures/{idempotency_key}/reprocess": {
+      "post": {
+        "tags": [
+          "Operación"
+        ],
+        "summary": "Reprocesar una falla: concilia, revalida política y reenvía con la misma clave",
+        "operationId": "postFailuresIdempotencyKeyReprocess",
+        "description": "Permiso de rol: `failures.reprocess` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ reason, confirm: true }`.",
+        "parameters": [
+          {
+            "name": "idempotency_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ reason, confirm: true }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "failures.reprocess"
+        ]
+      }
+    },
     "/v1/journeys/{journey_id}/runs": {
       "get": {
         "tags": [

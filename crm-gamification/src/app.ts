@@ -9,7 +9,8 @@ import { AbuseReviews, assessPlayer, type AbuseAssessment } from './analytics/bo
 import { GamificationService } from './gamification/missions.ts';
 import { GamesService } from './gamification/games.ts';
 import { StoreService } from './gamification/store.ts';
-import { ChannelHub, MemoryAdapter } from './channels/channels.ts';
+import { ChannelHub, isSent, MemoryAdapter } from './channels/channels.ts';
+import { FailureQueue } from './channels/failures.ts';
 import { InboxAdapter } from './channels/inbox.ts';
 import { SmsAdapter, TelegramAdapter, WhatsAppAdapter, demoTransport } from './channels/providers.ts';
 import { stableBucket } from './shared/util.ts';
@@ -83,7 +84,7 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   /** Rendimiento enriquecido con CRM (alcance) y Loyalty (nivel). */
   function performanceReport(tenant: string, days: number, brand?: string) {
     return performance.report(tenant, { to: clock.now(), days, ...(brand ? { brand } : {}) }, {
-      crmReached: (t, p) => channels.receipts(t, p).some((r) => r.status === 'accepted'),
+      crmReached: (t, p) => channels.receipts(t, p).some((r) => isSent(r.status)),
       loyaltyLevelRank: (t, p) => {
         const prof = ingestor.get(t, p);
         const prog = prof && loyalty.program(t, prof.brand_id);
@@ -150,7 +151,8 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   audit.listeners.push((e) => { const ev = AUDIT_TO_EVENT[e.action]; if (ev) webhooks.emit(e.tenant_id, ev, { subject: e.subject, actor: e.actor, at: e.at, audit_seq: e.seq, details: e.details }); });
   channels.onReceipt = (r) => { if (r.status === 'accepted' || r.status === 'failed') webhooks.emit(r.tenant_id, r.status === 'accepted' ? 'delivery.accepted' : 'delivery.failed', { player_id: r.player_id, channel: r.channel, template: r.template, status: r.status, reason: r.reason ?? null, at: r.at }); };
   const serviceKeys = new ServiceKeys({ audit, clock });
-  return { serviceKeys, bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  const failures = new FailureQueue({ hub: channels, policy, registry, audit, clock, profile: (t, p) => ingestor.get(t, p) });
+  return { failures, serviceKeys, bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

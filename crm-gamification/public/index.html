@@ -14,6 +14,7 @@
 .jstages{list-style:none;padding:0;margin:8px 0;display:grid;gap:4px}.jstages li{display:flex;gap:6px;flex-wrap:wrap;align-items:baseline}.jstages li[aria-current]{font-weight:500}
 .nextact{border:1px solid #333;border-left:4px solid var(--brand);border-radius:6px;padding:8px 10px;margin:6px 0}.nextact.okb{border-left-color:var(--ok)}.nextact.warnb{border-left-color:var(--warn)}.nextact.badb{border-left-color:var(--bad)}
 .jpending{margin:4px 0 8px;padding-left:20px}h3.sub{font-size:14px;margin:8px 0 2px}
+.fqf label{display:flex;flex-direction:column;gap:2px;font-size:12px}.fqf label.chk{flex-direction:row;align-items:center;gap:6px}.frp{display:grid;gap:8px;margin-top:8px}.frp label{display:flex;flex-direction:column;gap:2px}.frp label.chk{flex-direction:row;align-items:center;gap:6px}.fqt tr[aria-current] td{background:var(--brand-soft)}
 </style>
 <style>
   /* Diseño SS1 Admin (Vuexy/Vuetify, tema oscuro): menú lateral + barra superior flotante + tarjetas sobre fondo negro, acento dorado. */
@@ -291,7 +292,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -531,7 +532,7 @@ let ROUTE = {};
 const ROUTE_KEY = 'ss1-crm-route-v1';
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } } };
 /** la URL usa el nombre del menú (#/plantillas); las claves antiguas (#/content) siguen funcionando */
-const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
+const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
 const UNSLUG = Object.fromEntries(Object.entries(SLUG).map(([k, v]) => [v, k]));
 function parseRoute() {
   const [rawTab, qs] = location.hash.replace(/^#\/?/, '').split('?');
@@ -651,6 +652,7 @@ const ICON_PATHS = {
   onsite: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>',
   integrations: '<path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 10h8"/><path d="M12 14v6"/>',
   rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
+  failures: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
@@ -729,7 +731,7 @@ const LABELS = {
   verified: 'Verificado', pending: 'Pendiente', unverified: 'Sin verificar', none: 'Sin restricción', self_excluded: 'Autoexcluido', cooling_off: 'Pausa temporal', limited: 'Con límites',
   // decisiones y entregas
   treatment: 'Tratamiento', control: 'Grupo de control', simulated_send: 'Envío simulado', simulated_grant: 'Recompensa simulada', cancelled_by_rg_change: 'Cancelado por cambio de juego responsable', profile_missing: 'Sin perfil', exit_on: 'Salió por evento', preempted_by: 'Desplazado por', blocked_by: 'Bloqueado por', variant: 'Variante', true: 'Sí', false: 'No',
-  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', suppress: 'Suprimido', held_out: 'Grupo de control', blocked_overlap: 'Bloqueado por otro recorrido', preempted: 'Desplazado por otro recorrido', running: 'En curso', accepted: 'Aceptado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
+  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', suppress: 'Suprimido', held_out: 'Grupo de control', blocked_overlap: 'Bloqueado por otro recorrido', preempted: 'Desplazado por otro recorrido', running: 'En curso', accepted: 'Aceptado', requested: 'Solicitado', delivered: 'Entregado', uncertain: 'Incierto', resolved: 'Resuelta', transitoria: 'Transitoria', requiere_correccion: 'Requiere corrección', incierta: 'Incierta', provider_timeout: 'El proveedor no respondió', provider_error: 'Error del proveedor', reconciled_accepted: 'Conciliado: ya estaba aceptado', blocked_by_policy: 'Bloqueado por la política', blocked_by_journey: 'Bloqueado por el recorrido', needs_reconciliation: 'Falta conciliar', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
   inapp: 'In-app', email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', webpush: 'Push web', telegram: 'Telegram',
   frequency_cap: 'Tope diario de mensajes', frequency_cap_week: 'Tope semanal de mensajes', frequency_cap_channel: 'Tope del canal', quiet_hours: 'Horario silencioso', quiet_hours_until: 'Horario silencioso hasta',
   marketing_consent_revoked: 'Retiró el consentimiento de marketing', no_marketing_consent: 'Sin consentimiento de marketing', channel_disabled: 'Canal desactivado en el mercado',
@@ -1292,6 +1294,33 @@ const VIEWS = {
       <p class="muted">Bus de eventos (en memoria hasta conectar Kafka/RabbitMQ): ${w.bus_topics.length ? w.bus_topics.map(esc).join(', ') : 'sin temas'}. En la demo, las URL que contienen «falla» simulan un receptor caído.</p></div>`;
     return form + subs + recent;
   },
+  async failures() {
+    const F = FQ;
+    const qs = new URLSearchParams(Object.entries({ brand: F.brand, journey: F.journey, channel: F.channel, status: F.status, reason: F.reason, from: F.from, to: F.to ? F.to + 'T23:59:59Z' : '', resolved: F.resolved ? '1' : '' }).filter(([, v]) => v));
+    const [q, brands, js] = await Promise.all([api('/failures?' + qs), api('/brands').catch(() => []), api('/journeys').catch(() => [])]);
+    const jids = [...new Set(js.map((j) => j.id))];
+    const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(t)}</option>`;
+    const CLS = { transitoria: 'warn', requiere_correccion: 'bad', incierta: 'warn' };
+    return `<div class="card"><h2>Cola de fallas de entrega</h2>
+      <p class="muted">Mensajes que el proveedor rechazó (fallidos) o que quedaron sin respuesta (inciertos: el proveedor pudo aceptarlos). Elige una falla para ver qué pasó y si conviene reprocesarla.</p>
+      <div class="row">${kv(q.by_class)}</div>
+      <form id="fqf" class="row fqf" aria-label="Filtros de la cola">
+        <label>Marca <select name="brand">${opt('', 'Todas', F.brand)}${brands.map((b) => opt(b.brand_id ?? b.id ?? b, b.brand_id ?? b.id ?? b, F.brand)).join('')}</select></label>
+        <label>Recorrido <select name="journey">${opt('', 'Todos', F.journey)}${jids.map((j) => opt(j, j, F.journey)).join('')}</select></label>
+        <label>Canal <select name="channel">${opt('', 'Todos', F.channel)}${['inapp', 'email', 'webpush', 'sms', 'whatsapp', 'telegram'].map((c) => opt(c, label(c), F.channel)).join('')}</select></label>
+        <label>Estado <select name="status">${opt('', 'Todos', F.status)}${[['failed', 'Fallido'], ['uncertain', 'Incierto'], ['transitoria', 'Transitoria'], ['requiere_correccion', 'Requiere corrección']].map(([v, t]) => opt(v, t, F.status)).join('')}</select></label>
+        <label>Motivo <input name="reason" value="${esc(F.reason)}" size="14" placeholder="p. ej. provider"></label>
+        <label>Desde <input type="date" name="from" value="${esc(F.from)}"></label>
+        <label>Hasta <input type="date" name="to" value="${esc(F.to)}"></label>
+        <label class="chk"><input type="checkbox" name="resolved"${F.resolved ? ' checked' : ''}> Incluir resueltas</label>
+        <button type="submit">Filtrar</button> <button type="button" class="ghost" id="fqclear">Limpiar</button>
+      </form></div><br>
+      <div class="card scroll"><h2>${int(q.total)} ${q.total === 1 ? 'falla' : 'fallas'}</h2>
+      ${q.items.length ? `<table class="fqt"><tr><th>Fecha</th><th>Jugador</th><th>Recorrido</th><th>Paso</th><th>Canal</th><th>Motivo</th><th class="num">Intentos</th><th>Estado</th><th><span class="sr-only">Acción</span></th></tr>
+        ${q.items.map((f) => `<tr${f.key === F.open ? ' aria-current="true"' : ''}><td>${esc(when(f.at))}</td><td>${esc(f.player_id)}</td><td>${f.journey_id ? `${esc(f.journey_id)} <span class="chip">v${f.version}</span>` : '—'}</td><td>${esc(f.node_id ?? '—')}</td><td>${esc(label(f.channel))}</td><td>${lbl(f.reason)}</td><td class="num">${int(f.attempts)}</td><td><span class="chip ${f.status === 'resolved' ? 'ok' : CLS[f.class] ?? ''}">${esc(label(f.status === 'resolved' ? 'resolved' : f.class))}</span></td><td><button class="ghost" data-fopen="${esc(f.key)}" aria-label="Ver la falla de ${esc(f.player_id)} en ${esc(f.journey_id ?? f.template)}">Ver</button></td></tr>`).join('')}</table>`
+        : `<p class="muted">${qs.toString() ? 'Ninguna falla con estos filtros.' : 'Sin fallas abiertas. Cuando un proveedor rechace o no responda un envío, aparecerá aquí.'}</p>`}</div><br>
+      <section class="card" id="fdetail" tabindex="-1" aria-label="Detalle de la falla" ${F.open ? '' : 'hidden'}></section>`;
+  },
   async audit() {
     const a = await api('/audit');
     return `<div class="card scroll"><h2>Registro de auditoría <span class="chip ${a.chain_valid ? 'ok' : 'bad'}">cadena ${a.chain_valid ? 'íntegra' : 'alterada'}</span></h2>
@@ -1408,7 +1437,55 @@ const COPILOT_TOOL = { query_metric: 'Consultar una métrica', preview_segment: 
 function openSegmentWith(rule) {
   current = 'segments'; setRoute({}, true); renderTabs(); show().then(async () => { await SEG_READY; $('#rules').value = JSON.stringify(rule, null, 2); $('#excl').value = ''; rbSetRule('rules', rule); rbSetRule('excl', null); $('#prev').click(); });
 }
+let FQ = { brand: '', journey: '', channel: '', status: '', reason: '', from: '', to: '', resolved: false, open: '' };
+async function openFailure(key, focus = true) {
+  FQ.open = key;
+  const box = $('#fdetail'); if (!box) return;
+  let f;
+  try { f = await api('/failures/' + encodeURIComponent(key)); } catch (e) { box.hidden = false; box.innerHTML = `<p class="bad">No se pudo abrir la falla: ${esc(e.message)}</p>`; return; }
+  const open = f.status !== 'resolved';
+  box.hidden = false;
+  box.innerHTML = `<h2>Falla de ${esc(f.player_id)} · ${esc(label(f.channel))}</h2>
+    <p><b>${esc(f.reason_text)}</b> <span class="muted">(${lbl(f.reason)} · ${int(f.attempts)} intentos)</span></p>
+    <table class="psheet" aria-label="Datos de la falla"><tr><th scope="row">Tenant / marca</th><td>${esc(f.tenant_id)} · ${esc(f.brand_id ?? '—')}</td></tr>
+      <tr><th scope="row">Recorrido</th><td>${f.journey_id ? `${esc(f.journey_id)} · versión ${f.version}` : 'Envío fuera de un recorrido'}</td></tr>
+      <tr><th scope="row">Instancia · paso</th><td>${esc(f.instance_id ?? '—')} · ${esc(f.node_id ?? '—')}</td></tr>
+      <tr><th scope="row">Plantilla</th><td>${lbl(f.template)}</td></tr>
+      <tr><th scope="row">Fecha</th><td>${esc(when(f.at))}</td></tr>
+      <tr><th scope="row">Clave de idempotencia</th><td><code>${esc(f.key)}</code></td></tr>
+      <tr><th scope="row">Estado</th><td>${esc(label(f.status))} · ${esc(label(f.class))}</td></tr></table>
+    <h3 class="sub">Cómo investigarla</h3><ol>${f.instructions.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+    ${f.history.length ? `<h3 class="sub">Reprocesos anteriores</h3><table><tr><th>Fecha</th><th>Actor</th><th>Motivo</th><th>Resultado</th></tr>${f.history.map((h) => `<tr><td>${esc(when(h.at))}</td><td>${esc(h.actor)}</td><td>${esc(h.reason)}</td><td>${esc(label(h.outcome))}: <span class="muted">${esc(h.detail)}</span></td></tr>`).join('')}</table>` : ''}
+    ${!open ? '<p class="ok">Esta entrega ya no es una falla: no se puede reprocesar.</p>'
+      : !f.can_reprocess ? '<p class="muted">Tu rol puede consultar la falla pero no reprocesarla. Lo hace un analista CRM o un administrador del tenant.</p>'
+      : `<form id="frp" class="frp" aria-labelledby="frp-h"><h3 class="sub" id="frp-h">Reprocesar</h3>
+        <label>Motivo (queda en la auditoría) <input id="frpreason" required size="40" placeholder="p. ej. el proveedor ya se recuperó"></label>
+        <p class="warnb nextact">${esc(f.external_effect)} Antes de enviar se vuelve a revisar la política vigente del jugador y que el recorrido no esté en pausa ni cerrado. Se usa la misma clave, así que el proveedor descarta duplicados.</p>
+        <label class="chk"><input type="checkbox" id="frpok"> Entiendo el efecto y quiero reprocesar</label>
+        <div class="row"><button type="submit" id="frpgo" disabled>Reprocesar</button></div>
+        <div id="frpout" role="status"></div></form>`}`;
+  if (focus) box.focus({ preventScroll: false });
+  const form = $('#frp'); if (!form) return;
+  const sync = () => { $('#frpgo').disabled = !($('#frpok').checked && $('#frpreason').value.trim()); };
+  $('#frpok').onchange = sync; $('#frpreason').oninput = sync;
+  form.onsubmit = async (ev) => {
+    ev.preventDefault(); $('#frpgo').disabled = true; $('#frpout').textContent = 'Reprocesando…';
+    try {
+      const r = await api('/failures/' + encodeURIComponent(key) + '/reprocess', { method: 'POST', body: { reason: $('#frpreason').value, confirm: true } });
+      const good = r.outcome === 'accepted' || r.outcome === 'reconciled_accepted';
+      flash(`${label(r.outcome)}. ${r.detail}`, good ? 'ok' : 'warn');
+      await show(); await openFailure(key);
+    } catch (e) { $('#frpout').innerHTML = `<span class="bad">${esc(e.message)}</span>`; sync(); }
+  };
+}
 const BIND = {
+  failures() {
+    const f = $('#fqf');
+    if (f) f.onsubmit = (ev) => { ev.preventDefault(); const d = new FormData(f); FQ = { ...FQ, brand: d.get('brand') ?? '', journey: d.get('journey') ?? '', channel: d.get('channel') ?? '', status: d.get('status') ?? '', reason: String(d.get('reason') ?? '').trim(), from: d.get('from') ?? '', to: d.get('to') ?? '', resolved: d.get('resolved') === 'on', open: '' }; show(); };
+    if ($('#fqclear')) $('#fqclear').onclick = () => { FQ = { brand: '', journey: '', channel: '', status: '', reason: '', from: '', to: '', resolved: false, open: '' }; show(); };
+    document.querySelectorAll('[data-fopen]').forEach((b) => b.onclick = () => openFailure(b.dataset.fopen));
+    if (FQ.open) openFailure(FQ.open, false);
+  },
   tower() {
     if ($('#perfDays')) $('#perfDays').onchange = () => { perfDays = Number($('#perfDays').value); show(); };
     drawCharts();
