@@ -3,7 +3,7 @@
 import { test } from '@playwright/test';
 import { AXE, DEMO_URL, finish } from '../lib/env.ts';
 let OUT = () => '.';
-const SP = OUT(), PAGE = DEMO_URL;
+const PAGE = DEMO_URL;
 const out = []; const ok = (id, c, d = '') => out.push(`${c ? 'OK  ' : 'FAIL'} ${id} ${d}`);
 const ready = (p) => p.waitForFunction(() => document.querySelector('#plist table, #plist .notfound'), null, { timeout: 60000 });
 test('Perfil 360: maestro-detalle, búsqueda, filtros, páginas', async ({ browser }, testInfo) => {
@@ -36,10 +36,10 @@ test('Perfil 360: maestro-detalle, búsqueda, filtros, páginas', async ({ brows
       const cut = await p.$$eval('.psheet td .pv', (v) => v.filter((x) => x.scrollWidth > x.clientWidth + 1).length);
       const rowH = await p.$$eval('.psheet tr', (r) => Math.max(...r.map((x) => x.getBoundingClientRect().height)));
       ok(`${w}.4`, cut === 0, `valores sin recortar; fila más alta ${Math.round(rowH)} px`);
-      await p.screenshot({ path: `${SP}/p360-mobile-detail.png` });
+      await p.screenshot({ path: `${OUT()}/p360-mobile-detail.png` });
       await p.keyboard.press('Escape'); await p.waitForTimeout(200);
       ok(`${w}.esc`, !(await p.evaluate(() => document.body.classList.contains('pdetail-open'))) && (await p.evaluate(() => document.activeElement?.dataset.p)) === first, 'Escape vuelve a la lista y al jugador');
-    } else await p.screenshot({ path: `${SP}/p360-desktop.png` });
+    } else await p.screenshot({ path: `${OUT()}/p360-desktop.png` });
     // atrás del navegador vuelve a la lista sin jugador
     await p.goBack(); await p.waitForTimeout(500);
     ok(`${w}.back`, !p.url().includes('jugador='), `atrás → ${p.url().split('#')[1]}`);
