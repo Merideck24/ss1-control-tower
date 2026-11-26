@@ -1,6 +1,6 @@
 # Cierre de Fase 1 y Fase 2 · SS1 Control Tower
 
-**Fecha:** 2026-11-26 · **Versión probada:** ver §5 (último commit con CI verde) (rama `main` = `feature/crm-gamification`) · **Datos:** sintéticos.
+**Fecha:** 2026-11-26 · **Versión probada:** `5984751` (CI verde, §5) (rama `main` = `feature/crm-gamification`) · **Datos:** sintéticos.
 
 Estados:
 - **Verificado:** probado y conforme.
@@ -83,7 +83,7 @@ Defectos de Fase 1 que bloqueaban la Fase 2 y se corrigieron primero: planificad
 | Commit | Ejecución | `test` | `e2e` | Nota |
 |---|---|---|---|---|
 | `074a1c7` | https://github.com/Merideck24/ss1-control-tower/actions/runs/45849062716 | ✔ 196/196 y contrato PAM | ✔ 26 pasan, **1 inestable** (pasó al reintento) | La inestabilidad era un defecto real de la interfaz (revisión en vivo del Constructor); corregido en el commit siguiente |
-| commit final | ver `CONTINUIDAD.md` | | | |
+| `5984751` (evaluado) | https://github.com/Merideck24/ss1-control-tower/actions/runs/45850715652 | ✔ 196/196 y contrato PAM | ✔ 28/28, sin reintentos | Commit evaluado del cierre |
 
 La ejecución local (este equipo, PostgreSQL 16) y la de CI (GitHub Actions, servicio `postgres:16`) son evidencias distintas; las dos están registradas.
 

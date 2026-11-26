@@ -1,6 +1,6 @@
 # Continuidad · SS1 Control Tower
 
-Estado para retomar el trabajo sin contexto previo. Última actualización: 2026-11-26 (cierre de la Fase 2, `074a1c7`).
+Estado para retomar el trabajo sin contexto previo. Última actualización: 2026-11-26 (cierre de la Fase 2, `5984751`). CI verde sobre ese commit: https://github.com/Merideck24/ss1-control-tower/actions/runs/45850715652 (196 pruebas y 28 de navegador). La ejecución local, con PostgreSQL 16, dio el mismo resultado; es evidencia aparte.
 
 ## Dónde está cada cosa
 
