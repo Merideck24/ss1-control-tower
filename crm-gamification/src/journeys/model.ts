@@ -1,3 +1,4 @@
+import { ruleText } from '../segments/ruleText.ts';
 import type { Channel, EventType, Purpose } from '../domain/events.ts';
 import type { RuleNode } from '../segments/segmentEngine.ts';
 import type { SplitNode } from '../experiments/bandit.ts';
@@ -77,15 +78,36 @@ export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | '
 }
 
 /** Vista accesible en lista (alternativa al lienzo). */
-export function journeyAsList(j: JourneyDefinition, names: { reward?: (id: string) => string | undefined } = {}): string[] {
-  return j.nodes.map((n) => {
+/**
+ * Vista accesible en lista (alternativa al lienzo), en lenguaje claro: pasos numerados en vez de
+ * identificadores internos y condiciones como frases («KYC es Pendiente»). El grafo técnico sigue en `nodes`.
+ */
+export function journeyAsList(j: JourneyDefinition, names: { reward?: (id: string) => string | undefined; template?: (key: string) => string | undefined } = {}): string[] {
+  // orden de lectura: desde el inicio, siguiendo las conexiones; luego los pasos sueltos
+  const order: string[] = [];
+  const visit = (id?: string) => {
+    if (!id || order.includes(id)) return;
+    const n = j.nodes.find((x) => x.id === id); if (!n) return;
+    order.push(id);
+    if (n.type === 'condition') { visit(n.on_true); visit(n.on_false); } else if (n.type === 'split') n.variants.forEach((v) => visit(v.next)); else if (n.type !== 'exit') visit(n.next);
+  };
+  visit(j.entry); for (const n of j.nodes) visit(n.id);
+  const exitIds = new Set(j.nodes.filter((n) => n.type === 'exit').map((n) => n.id));
+  const go = (id?: string) => (!id ? 'sin conectar' : exitIds.has(id) ? 'termina' : order.includes(id) ? `paso ${order.indexOf(id) + 1}` : `«${id}»`);
+  // variables de la plantilla como campo legible: «¡Subiste a [nivel]!»
+  const VARNAME: Record<string, string> = { level: 'nivel', previous_level: 'nivel anterior', percent: 'porcentaje', amount: 'monto', currency: 'moneda', reward_type: 'recompensa', expires_at: 'vencimiento', player_id: 'jugador' };
+  const CH: Record<string, string> = { inapp: 'in-app', email: 'email', sms: 'SMS', whatsapp: 'WhatsApp', webpush: 'push web', telegram: 'Telegram' };
+  const dur = (ms: number) => (ms % 86_400_000 === 0 ? `${ms / 86_400_000} ${ms === 86_400_000 ? 'día' : 'días'}` : `${Math.round((ms / 3_600_000) * 10) / 10} h`);
+  return order.map((id, i) => {
+    const n = j.nodes.find((x) => x.id === id)!;
+    const k = `${i + 1}.`;
     switch (n.type) {
-      case 'condition': return `${n.id}: si ${JSON.stringify(n.rule)} → ${n.on_true}, si no → ${n.on_false}`;
-      case 'wait': return `${n.id}: esperar ${Math.round(n.duration_ms / 3_600_000)} h → ${n.next}`;
-      case 'message': return `${n.id}: enviar «${n.template}» por ${n.channel} → ${n.next}`;
-      case 'grant_reward': return `${n.id}: otorgar «${names.reward?.(n.reward_id) ?? n.reward_id}» → ${n.next}`;
-      case 'exit': return `${n.id}: salida`;
-      case 'split': return `${n.id}: ${n.mode === 'bandit' ? 'A/B/n optimizado' : 'A/B/n'} por ${n.metric.event} en ${n.metric.window_hours} h → ${n.variants.map((v) => `${v.label} (${v.next})`).join(' | ')}`;
+      case 'condition': return `${k} Si ${ruleText(n.rule as never)}: ${go(n.on_true)}; si no: ${go(n.on_false)}`;
+      case 'wait': return `${k} Esperar ${dur(n.duration_ms)} → ${go(n.next)}`;
+      case 'message': return `${k} Enviar «${(names.template?.(n.template) ?? n.template).replace(/\{\{(\w+)\}\}/g, (_m, v: string) => `[${VARNAME[v] ?? v}]`)}» por ${CH[n.channel] ?? n.channel} → ${go(n.next)}`;
+      case 'grant_reward': return `${k} Otorgar «${names.reward?.(n.reward_id) ?? n.reward_id}» → ${go(n.next)}`;
+      case 'exit': return `${k} Fin del recorrido`;
+      case 'split': return `${k} Prueba A/B/n${n.mode === 'bandit' ? ' optimizada' : ''} (gana más ${n.metric.event === 'deposit.settled' ? 'depósitos' : n.metric.event} en ${n.metric.window_hours} h): ${n.variants.map((v) => `${v.label} → ${go(v.next)}`).join(' · ')}`;
     }
   });
 }

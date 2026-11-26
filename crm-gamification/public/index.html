@@ -49,25 +49,48 @@
   .sidebar { position: sticky; top: 0; height: 100vh; background: var(--panel); box-shadow: var(--shadow); display: flex; flex-direction: column; z-index: 20; }
   .brandbar { display: flex; align-items: center; justify-content: center; padding: 18px 16px 10px; }
   .brandbar img { width: 170px; height: auto; display: block; }
-  .sidebar .section { padding: 14px 22px 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .sidebar .section { padding: 14px 28px 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   nav#tabs { display: flex; flex-direction: column; gap: 4px; padding: 4px 14px 16px; overflow-y: auto; }
   nav#tabs button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: transparent; color: var(--ink); opacity: .86; text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 400; padding: 9px 14px; box-shadow: none; border-radius: var(--radius); }
   nav#tabs button:hover { background: rgba(255, 255, 255, .06); opacity: 1; }
   nav#tabs button svg { width: 22px; height: 22px; flex: none; stroke: currentColor; }
   nav#tabs button[aria-current="page"] { background: var(--brand-grad); color: var(--brand-ink); opacity: 1; font-weight: 500; box-shadow: 0 2px 6px color-mix(in srgb, var(--brand) 35%, transparent); }
-  .sidebar .foot { margin-top: auto; padding: 14px 22px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+  .sidebar .foot { margin-top: auto; padding: 14px 28px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
   .shell { min-width: 0; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
-  header.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; margin-top: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 14px; background: rgba(17, 17, 17, .88); backdrop-filter: blur(9px); border-radius: var(--radius); box-shadow: var(--shadow); }
+  header.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; margin-top: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 14px; background: var(--panel, #161616); border-radius: var(--radius); box-shadow: var(--shadow); }
   header.topbar h1 { font-size: 17px; font-weight: 500; margin: 0; }
   header.topbar .ctx { margin-left: auto; display: flex; gap: 10px; align-items: center; color: var(--muted); flex-wrap: wrap; font-size: 13px; }
   header.topbar label { display: flex; gap: 6px; align-items: center; }
   .ctx-panel { display: contents; }
+  details.tech { margin-top: 6px; font-size: 12px; } details.tech summary { cursor: pointer; color: var(--muted); } details.tech pre, details.tech code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; }
+  /* selectores de contexto con el mismo tamaño y color */
+  header.topbar label, header.topbar .brandsel { font-size: 13px; color: var(--muted); gap: 6px; }
+  header.topbar select { min-width: 150px; font-size: 13px; }
+  .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .skip { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 16px; background: var(--brand); color: var(--brand-ink); border-radius: var(--radius); font-weight: 600; }
+  .skip:focus { top: 12px; }
+  #view:focus { outline: none; }
+  main, .pdetail, .card { scroll-margin-top: 84px; }
+  .scroll.scrolls { box-shadow: inset -14px 0 12px -12px rgba(0, 0, 0, .7); }
+  .scroll.scrolls tr > :first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); }
+  .scroll.scrolls tr > th:first-child { background: var(--panel-2); }
+  .simres { margin-top: 8px; padding: 10px 12px; border-left: 3px solid var(--brand); background: var(--panel-2); border-radius: 6px; } .simres ol { margin: 6px 0; padding-left: 20px; }
+  .pagetoc { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; font-size: 13px; } .pagetoc a { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); text-decoration: none; } .pagetoc a:hover { border-color: var(--brand); }
+  .scroll.scrolls:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .filelabel { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 100%; } .filelabel input[type=file] { max-width: 100%; min-width: 0; }
+  @media (pointer: coarse) {
+    /* objetivos táctiles de al menos 44 px (CSV, enlaces de tablas, botones de acción) */
+    button, .csvbtn, select { min-height: 44px; }
+    .csvbtn { min-width: 56px; }
+    table a { display: inline-block; min-height: 44px; padding: 12px 0; }
+  }
   .ctx-btn { display: none; }
   @media (max-width: 760px) {
     /* #8: cabecera de una sola línea (≈ 52 px); el contexto se abre a pedido y no tapa el contenido */
     header.topbar { margin-top: 8px; gap: 8px; flex-wrap: nowrap; padding: 6px 10px; }
     header.topbar h1 { font-size: 16px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    header.topbar .synth, header.topbar #mode { display: none; }
+    header.topbar #mode { display: none; }
+    header.topbar .synth { font-size: 0; padding: 3px 8px; } header.topbar .synth::before { content: 'DEMO'; font-size: 11px; letter-spacing: .06em; }
     .ctx-btn { display: inline-flex; padding: 4px 10px; font-size: 12px; max-width: 46vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; }
     .ctx-panel { display: none; }
     body.ctx-open .ctx-panel { display: flex; flex-direction: column; gap: 8px; position: absolute; top: calc(100% + 6px); right: 0; left: 0; padding: 12px; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); z-index: 16; }
@@ -98,8 +121,34 @@
   body.embedded .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   body.embedded header.topbar { position: static; margin-top: 12px; box-shadow: none; background: transparent; padding: 0; }
   body.embedded main { padding-top: 14px; }
-  .profile-grid { grid-template-columns: minmax(240px, 1fr) 2fr; }
-  @media (max-width: 760px) { .profile-grid { grid-template-columns: minmax(0, 1fr); } }
+  .profile-grid { grid-template-columns: minmax(280px, 1fr) 1.6fr; align-items: start; }
+  .pfilters { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin-bottom: 14px; }
+  .pfilters label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .pfilters input[type=search] { min-width: min(320px, 80vw); }
+  .pfilters #pcount { margin-left: auto; align-self: center; }
+  .plink { display: inline-block; padding: 6px 0; min-height: 32px; }
+  tr.sel td { background: var(--brand-soft, rgba(255, 255, 255, .06)); }
+  .pager { display: flex; gap: 12px; align-items: center; justify-content: flex-end; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  /* el perfil queda a la vista junto a la lista mientras se recorre */
+  .pdetail { position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto; }
+  .pdetail h2:focus { outline: none; }
+  .pback { display: none; }
+  .psheet th { width: 36%; white-space: normal; }
+  .psheet .pv { display: block; overflow-wrap: anywhere; }
+  .psheet .src { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  @media (max-width: 760px) {
+    .profile-grid { grid-template-columns: minmax(0, 1fr); }
+    /* móvil: el perfil se abre a pantalla completa sobre la lista */
+    .pdetail { display: none; }
+    body.pdetail-open .pdetail { display: block; position: fixed; inset: 0; z-index: 40; max-height: none; border-radius: 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 32px max(16px, env(safe-area-inset-left, 0px)); }
+    body.pdetail-open { overflow: hidden; }
+    .pback { display: inline-flex; margin-bottom: 10px; }
+  }
+  @media (max-width: 620px) {
+    .psheet tr { display: block; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .psheet th, .psheet td { display: block; width: auto; padding: 0; border: 0; background: none; }
+    .psheet th { font-size: 11.5px; color: var(--muted); }
+  }
   .waiting { padding: 40px 0; text-align: center; color: var(--muted); }
 
   /* Componentes */
@@ -108,7 +157,7 @@
   .trace { white-space: pre-wrap; word-break: break-word; }
   .grid { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   .card { background: var(--panel); border-radius: var(--radius); padding: 20px 22px; min-width: 0; box-shadow: var(--shadow); color: rgba(231, 227, 216, .92); }
-  .card h3 { margin: 0 0 12px; font-size: 17px; color: var(--ink); font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .card h2, .phone h2 { margin: 0 0 12px; font-size: 17px; color: var(--ink); font-weight: 500; letter-spacing: 0; text-transform: none; }
   .kpi { font-size: 26px; font-weight: 500; color: var(--ink); }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -121,8 +170,9 @@
   pre { background: #0a0a0a; border: 1px solid var(--line); padding: 12px; border-radius: var(--radius); overflow: auto; font-size: 12.5px; max-height: 420px; color: var(--ink); }
   .bar { height: 10px; background: var(--chip); border-radius: 99px; overflow: hidden; }
   .bar > span { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+  .phone h2 { font-size: 16px; } .phone h2.lvl { font-size: 22px; }
   .phone { max-width: 360px; margin: 0 auto; border: 1px solid var(--line); border-radius: 28px; padding: 20px; background: var(--panel); box-shadow: var(--shadow); }
-  .scroll { overflow-x: auto; }
+  .scroll { overflow-x: auto; position: relative; } /* relative: el texto oculto (.sr-only) de una tabla con scroll no se escapa ni ensancha la página */
   .card ol li { overflow-wrap: anywhere; }
   .row > label { max-width: 100%; }
   .row > label > input:not([type=checkbox]) { max-width: 100%; box-sizing: border-box; }
@@ -193,12 +243,13 @@
 </style>
 </head>
 <body>
+<a class="skip" href="#view" onclick="event.preventDefault(); const v = document.getElementById('view'); v.tabIndex = -1; v.focus();">Saltar al contenido</a>
 <div class="layout">
   <aside class="sidebar" aria-label="Navegación principal">
     <div class="brandbar"><img src="brand/ss1-logo.webp" alt="SS1 SyssoftOne" width="170" height="80"></div>
     <div class="section">CRM y gamificación</div>
     <nav id="tabs" aria-label="Secciones del CRM"></nav>
-    <div class="foot">Datos sintéticos de demostración. No son cifras reales.
+    <div class="foot">Datos sintéticos de demostración. No son cifras reales. En la demo el rol se elige arriba y viaja en la URL; integrado, lo decide el admin de SS1 según los permisos del usuario.
       <button type="button" class="ghost" id="demoReset" hidden title="Borra los cambios guardados en este navegador y vuelve a los datos iniciales">Restablecer demo</button></div>
   </aside>
   <div class="scrim" id="scrim"></div>
@@ -207,7 +258,7 @@
       <button type="button" class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-controls="tabs" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <h1 id="pageTitle">Control Tower</h1>
       <button type="button" class="ghost ctx-btn" id="ctxBtn" aria-expanded="false" aria-controls="ctxPanel" title="Marca, tenant y rol">Contexto ▾</button>
-      <span class="chip brand synth">Datos sintéticos</span><span class="chip" id="mode" hidden>Demo en navegador</span>
+      <span class="chip brand synth" title="Todas las cifras son sintéticas de demostración">DEMO · datos sintéticos</span><span class="chip" id="mode" hidden>Demo en navegador</span>
       <div class="ctx-panel" id="ctxPanel"><label class="brandsel" title="Filtra jugadores, recorridos, rendimiento y Control Tower por marca">Marca <select id="brand"><option value="">Todas</option></select></label>
       <div class="ctx">
         <label>Tenant <select id="tenant"><option>tenant-rumbawin</option><option>tenant-demo-b</option></select></label>
@@ -339,12 +390,12 @@ function alertsSection(a) {
   const item = (x) => `<div class="alert sev-${x.severity} ${x.acknowledged ? 'acked' : ''}">
       <span class="sev ${x.severity}"><i aria-hidden="true"></i>${SEV[x.severity]}</span>
       <div><div class="t">${esc(x.title)}</div><div class="d">${esc(x.detail)} <span class="muted">· ${esc(x.window)}</span></div><div class="a"><b>Acción sugerida:</b> ${esc(x.action)}</div>
-        ${x.acknowledged ? `<div class="d">Revisada por ${esc(x.acknowledged.by)} · ${new Date(x.acknowledged.at).toLocaleString('es-CO')}${x.acknowledged.note ? ` · «${esc(x.acknowledged.note)}»` : ''}</div>` : ''}</div>
-      <div>${!x.acknowledged && can('alerts.ack') ? `<button class="ghost" data-ack="${esc(x.id)}">Marcar revisada</button>` : ''}</div></div>`;
+        ${x.acknowledged ? `<div class="d">Revisada por ${esc(x.acknowledged.by)} · ${ago(x.acknowledged.at)}${x.acknowledged.note ? ` · «${esc(x.acknowledged.note)}»` : ''}</div>` : ''}</div>
+      <div>${!x.acknowledged && can('alerts.ack') ? `<button class="ghost" data-ack="${esc(x.id)}" aria-label="Marcar revisada: ${esc(x.title)}">Marcar revisada</button>` : ''}</div></div>`;
   const cfg = a.config;
   return `<section aria-labelledby="alerts-h" class="card">
     <div class="perf-head"><h2 id="alerts-h">Alertas de KPI</h2>
-      <span class="muted">${open.length ? counts.map(([k, n]) => `${n} ${SEV[k].toLowerCase()}${n === 1 ? '' : 's'}`).join(' · ') : 'Sin alertas abiertas'} · evaluadas ${new Date(a.as_of).toLocaleString('es-CO')}</span></div>
+      <span class="muted">${open.length ? counts.map(([k, n]) => `${n} ${SEV[k].toLowerCase()}${n === 1 ? '' : 's'}`).join(' · ') : 'Sin alertas abiertas'} · evaluadas ${ago(a.as_of)}</span></div>
     <div class="alerts">${open.map(item).join('') || '<p class="muted">Todas las métricas están dentro de los umbrales.</p>'}</div>
     ${acked.length ? `<details style="margin-top:10px"><summary>Revisadas (${acked.length})</summary><div class="alerts" style="margin-top:8px">${acked.map(item).join('')}</div></details>` : ''}
     <details style="margin-top:10px"><summary>Umbrales${can('alerts.configure') ? ' (editables)' : ''}</summary>
@@ -361,9 +412,9 @@ function trendSection(p) {
     series: [{ label: 'Inversión', short: 'Inversión', color: 'var(--series-1)', values: p.daily.map((d) => d.spend_minor) }, { label: 'NGR de la cohorte', short: 'NGR', color: 'var(--series-2)', values: p.daily.map((d) => d.ngr_minor) }] });
   const b = chartPlaceholder('chart-counts', { aria: 'Registros y FTD diarios', xTitle: 'Día', x: days, xFmt: dfmt, xTick: dfmt, yFmt: (v) => int(v), yTick: (v) => int(v),
     series: [{ label: 'Registros', color: 'var(--series-3)', values: p.daily.map((d) => d.registrations) }, { label: 'FTD', color: 'var(--series-4)', values: p.daily.map((d) => d.ftd) }] }, 170);
-  return `<div class="card"><h3>Tendencia diaria · inversión frente a NGR</h3>${a}
+  return `<div class="card"><h2>Tendencia diaria · inversión frente a NGR</h2>${a}
     <p class="muted">NGR diario generado por los jugadores captados en el período (apuestas − premios − bonos − impuesto). Al inicio del período la cohorte es pequeña, por eso el NGR crece con el tiempo.</p>
-    <h3 style="margin-top:14px">Registros y FTD por día</h3>${b}</div><br>`;
+    <h2 style="margin-top:14px">Registros y FTD por día</h2>${b}</div><br>`;
 }
 function paybackSection(pb) {
   const maxLen = Math.max(1, ...pb.curves.map((c) => c.points.length));
@@ -376,11 +427,11 @@ function paybackSection(pb) {
   const rows = pb.cohorts.filter((c) => weeks.includes(c.week_start));
   const rcell = (v) => (v === null ? '<span class="muted">—</span>' : v >= 1 ? `<b class="ok">${pct(v, 0)}</b>` : pct(v, 0));
   const pbCell = (c) => c.payback_day !== null ? `<td class="num pb-ok">✓ día ${c.payback_day}</td>` : c.age_days === 0 ? '<td class="num muted">semana en curso</td>' : c.age_days < 14 ? '<td class="num muted">muy joven</td>' : c.projected_payback_day !== null ? `<td class="num">proyección día ${c.projected_payback_day}</td>` : '<td class="num bad">no al ritmo actual</td>';
-  return `<div class="card"><h3>Payback por campaña</h3>
+  return `<div class="card"><h2>Payback por campaña</h2>
     <p class="muted" style="margin-top:0">Porcentaje de la inversión recuperado con el NGR acumulado, por días desde el registro. Cada punto usa solo cohortes con esa antigüedad.</p>
     ${chart}
     <p>${pb.curves.map((c) => `<span class="chip"><span class="sw" style="background:${campaignColor(c.campaign_id)}"></span>${esc(c.campaign_name)}: ${c.payback_day !== null ? `payback en el día ${c.payback_day}` : 'sin payback aún'}</span>`).join(' ')}</p>
-    <h3 style="margin-top:14px">Cohortes semanales (últimas ${weeks.length} semanas)</h3>
+    <h2 style="margin-top:14px">Cohortes semanales (últimas ${weeks.length} semanas)</h2>
     <div class="scroll"><table><tr><th>Semana</th><th>Campaña</th><th class="num">Antigüedad</th><th class="num">Registros</th><th class="num">FTD</th><th class="num">Inversión</th><th class="num">D7</th><th class="num">D14</th><th class="num">D30</th><th class="num">D60</th><th class="num">Hoy</th><th class="num">Payback</th></tr>
     ${rows.map((c) => `<tr><td>${new Date(c.week_start + 'T12:00:00Z').toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}</td><td><span class="sw" style="background:${campaignColor(c.campaign_id)}"></span>${esc(c.campaign_name)}</td><td class="num">${c.age_days} d</td><td class="num">${c.registrations}</td><td class="num">${c.ftd}</td><td class="num">${moneyC(c.spend_minor)}</td><td class="num">${rcell(c.recovered_at.d7)}</td><td class="num">${rcell(c.recovered_at.d14)}</td><td class="num">${rcell(c.recovered_at.d30)}</td><td class="num">${rcell(c.recovered_at.d60)}</td><td class="num">${rcell(c.recovered_to_date)}</td>${pbCell(c)}</tr>`).join('')}
     </table></div>
@@ -393,11 +444,12 @@ function perfSection(p) {
   const f = p.funnel;
   const steps = [['Impresiones', f.impressions, null], ['Clics', f.clicks, f.impressions], ['Registros', f.registrations, f.clicks], ['FTD', f.ftd, f.registrations], ['Retenidos D30', f.retained_d30, t.retention_d30.eligible || null]];
   const rows = [...p.campaigns, { ...t, campaign_name: 'Total' }];
+  // montos compactos («$13,5 M»): la moneda va explícita en la cabecera del bloque
   return `
   <section aria-labelledby="perf-h">
     <div class="perf-head"><h2 id="perf-h">Adquisición y valor</h2>
       <label>Período <select id="perfDays">${[30, 60, 90].map((d) => `<option value="${d}" ${d === perfDays ? 'selected' : ''}>Últimos ${d} días</option>`).join('')}</select></label>
-      <span class="muted">Cohortes registradas en el período · valor hasta hoy · ${esc(p.currency)}</span></div>
+      <span class="muted">Cohortes registradas en el período · valor hasta hoy · montos en ${esc(p.currency === 'COP' ? 'pesos colombianos (COP)' : p.currency)}</span></div>
     <div class="kpis">
       ${tile('Inversión', moneyC(t.spend_minor), `${int(t.impressions)} impresiones`)}
       ${tile('CTR', pct(t.ctr, 2), `${int(t.clicks)} clics`)}
@@ -414,18 +466,18 @@ function perfSection(p) {
     ${trendSection(p)}
     ${p.__payback ? paybackSection(p.__payback) : ''}
     <div class="grid">
-      <div class="card"><h3>Embudo</h3>
+      <div class="card"><h2>Embudo</h2>
         ${steps.map(([l, v, prev], i) => {
           const immature = i === steps.length - 1 && !prev;
           const share = i === 0 ? 1 : prev ? v / prev : 0;
           return `<div class="funnel-row"><span>${l}</span><div class="bar" role="img" aria-label="${l}: ${immature ? 'cohorte inmadura' : pct(share) + ' del paso anterior'}"><span style="width:${immature ? 0 : Math.max(2, 100 * share)}%"></span></div><span class="num">${immature ? '<span class="muted">inmadura</span>' : `${int(v)} <span class="muted">${i ? pct(share) : ''}</span>`}</span></div>`;
         }).join('')}
         <p class="muted">Cada barra muestra la conversión desde el paso anterior. Retenidos D30 se mide sobre FTD con 30 días o más.</p></div>
-      <div class="card scroll" style="grid-column: span 2"><h3>Marketing → CRM → Loyalty</h3>
+      <div class="card scroll" style="grid-column: span 2"><h2>Marketing → CRM → Loyalty</h2>
         <table><tr><th>Campaña</th><th class="num">Alcance CRM</th><th class="num">Plata o más</th><th class="num">Bonos CRM</th><th class="num">Valor por FTD</th></tr>
         ${rows.map((c) => `<tr class="${c.campaign_id === 'total' ? 'total' : ''}"><td>${esc(c.campaign_name)}</td><td class="num">${pct(c.crm_reach, 0)}</td><td class="num">${pct(c.loyalty_silver_plus, 0)}</td><td class="num">${moneyC(c.bonus_cost_minor)}</td><td class="num">${moneyC(c.ngr_per_ftd_minor)}</td></tr>`).join('')}</table></div>
     </div><br>
-    <div class="card scroll"><h3>Rendimiento por campaña</h3>
+    <div class="card scroll"><h2>Rendimiento por campaña</h2>
       <table><tr><th>Campaña</th><th class="num">Inversión</th><th class="num">CTR</th><th class="num">Registros</th><th class="num">FTD %</th><th class="num">CPA</th><th class="num" title="Cohortes registradas en el período elegido">Costo/FTD (${perfDays} d)</th><th class="num">Depósitos</th><th class="num">GGR</th><th class="num">NGR</th><th class="num">D7</th><th class="num">D30</th><th class="num">ROI</th></tr>
       ${rows.map((c) => `<tr class="${c.campaign_id === 'total' ? 'total' : ''}"><td>${esc(c.campaign_name)}${c.channel && c.channel !== 'all' ? `<br><span class="chip">${esc(CHANNEL[c.channel] ?? c.channel)}</span>` : ''}</td><td class="num">${moneyC(c.spend_minor)}</td><td class="num">${pct(c.ctr, 2)}</td><td class="num">${int(c.registrations)}</td><td class="num">${pct(c.ftd_rate)}</td><td class="num">${moneyC(c.cpa_minor)}</td><td class="num">${moneyC(c.cost_per_ftd_minor)}</td><td class="num">${moneyC(c.deposits_minor)}</td><td class="num">${moneyC(c.ggr_minor)}</td><td class="num">${moneyC(c.ngr_minor)}</td><td class="num">${ret(c.retention_d7)}</td><td class="num">${ret(c.retention_d30)}</td><td class="num">${roiCell(c.roi)}</td></tr>`).join('')}
       </table>
@@ -445,21 +497,38 @@ const dateL = (iso) => new Date(iso).toLocaleDateString('es-CO', { day: 'numeric
 const MOVE_LABEL = [[/^bet\.settled$/, 'Apuesta liquidada'], [/^bet\.rollback$/, 'Apuesta revertida'], [/^minigame:/, 'Premio de la ruleta'], [/^mission:/, 'Misión completada'], [/^tournament:/, 'Premio de torneo'], [/^store:/, 'Canje en la tienda'], [/^prediction:/, 'Predicción acertada'], [/^(reversal|reverse|compens)/, 'Ajuste']];
 const moveLabel = (r) => (MOVE_LABEL.find(([re]) => re.test(r)) ?? [null, 'Ajuste de puntos'])[1];
 const LAST_SPIN = {};
+let SERVER_OFFSET = 0;
+/** hora del servidor (en la demo se puede adelantar): «¿ya cerró?» y «hace cuánto» se calculan con ella */
+const serverNow = () => Date.now() + SERVER_OFFSET;
+const syncClock = (iso) => { const t = Date.parse(iso ?? ''); if (!Number.isNaN(t)) SERVER_OFFSET = t - Date.now(); };
+const PROFILE = { list: [], page: 0, open: null };
+/** fecha y hora sin segundos; la exacta queda en el title de quien la use */
+const when = (iso) => new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const ago = (iso) => {
+  const t = Date.parse(iso); if (Number.isNaN(t)) return '—';
+  const m = Math.round((serverNow() - t) / 60000), exact = when(iso);
+  const rel = m < 1 ? 'hace un momento' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : m < 7 * 1440 ? `hace ${Math.round(m / 1440)} ${Math.round(m / 1440) === 1 ? 'día' : 'días'}` : exact;
+  return `<time datetime="${esc(new Date(t).toISOString())}" title="${esc(exact)}">${esc(rel)}</time>`;
+};
 let current = 'tower';
 
 // ── #7: una URL por pantalla (#/pestaña?rol=…), botón atrás y contexto que sobrevive a la recarga ──
 let ROUTE = {};
 const ROUTE_KEY = 'ss1-crm-route-v1';
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } } };
+/** la URL usa el nombre del menú (#/plantillas); las claves antiguas (#/content) siguen funcionando */
+const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
+const UNSLUG = Object.fromEntries(Object.entries(SLUG).map(([k, v]) => [v, k]));
 function parseRoute() {
-  const [tab, qs] = location.hash.replace(/^#\/?/, '').split('?');
+  const [rawTab, qs] = location.hash.replace(/^#\/?/, '').split('?');
+  const tab = UNSLUG[rawTab] ?? rawTab;
   const q = new URLSearchParams(qs ?? '');
   return { tab: tab || null, role: q.get('rol'), tenant: q.get('tenant'), brand: q.get('marca'), player: q.get('jugador') };
 }
 function routeHash(r) {
   const q = new URLSearchParams();
   for (const [k, v] of [['rol', r.role], ['tenant', r.tenant], ['marca', r.brand], ['jugador', r.player]]) if (v) q.set(k, v);
-  return `#/${r.tab}${String(q) ? '?' + q : ''}`;
+  return `#/${SLUG[r.tab] ?? r.tab}${String(q) ? '?' + q : ''}`;
 }
 /** Escribe la ruta actual en la URL. `push` crea una entrada de historial (cambio de pantalla). */
 function setRoute(patch = {}, push = false) {
@@ -537,6 +606,7 @@ async function api(path, opts = {}) {
   });
   const data = await res.json();
   if (!res.ok) throw Object.assign(new Error(data.message ?? data.error), { data });
+  if (data && typeof data === 'object' && !Array.isArray(data)) syncClock(data.now ?? data.as_of);
   return data;
 }
 
@@ -582,7 +652,11 @@ $('#menuBtn').onclick = () => document.body.classList.toggle('nav-open');
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('nav-open')) { document.body.classList.remove('nav-open'); $('#menuBtn').focus(); } });
 // #8: en pantallas angostas el contexto (marca, tenant, rol) se despliega a pedido
-$('#ctxBtn').onclick = () => { const open = document.body.classList.toggle('ctx-open'); $('#ctxBtn').setAttribute('aria-expanded', String(open)); };
+const setCtx = (open, focusBtn = false) => { document.body.classList.toggle('ctx-open', open); $('#ctxBtn').setAttribute('aria-expanded', String(open)); if (!open && focusBtn) $('#ctxBtn').focus(); };
+$('#ctxBtn').onclick = () => setCtx(!document.body.classList.contains('ctx-open'));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('ctx-open')) setCtx(false, true); });
+document.addEventListener('pointerdown', (e) => { if (document.body.classList.contains('ctx-open') && !e.target.closest('#ctxPanel, #ctxBtn')) setCtx(false); });
+new MutationObserver(() => { if (!document.body.classList.contains('ctx-open')) $('#ctxBtn').setAttribute('aria-expanded', 'false'); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 const ctxSummary = () => { $('#ctxBtn').textContent = `${$('#role').selectedOptions[0]?.textContent ?? ''}${$('#brand').value ? ' · ' + $('#brand').value : ''} ▾`; };
 
 /** H6: botón «CSV» en cada tarjeta con tabla. Neutraliza fórmulas y respeta comillas. */
@@ -592,19 +666,37 @@ function tableToCsv(t) {
   const text = (c) => { const x = c.cloneNode(true); x.querySelectorAll('button, input, select, textarea').forEach((e) => e.remove()); x.querySelectorAll('br').forEach((e) => e.replaceWith(' ')); return x.textContent ?? ''; };
   return '﻿' + [...t.rows].map((r) => [...r.cells].map((c) => cell(text(c))).join(',')).join('\r\n') + '\r\n';
 }
+/** cada tabla toma el nombre de su tarjeta; las regiones con scroll horizontal se pueden enfocar con teclado */
+/** índice «En esta página» cuando la vista tiene muchos bloques: cada enlace lleva a su tarjeta */
+function pageToc(root) {
+  const hs = [...root.querySelectorAll(':scope .card > h2, :scope section > .perf-head h2')].filter((h) => h.textContent.trim());
+  if (hs.length < 7) return;
+  const nav = document.createElement('nav'); nav.className = 'pagetoc'; nav.setAttribute('aria-label', 'En esta página');
+  nav.innerHTML = hs.map((h, i) => { h.id ||= `blk-${i}`; return `<a href="#" data-goto-h="${h.id}">${esc((h.firstChild?.textContent ?? h.textContent).trim())}</a>`; }).join('');
+  root.prepend(nav);
+  nav.querySelectorAll('[data-goto-h]').forEach((a) => a.onclick = (e) => { e.preventDefault(); const h = document.getElementById(a.dataset.gotoH); h.tabIndex = -1; h.closest('.card, section')?.scrollIntoView({ block: 'start' }); h.focus({ preventScroll: true }); });
+}
+function nameTables(root) {
+  root.querySelectorAll('table:not([aria-label]):not([aria-labelledby])').forEach((t) => {
+    const h = t.closest('.card, section')?.querySelector('h2');
+    if (h) { h.id ||= `h-${Math.random().toString(36).slice(2, 8)}`; t.setAttribute('aria-labelledby', h.id); }
+  });
+  root.querySelectorAll('.scroll').forEach((d) => { if (d.scrollWidth > d.clientWidth + 1 && !d.hasAttribute('tabindex')) { d.tabIndex = 0; d.setAttribute('role', 'region'); d.setAttribute('aria-label', `${d.closest('.card')?.querySelector('h2')?.firstChild?.textContent?.trim() ?? 'Tabla'} (desplazable)`); d.classList.add('scrolls'); } });
+}
 function addCsvButtons(root) {
   root.querySelectorAll('.card').forEach((card, i) => {
-    const t = card.querySelector('table'); const h = card.querySelector('h3');
+    const t = card.querySelector('table'); const h = card.querySelector('h2');
     if (!t || !h || h.querySelector('.csvbtn') || t.rows.length < 2) return;
-    const b = document.createElement('button'); b.className = 'ghost csvbtn'; b.textContent = 'CSV'; b.title = 'Descargar la tabla en CSV'; b.style.cssText = 'float:right;padding:2px 10px;font-size:11px';
+    const b = document.createElement('button'); b.className = 'ghost csvbtn'; b.textContent = 'CSV'; b.title = 'Descargar la tabla en CSV'; b.setAttribute('aria-label', `Descargar CSV: ${(h.firstChild?.textContent ?? 'tabla').trim()}`); b.style.cssText = 'float:right;padding:2px 10px;font-size:11px';
     b.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([tableToCsv(t)], { type: 'text/csv;charset=utf-8' })); a.download = `${current}-${(h.firstChild?.textContent ?? 'tabla').trim().toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, '-').replace(/^-|-$/g, '') || i}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
     h.appendChild(b);
   });
 }
 async function show() {
   const v = $('#view');
+  document.body.classList.remove('pdetail-open', 'ctx-open'); // al cambiar de vista no queda nada superpuesto
   v.innerHTML = '<p class="muted">Cargando…</p>';
-  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); }
+  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); }
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
 }
 
@@ -622,7 +714,8 @@ const LABELS = {
   // jugador
   verified: 'Verificado', pending: 'Pendiente', unverified: 'Sin verificar', none: 'Sin restricción', self_excluded: 'Autoexcluido', cooling_off: 'Pausa temporal', limited: 'Con límites',
   // decisiones y entregas
-  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', accepted: 'Aceptado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
+  treatment: 'Tratamiento', control: 'Grupo de control', simulated_send: 'Envío simulado', simulated_grant: 'Recompensa simulada', cancelled_by_rg_change: 'Cancelado por cambio de juego responsable', profile_missing: 'Sin perfil', exit_on: 'Salió por evento', preempted_by: 'Desplazado por', blocked_by: 'Bloqueado por', variant: 'Variante', true: 'Sí', false: 'No',
+  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', suppress: 'Suprimido', held_out: 'Grupo de control', blocked_overlap: 'Bloqueado por otro recorrido', preempted: 'Desplazado por otro recorrido', running: 'En curso', accepted: 'Aceptado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
   inapp: 'In-app', email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', webpush: 'Push web', telegram: 'Telegram',
   frequency_cap: 'Tope diario de mensajes', frequency_cap_week: 'Tope semanal de mensajes', frequency_cap_channel: 'Tope del canal', quiet_hours: 'Horario silencioso', quiet_hours_until: 'Horario silencioso hasta',
   marketing_consent_revoked: 'Retiró el consentimiento de marketing', no_marketing_consent: 'Sin consentimiento de marketing', channel_disabled: 'Canal desactivado en el mercado',
@@ -638,6 +731,9 @@ const humanize = (c) => c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase(
 /** Un código «motivo» o «motivo:detalle» (el detalle puede ser canal, estado o una fecha ISO). */
 const labelOne = (c) => {
   if (LABELS[c]) return LABELS[c];
+  let m;
+  if ((m = /^simulated_skip (\d+)h$/.exec(c))) return `Espera de ${m[1]} h (simulada)`;
+  if ((m = /^until (\S+)$/.exec(c))) return `En espera hasta ${when(m[1])}`;
   const i = c.indexOf(':');
   if (i <= 0) return humanize(c);
   const head = c.slice(0, i), det = c.slice(i + 1);
@@ -751,12 +847,12 @@ function bInspector() {
     ${n.variants.map((v, i) => `<div class="row"><input data-bv="${i}" data-vk="label" value="${esc(v.label)}" size="10" aria-label="Nombre de la variante ${i + 1}">${n.mode === 'fixed' ? `<input type="number" min="0" data-bv="${i}" data-vk="weight" value="${v.weight}" size="3" aria-label="Peso">` : ''}${n.variants.length > 2 ? `<button class="ghost" data-vdel="${i}">Quitar</button>` : ''}</div>`).join('')}
     ${n.variants.length < 5 ? '<button class="ghost" id="vadd">+ Variante</button>' : ''}`;
   const conns = outs(n).map(([k, lab]) => `<label>${lab ? (n.type === 'split' ? `Variante ${esc(lab)}` : `Si ${lab}`) : 'Siguiente'} → <select data-bc="${k}">${targets(getOut(n, k))}</select></label>`).join('');
-  return `<h3 style="margin-top:0">${esc(NODE_LABEL[n.type])} · ${esc(n.id)}</h3>${f}${conns}
+  return `<h2 style="margin-top:0">${esc(NODE_LABEL[n.type])} · ${esc(n.id)}</h2>${f}${conns}
     <div class="row">${B.def.entry === n.id ? '<span class="chip brand">Paso de inicio</span>' : '<button class="ghost" id="bentry">Marcar como inicio</button>'}<button class="ghost" id="bdel">Eliminar</button></div>`;
 }
 function bIssues() {
   const errs = B.issues.filter((i) => i.severity === 'error');
-  return `<h3>Revisión ${errs.length ? `<span class="chip bad">${errs.length} por corregir</span>` : '<span class="chip ok">Lista para enviar</span>'}</h3>
+  return `<h2>Revisión ${errs.length ? `<span class="chip bad">${errs.length} por corregir</span>` : '<span class="chip ok">Lista para enviar</span>'}</h2>
     <ul class="issues">${B.issues.map((i) => `<li class="${i.severity}"${i.node ? ` data-goto="${esc(i.node)}"` : ''}>${esc(i.message)}</li>`).join('') || '<li class="muted">Sin observaciones.</li>'}</ul>`;
 }
 function bDraw() {
@@ -839,53 +935,59 @@ const VIEWS = {
     return `${alerts}${perf}
     <div class="row">${can('runtime.tick') ? '<button id="tick">Procesar esperas vencidas (+24 h)</button>' : ''}
       ${can('runtime.global_pause') ? `<button class="ghost" id="gpause">${t.global_pause ? 'Reanudar envíos' : 'Pausa general'}</button>` : ''}
-      <span class="muted">Datos al ${new Date(t.as_of).toLocaleString('es-CO')}</span></div>
+      <span class="muted">Datos al ${ago(t.as_of)}</span></div>
     <div class="grid">
-      <div class="card"><h3 title="Mensajes que el canal o el proveedor aceptó; la llegada al dispositivo la confirma cada proveedor">Envíos aceptados</h3><div class="kpi">${delivered}</div></div>
-      <div class="card"><h3>Supresiones</h3><div class="kpi">${suppressed}</div></div>
-      <div class="card"><h3>Diferidos (horario silencioso)</h3><div class="kpi">${t.deferred}</div></div>
-      <div class="card"><h3>Cola de errores</h3><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
-      <div class="card"><h3>Estado</h3><div class="kpi ${t.global_pause ? 'warn' : 'ok'}">${t.global_pause ? 'En pausa' : 'Operando'}</div></div>
-      <div class="card" title="Tiempo real de proceso desde que llega el evento hasta decidir y ejecutar (perfil, políticas, recorridos, envíos), últimos ${int(t.latency.window)} eventos"><h3>Evento → decisión (p95)</h3><div class="kpi ${t.latency.within_slo === false ? 'bad' : 'ok'}">${t.latency.p95_ms === null ? '—' : t.latency.p95_ms.toLocaleString('es-CO') + ' ms'}</div>
+      <div class="card"><h2 title="Mensajes que el canal o el proveedor aceptó; la llegada al dispositivo la confirma cada proveedor">Envíos aceptados</h2><div class="kpi">${delivered}</div></div>
+      <div class="card"><h2>Supresiones</h2><div class="kpi">${suppressed}</div></div>
+      <div class="card"><h2>Diferidos (horario silencioso)</h2><div class="kpi">${t.deferred}</div></div>
+      <div class="card"><h2>Cola de errores</h2><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
+      <div class="card"><h2>Estado</h2><div class="kpi ${t.global_pause ? 'warn' : 'ok'}">${t.global_pause ? 'En pausa' : 'Operando'}</div></div>
+      <div class="card" title="Tiempo real de proceso desde que llega el evento hasta decidir y ejecutar (perfil, políticas, recorridos, envíos), últimos ${int(t.latency.window)} eventos"><h2>Evento → decisión (p95)</h2><div class="kpi ${t.latency.within_slo === false ? 'bad' : 'ok'}">${t.latency.p95_ms === null ? '—' : t.latency.p95_ms.toLocaleString('es-CO') + ' ms'}</div>
         <div class="muted">p50 ${num(t.latency.p50_ms, 2)} · p99 ${num(t.latency.p99_ms, 2)} ms · objetivo ≤ ${t.latency.slo_p95_ms} ms · ${int(t.latency.n)} eventos${window.SS1_STATIC ? ' · medida en vivo en este navegador (varía entre cargas)' : ''}${t.latency.lag_p95_ms ? ` · llegada p95 ${Math.round(t.latency.lag_p95_ms / 1000)} s` : ''}</div></div>
     </div><br>
     ${t.brand ? `<p class="muted">Vista filtrada por la marca <b>${esc(t.brand)}</b>.</p>` : ''}
-    <div class="card scroll"><h3>Recorridos</h3><table><tr><th>Recorrido</th><th>Versión</th><th>Estado</th><th>Propósito</th><th>Control</th><th>Instancias</th></tr>
+    <div class="card scroll"><h2>Recorridos</h2><table><tr><th>Recorrido</th><th>Versión</th><th>Estado</th><th>Propósito</th><th>Control</th><th>Instancias</th></tr>
       ${t.journeys.map((j) => `<tr><td>${esc(j.name)}<br><span class="muted">${esc(j.id)}</span></td><td>v${j.version}</td><td>${statusChip(j.status)}</td><td>${j.purpose === 'service' ? 'Servicio' : 'Marketing'}</td><td>${j.control_group_pct}%</td><td>${kv(j.instances)}</td></tr>`).join('')}
     </table></div><br>
     <div class="grid">
-      <div class="card"><h3>Motivos de supresión</h3>${kv(t.suppression_reasons)}</div>
-      <div class="card"><h3>Entregas por canal</h3>${kv(t.deliveries)}</div>
-      <div class="card"><h3>Presupuestos</h3>${t.budgets.map((b) => `<div>${lbl(b.reward_id)}: ${money(b.committed_minor)} / ${money(b.budget_minor)}<div class="bar"><span style="width:${Math.min(100, 100 * b.committed_minor / b.budget_minor)}%"></span></div></div>`).join('')}</div>
-      <div class="card"><h3>Alertas operativas</h3>${t.alerts.length ? t.alerts.map((a) => `<div class="warn">${lbl(a.alert)} · ${esc(a.player_id)}</div>`).join('') : '<span class="muted">Sin alertas</span>'}</div>
+      <div class="card"><h2>Motivos de supresión</h2>${kv(t.suppression_reasons)}</div>
+      <div class="card"><h2>Entregas por canal</h2>${kv(t.deliveries)}</div>
+      <div class="card"><h2>Presupuestos</h2>${t.budgets.map((b) => `<div>${lbl(b.reward_id)}: ${money(b.committed_minor)} / ${money(b.budget_minor)}<div class="bar"><span style="width:${Math.min(100, 100 * b.committed_minor / b.budget_minor)}%"></span></div></div>`).join('')}</div>
+      <div class="card"><h2>Alertas operativas</h2>${t.alerts.length ? t.alerts.map((a) => `<div class="warn">${lbl(a.alert)} · ${esc(a.player_id)}</div>`).join('') : '<span class="muted">Sin alertas</span>'}</div>
     </div>
-    ${can('ingest.csv') ? `<br><div class="card"><h3>Carga por lotes (CSV)</h3>
+    ${can('ingest.csv') ? `<br><div class="card"><h2>Carga por lotes (CSV)</h2>
       <div class="row"><label>Tipo <select id="csvtype"><option value="deposit.settled">Depósitos</option><option value="bet.settled">Apuestas</option><option value="withdrawal.settled">Retiros</option><option value="player.registered">Registros</option><option value="marketing.spend_reported">Inversión de medios</option></select></label>
-        <label>Modo <select id="csvmode"><option value="historico">Histórico (sin recorridos ni mensajes)</option><option value="tiempo_real">Tiempo real</option></select></label><input type="file" id="csvfile" accept=".csv,text/csv"></div>
+        <label>Modo <select id="csvmode"><option value="historico">Histórico (sin recorridos ni mensajes)</option><option value="tiempo_real">Tiempo real</option></select></label><label class="filelabel">Archivo CSV <input type="file" id="csvfile" accept=".csv,text/csv"></label></div>
       <textarea id="csvtext" rows="4" placeholder="O pega el CSV aquí. Depósitos: player_id,occurred_at,deposit_id,amount,currency"></textarea>
       <div class="row"><button class="ghost" id="csvcheck">Validar</button><button id="csvload">Cargar</button></div><div id="csvout"></div>
       <p class="muted">Todo o nada: si una fila falla no se carga ninguna. Montos en unidades mayores (12500.50). Volver a subir el mismo archivo no duplica eventos.</p></div>` : ''}`;
   },
   async profile() {
-    const list = await api('/players');
-    return `<div class="row"><input id="pq" placeholder="Buscar player_id (seudonimizado)"><button id="pgo">Buscar</button></div>
+    // Perfil 360: lista con búsqueda parcial, filtros y páginas de 25; el perfil se abre al lado (o a pantalla completa en móvil)
+    PROFILE.list = await api('/players?limit=5000');
+    const distinct = (k) => [...new Set(PROFILE.list.map((p) => p[k]).filter((x) => x !== null && x !== undefined && x !== ''))].sort();
+    const sel = (id, name, k) => `<label for="${id}">${name}<select id="${id}"><option value="">Todos</option>${distinct(k).map((v) => `<option value="${esc(v)}">${esc(k === 'level' ? v : label(v))}</option>`).join('')}</select></label>`;
+    return `<div class="pfilters" role="search" aria-label="Buscar jugadores">
+        <label for="pq">Buscar jugador<input id="pq" type="search" placeholder="Parte del identificador, p. ej. google" autocomplete="off" aria-describedby="pcount"></label>
+        ${sel('pkyc', 'KYC', 'kyc')}${sel('prg', 'Juego responsable', 'rg')}${sel('plvl', 'Nivel', 'level')}
+        <span id="pcount" class="muted" role="status" aria-live="polite"></span></div>
       <div class="grid profile-grid">
-        <div class="card scroll"><h3>Jugadores</h3><table>${list.map((p) => `<tr><td><a href="#" data-p="${esc(p.player_id)}">${esc(p.player_id)}</a></td><td>${lbl(p.kyc)}</td><td class="${p.rg !== 'none' ? 'bad' : ''}">${lbl(p.rg)}</td><td>${esc(p.level ?? '')}</td></tr>`).join('')}</table></div>
-        <div class="card" id="pdetail"><p class="muted">Selecciona un jugador.</p></div></div>`;
+        <div class="card"><h2 id="plist-h">Jugadores</h2><div id="plist"></div></div>
+        <section class="card pdetail" id="pdetail" tabindex="-1" aria-label="Perfil del jugador"><p class="muted">Selecciona un jugador de la lista para ver su perfil.</p></section></div>`;
   },
   async segments() {
     const [fields, dist, pers] = await Promise.all([api('/segments/fields'), api('/segments/rfm'), api('/personas')]);
     const pctOf = (n, d) => d ? pct(n / d, 0) : '—';
-    const distTable = (title, rows, field, denom) => `<div class="card scroll"><h3>${title}</h3><table><tr><th>Grupo</th><th class="num">Jugadores</th><th class="num">%</th><th class="num">Depósitos netos</th><th></th></tr>
+    const distTable = (title, rows, field, denom) => `<div class="card scroll"><h2>${title}</h2><table><tr><th>Grupo</th><th class="num">Jugadores</th><th class="num">%</th><th class="num">Depósitos netos</th><th><span class="sr-only">Acciones</span></th></tr>
       ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${int(r.players)}</td><td class="num">${pctOf(r.players, denom)}</td><td class="num">${moneyC(r.deposits_minor)}</td><td class="num">${r.players ? `<button class="ghost" data-use='${esc(JSON.stringify({ field, op: 'eq', value: r.key }))}'>Usar</button>` : ''}</td></tr>`).join('')}</table></div>`;
     return `<div class="grid">${distTable('Ciclo de vida', dist.lifecycle, 'lifecycle', dist.total)}${distTable('Segmentos RFM (solo jugadores con depósito)', dist.rfm, 'rfm.segment', dist.depositors)}</div>
-      ${pers.k ? `<br><div class="card"><h3>Personas dinámicas</h3><div class="kpis">${pers.personas.map((x) => `<div class="kpi-card"><div class="lbl">${esc(x.id)} · ${int(x.size)} jugadores</div><div class="val" style="font-size:17px">${esc(x.name)}</div><div class="sub">${x.traits.map(esc).join(' · ')}</div><div style="margin-top:8px"><button class="ghost" data-use='${esc(JSON.stringify({ field: 'persona', op: 'eq', value: x.id }))}'>Usar</button></div></div>`).join('')}</div><p class="muted">${esc(pers.method)}</p></div>` : ''}
+      ${pers.k ? `<br><div class="card"><h2>Personas dinámicas</h2><div class="kpis">${pers.personas.map((x) => `<div class="kpi-card"><div class="lbl">${esc(x.id)} · ${int(x.size)} jugadores</div><div class="val" style="font-size:17px">${esc(x.name)}</div><div class="sub">${x.traits.map(esc).join(' · ')}</div><div style="margin-top:8px"><button class="ghost" data-use='${esc(JSON.stringify({ field: 'persona', op: 'eq', value: x.id }))}'>Usar</button></div></div>`).join('')}</div><p class="muted">${esc(pers.method)}</p></div>` : ''}
       <p class="muted">${esc(dist.method)} RFM se usa en segmentos; en condiciones de recorridos usa <code>lifecycle</code>, que se calcula por jugador.</p><br>
-      <div class="card"><h3>Definición (AND/OR/NOT)</h3>
+      <div class="card"><h2>Definición (AND/OR/NOT)</h2>
       <p class="muted">Campos: ${fields.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</p>
-      <textarea id="rules" rows="8">${esc(JSON.stringify({ and: [{ field: 'kyc', op: 'eq', value: 'verified' }, { field: 'stats.deposit_count', op: 'gte', value: 1 }] }, null, 2))}</textarea>
-      <h3 style="margin-top:10px">Exclusiones</h3>
-      <textarea id="excl" rows="3">${esc(JSON.stringify({ field: 'rg', op: 'neq', value: 'none' }))}</textarea>
+      <textarea id="rules" rows="8" aria-label="Reglas del segmento (JSON)">${esc(JSON.stringify({ and: [{ field: 'kyc', op: 'eq', value: 'verified' }, { field: 'stats.deposit_count', op: 'gte', value: 1 }] }, null, 2))}</textarea>
+      <h2 style="margin-top:10px">Exclusiones</h2>
+      <textarea id="excl" rows="3" aria-label="Exclusiones del segmento (JSON)">${esc(JSON.stringify({ field: 'rg', op: 'neq', value: 'none' }))}</textarea>
       <div class="row" style="margin-top:10px"><button id="prev">Vista previa</button></div><div id="segout"></div></div>`;
   },
   async builder() {
@@ -896,22 +998,22 @@ const VIEWS = {
     B.latest = latest;
     const ov = await api('/journeys/overlap');
     const F = ov.frequency;
-    const overlapCard = `<div class="card scroll"><h3>Solapamiento y frecuencia</h3>
-      ${ov.groups.map((g) => `<h3 style="font-size:14px">Grupo «${esc(g.group)}»</h3><table><tr><th>Prioridad</th><th>Recorrido</th><th class="num">Entradas</th><th class="num">Desplazadas</th><th class="num">Bloqueadas</th><th class="num">Enfriamiento</th></tr>
+    const overlapCard = `<div class="card scroll"><h2>Solapamiento y frecuencia</h2>
+      ${ov.groups.map((g) => `<h2 style="font-size:14px">Grupo «${esc(g.group)}»</h2><table><tr><th>Prioridad</th><th>Recorrido</th><th class="num">Entradas</th><th class="num">Desplazadas</th><th class="num">Bloqueadas</th><th class="num">Enfriamiento</th></tr>
         ${g.journeys.map((j) => `<tr><td><span class="chip brand">${j.priority}</span></td><td>${esc(j.name)}</td><td class="num">${int(j.entered)}</td><td class="num">${int(j.preempted)}</td><td class="num">${int(j.blocked)}</td><td class="num">${j.cooldown_hours ? j.cooldown_hours + ' h' : '—'}</td></tr>`).join('')}</table>`).join('') || '<p class="muted">Ningún recorrido usa grupos de solapamiento.</p>'}
       ${ov.risks.length ? `<p class="warn">${ov.risks.map((r) => esc(r.message)).join('<br>')}</p>` : '<p class="ok">Sin colisiones: los recorridos que comparten disparador están en el mismo grupo.</p>'}
       ${F ? `<div class="row"><span class="chip">Máx. ${F.per_day} mensajes de marketing al día</span>${F.per_week ? `<span class="chip">${F.per_week} por semana</span>` : ''}${Object.entries(F.per_channel_day).map(([c, n]) => `<span class="chip">${esc(c)}: ${n}/día</span>`).join('')}</div>` : ''}
       <p class="muted">${esc(ov.note)} «Desplazadas»: instancias que cedieron ante una de mayor prioridad; «bloqueadas»: entradas rechazadas por otra en curso o por enfriamiento.</p></div><br>`;
     return `${overlapCard}<div class="grid">${latest.map((j) => `
-      <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip" title="${esc(j.trigger.event_type)}">disparador: ${esc(label(j.trigger.event_type))}</span>${j.overlap ? `<span class="chip brand">${esc(j.overlap.group)} · prioridad ${j.overlap.priority}</span>` : ''}</div>
-        <ol>${j.as_list.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
+      <div class="card"><h2>${esc(j.name)}</h2><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip" title="${esc(j.trigger.event_type)}">disparador: ${esc(label(j.trigger.event_type))}</span>${j.overlap ? `<span class="chip brand">${esc(j.overlap.group)} · prioridad ${j.overlap.priority}</span>` : ''}</div>
+        <ol class="steps">${j.as_list.map((s) => `<li>${esc(s.replace(/^\d+\.\s*/, ''))}</li>`).join('')}</ol><details class="tech"><summary>Ver detalle técnico</summary><pre>${esc(JSON.stringify(j.nodes, null, 2))}</pre></details>
         ${j.validation.length ? `<p class="bad">${j.validation.map(esc).join(', ')}</p>` : '<p class="ok">Grafo válido</p>'}
         <div class="row"><label class="simlabel">Jugador para simular <select data-simp="${esc(j.id)}" aria-label="Jugador para simular «${esc(j.name)}»">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label>
           ${can('journeys.simulate') ? `<button class="ghost" data-sim="${esc(j.id)}">Simular</button>` : ''}
           ${can('journeys.draft') ? `<button class="ghost" data-edit="${esc(j.id)}">Editar en el lienzo</button>` : ''}
           ${!can('journeys.pause') ? '' : j.status === 'published' ? `<button class="ghost" data-pause="${esc(j.id)}">Pausar</button>` : j.status === 'paused' ? `<button class="ghost" data-resume="${esc(j.id)}">Reanudar</button>` : ''}</div>
         <div data-simout="${esc(j.id)}"></div></div>`).join('')}</div>
-      ${!can('journeys.draft') ? '<p class="muted">Tu rol puede consultar los recorridos pero no crear borradores.</p>' : `<br><div class="card" id="bcard"><h3>Constructor visual</h3>
+      ${!can('journeys.draft') ? '<p class="muted">Tu rol puede consultar los recorridos pero no crear borradores.</p>' : `<br><div class="card" id="bcard"><h2>Constructor visual</h2>
         <div class="row">
           <label>Identificador <input id="bid" value="${esc(B.def.id)}" size="16"></label>
           <label>Nombre <input id="bname" value="${esc(B.def.name)}" size="28"></label>
@@ -930,7 +1032,7 @@ const VIEWS = {
   async approval() {
     const js = await api('/journeys');
     const pending = js.filter((j) => j.status === 'pending_approval' || j.status === 'approved');
-    return `<div class="card scroll"><h3>Pendientes</h3>${pending.length ? `<table><tr><th>Recorrido</th><th>Versión</th><th>Autor</th><th>Incentivo</th><th>Pasos</th><th></th></tr>${pending.map((j) => `<tr><td>${esc(j.name)}</td><td>v${j.version}</td><td>${esc(j.created_by)}</td><td>${j.nodes.some((n) => n.type === 'grant_reward') ? '<span class="warn">Sí, aprobación separada</span>' : 'No'}</td><td>${j.as_list.map(esc).join('<br>')}</td><td>${j.status === 'pending_approval' ? (can('journeys.approve') ? `<button data-approve="${esc(j.id)}">Aprobar</button>` : '<span class="muted">Espera a un aprobador</span>') : (can('journeys.publish') ? `<button data-publish="${esc(j.id)}">Publicar</button>` : '<span class="muted">Aprobado</span>')}</td></tr>`).join('')}</table>` : `<p class="muted">${approvalEmpty()}</p>`}
+    return `<div class="card scroll"><h2>Pendientes</h2>${pending.length ? `<table><tr><th>Recorrido</th><th>Versión</th><th>Autor</th><th>Incentivo</th><th>Pasos</th><th><span class="sr-only">Acciones</span></th></tr>${pending.map((j) => `<tr><td>${esc(j.name)}</td><td>v${j.version}</td><td>${esc(j.created_by)}</td><td>${j.nodes.some((n) => n.type === 'grant_reward') ? '<span class="warn">Sí, aprobación separada</span>' : 'No'}</td><td>${j.as_list.map(esc).join('<br>')}<details class="tech"><summary>Ver detalle técnico</summary><pre>${esc(JSON.stringify(j.nodes, null, 2))}</pre></details></td><td>${j.status === 'pending_approval' ? (can('journeys.approve') ? `<button data-approve="${esc(j.id)}">Aprobar</button>` : '<span class="muted">Espera a un aprobador</span>') : (can('journeys.publish') ? `<button data-publish="${esc(j.id)}">Publicar</button>` : '<span class="muted">Aprobado</span>')}</td></tr>`).join('')}</table>` : `<p class="muted">${approvalEmpty()}</p>`}
       <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
   },
   async gamification() {
@@ -944,37 +1046,37 @@ const VIEWS = {
       if (m.status === 'active' && can('journeys.pause')) return `<button class="ghost" data-mact="pause" data-mid="${esc(m.id)}">Pausar</button>`;
       return '';
     };
-    const sample = { id: 'm_weekend', brand_id: 'rumbawin', name: 'Fin de semana deportivo', description: 'Liquida 3 apuestas de deportes', kind: 'count', event_type: 'bet.settled', product: 'sports', target: 3, reward: { xp: 150 }, starts_at: new Date().toISOString(), ends_at: new Date(Date.now() + 14 * 864e5).toISOString() };
-    return `<div class="card scroll"><h3>Misiones</h3><table><tr><th>Misión</th><th>Meta</th><th>Recompensa</th><th>Estado</th><th class="num">Participan</th><th class="num">Completan</th><th class="num">Tasa</th><th class="num">XP</th><th class="num">Costo bonos</th><th></th></tr>
+    const sample = { id: 'm_weekend', brand_id: 'rumbawin', name: 'Fin de semana deportivo', description: 'Liquida 3 apuestas de deportes', kind: 'count', event_type: 'bet.settled', product: 'sports', target: 3, reward: { xp: 150 }, starts_at: new Date().toISOString(), ends_at: new Date(serverNow() + 14 * 864e5).toISOString() };
+    return `<div class="card scroll"><h2>Misiones</h2><table><tr><th>Misión</th><th>Meta</th><th>Recompensa</th><th>Estado</th><th class="num">Participan</th><th class="num">Completan</th><th class="num">Tasa</th><th class="num">XP</th><th class="num">Costo bonos</th><th><span class="sr-only">Acciones</span></th></tr>
       ${g.missions.map((m) => `<tr><td>${esc(m.name)}<br><span class="muted">${esc(m.description)}</span>${m.disputed ? `<br><span class="warn">${m.disputed} en revisión por reverso</span>` : ''}</td><td>${target(m)}</td><td>${reward(m)}</td><td><span class="chip ${m.status === 'active' ? 'brand' : ''}">${ST[m.status] ?? esc(m.status)}</span></td><td class="num">${int(m.participants)}</td><td class="num">${int(m.completions)}</td><td class="num">${pct(m.completion_rate, 0)}</td><td class="num">${int(m.xp_awarded)}</td><td class="num">${moneyC(m.reward_cost_minor)}</td><td class="num">${act(m)}</td></tr>`).join('') || '<tr><td colspan="10" class="muted">Sin misiones.</td></tr>'}</table>
       <p class="muted">No participan jugadores con la gamificación desactivada ni con restricción de juego responsable. Las misiones con bono requieren aprobación de otra persona y el bono pasa por política y presupuesto. Un reverso de depósito corrige el progreso; si la misión ya estaba completada queda en revisión.</p></div><br>
-      ${can('journeys.draft') ? `<div class="card"><h3>Nueva misión (JSON)</h3><textarea id="mdraft" rows="10">${esc(JSON.stringify(sample, null, 2))}</textarea><div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
-      <div class="card scroll"><h3>Torneos</h3><table><tr><th>Torneo</th><th>Puntúa</th><th>Ventana</th><th>Estado</th><th class="num">Participan</th><th>Podio</th><th></th></tr>
+      ${can('journeys.draft') ? `<div class="card"><h2>Nueva misión (JSON)</h2><textarea id="mdraft" rows="10" aria-label="Definición de la misión (JSON)">${esc(JSON.stringify(sample, null, 2))}</textarea><div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
+      <div class="card scroll"><h2>Torneos</h2><table><tr><th>Torneo</th><th>Puntúa</th><th>Ventana</th><th>Estado</th><th class="num">Participan</th><th>Podio</th><th><span class="sr-only">Acciones</span></th></tr>
         ${tours.map((t) => `<tr><td>${esc(t.name)}</td><td>${t.metric === 'bet_count' ? 'apuestas' : `monto apostado (tope ${moneyC(t.stake_cap_minor)} por apuesta)`}${t.product ? ' · ' + esc(t.product) : ''}<br><span class="muted">mínimo ${int(t.min_score)}</span></td>
           <td class="muted">${new Date(t.starts_at).toLocaleDateString('es-CO')} – ${new Date(t.ends_at).toLocaleDateString('es-CO')}</td><td><span class="chip ${t.status === 'active' ? 'brand' : ''}">${({ draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activo', finished: 'Cerrado' })[t.status]}</span>${t.final ? `<br><span class="muted" title="${esc(t.final.hash)}">hash ${esc(t.final.hash.slice(0, 10))}…</span>` : ''}</td>
           <td class="num">${int(t.participants)}</td><td>${t.standings.slice(0, 3).map((x) => `${x.rank}. ${esc(x.player_id)} (${int(x.score)})`).join('<br>') || '<span class="muted">—</span>'}</td>
-          <td class="num">${t.status === 'active' && Date.parse(t.ends_at) < Date.now() && can('journeys.approve') ? `<button data-tfin="${esc(t.id)}">Cerrar y premiar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin torneos.</td></tr>'}</table>
+          <td class="num">${t.status === 'active' && Date.parse(t.ends_at) < serverNow() && can('journeys.approve') ? `<button data-tfin="${esc(t.id)}">Cerrar y premiar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin torneos.</td></tr>'}</table>
         <p class="muted">Ranking reproducible desde los eventos: a igual puntaje gana quien lo alcanzó primero. Al cierre se excluyen jugadores con gamificación desactivada o restricción de juego responsable, se guarda la foto con hash y los premios se pagan una sola vez.</p></div><br>
-      ${games.map((gm) => `<div class="card scroll"><h3>${esc(gm.name)} · ${gm.kind === 'wheel' ? 'ruleta' : 'caja de premios'}</h3>
+      ${games.map((gm) => `<div class="card scroll"><h2>${esc(gm.name)} · ${gm.kind === 'wheel' ? 'ruleta' : 'caja de premios'}</h2>
         <div class="row"><span class="chip">${plural(gm.spins_per_day, 'tirada gratis', 'tiradas gratis')} por día</span><span class="chip">Costo esperado ${moneyC(gm.expected.cost_per_spin_minor)} por tirada</span><span class="chip">${num(gm.expected.xp_per_spin)} XP esperados por tirada</span><span class="chip">${plural(gm.spins, 'tirada jugada', 'tiradas jugadas')}</span></div>
         <table><tr><th>Premio</th><th class="num">Probabilidad</th><th class="num">Observado</th></tr>${gm.expected.probabilities.map((pr) => `<tr><td>${esc(pr.label)}</td><td class="num">${pct(pr.p, 1)}</td><td class="num">${gm.spins ? pct((gm.observed[pr.id] ?? 0) / gm.spins, 1) : '—'}</td></tr>`).join('')}</table>
         <p class="muted">Azar verificable: se publica el compromiso <code>${esc(gm.seeds.at(-1).commit.slice(0, 16))}…</code> (sha256 de la semilla). Al rotar, la semilla anterior se revela y cualquiera puede recalcular cada resultado con sha256(semilla:jugador:número de tirada). Sin compra ni dinero apostado.</p>
-        ${gm.seeds.filter((x) => x.seed).length ? `<details><summary>Semillas reveladas (${gm.seeds.filter((x) => x.seed).length})</summary>${gm.seeds.filter((x) => x.seed).map((x) => `<div class="muted"><code>${esc(x.seed)}</code> · válida desde ${new Date(x.from).toLocaleString('es-CO')}</div>`).join('')}</details>` : ''}
+        ${gm.seeds.filter((x) => x.seed).length ? `<details><summary>Semillas reveladas (${gm.seeds.filter((x) => x.seed).length})</summary>${gm.seeds.filter((x) => x.seed).map((x) => `<div class="muted"><code>${esc(x.seed)}</code> · válida desde ${ago(x.from)}</div>`).join('')}</details>` : ''}
         ${can('alerts.configure') ? `<div class="row" style="margin-top:8px"><button class="ghost" data-rot="${esc(gm.id)}">Rotar semilla y revelar la anterior</button></div>` : ''}</div><br>`).join('')}
-      <div class="card scroll"><h3>Tienda de canjes</h3><p class="muted" style="margin-top:0">${esc(shop.coin_rate)}. El canje reserva saldo y stock a la vez; si la entrega falla (política o presupuesto), las monedas y el stock vuelven con asientos compensatorios.</p>
+      <div class="card scroll"><h2>Tienda de canjes</h2><p class="muted" style="margin-top:0">${esc(shop.coin_rate)}. El canje reserva saldo y stock a la vez; si la entrega falla (política o presupuesto), las monedas y el stock vuelven con asientos compensatorios.</p>
         <table><tr><th>Artículo</th><th>Entrega</th><th class="num">Precio</th><th class="num">Stock</th><th class="num">Canjes</th><th class="num">Reembolsos</th><th class="num">Límite</th></tr>
         ${shop.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${i.reward.reward_id ? lbl(i.reward.reward_id) : i.reward.xp ? int(i.reward.xp) + ' XP' : 'físico: ' + esc(i.reward.physical)}</td><td class="num">${int(i.price_coins)} monedas</td><td class="num ${i.stock === 0 ? 'bad' : i.stock < 5 ? 'warn' : ''}">${int(i.stock)}</td><td class="num">${int(i.redeemed)}</td><td class="num">${int(i.refunded)}</td><td class="num">${int(i.per_player_limit)} por jugador</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin artículos.</td></tr>'}</table></div><br>
-      <div class="card scroll"><h3>Predicciones</h3><table><tr><th>Predicción</th><th>Cierra</th><th>Elecciones</th><th>Premio</th><th>Estado</th><th></th></tr>
+      <div class="card scroll"><h2>Predicciones</h2><table><tr><th>Predicción</th><th>Cierra</th><th>Elecciones</th><th>Premio</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr>
         ${shop.predictions.map((x) => `<tr><td>${esc(x.name)}<br><span class="muted">${esc(x.question)}</span></td><td class="muted">${new Date(x.closes_at).toLocaleString('es-CO', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</td><td>${x.options.map((o) => `<span class="chip">${esc(o)}: ${int(x.distribution[o])}</span>`).join('')}</td><td>${x.reward.coins ? int(x.reward.coins) + ' monedas' : ''}${x.reward.xp ? ' ' + int(x.reward.xp) + ' XP' : ''}</td>
-          <td>${x.status === 'resolved' ? `Resuelta: <b>${esc(x.resolved_option)}</b> · ${int(x.payouts)} premios` : Date.parse(x.closes_at) > Date.now() ? '<span class="chip brand">Abierta</span>' : 'Cerrada, sin resolver'}</td>
-          <td class="num">${x.status === 'open' && Date.parse(x.closes_at) <= Date.now() && can('journeys.approve') ? x.options.map((o) => `<button class="ghost" data-pres="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join(' ') : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin predicciones.</td></tr>'}</table>
+          <td>${x.status === 'resolved' ? `Resuelta: <b>${esc(x.resolved_option)}</b> · ${int(x.payouts)} premios` : Date.parse(x.closes_at) > serverNow() ? '<span class="chip brand">Abierta</span>' : 'Cerrada, sin resolver'}</td>
+          <td class="num">${x.status === 'open' && Date.parse(x.closes_at) <= serverNow() && can('journeys.approve') ? x.options.map((o) => `<button class="ghost" data-pres="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join(' ') : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin predicciones.</td></tr>'}</table>
         <p class="muted">Gratis, sin apuesta. Una elección por jugador, inmutable, antes del cierre. La resuelve un aprobador; los pagos se hacen una vez y excluyen restricciones de juego responsable.</p></div><br>
-      <div class="card"><h3>Logros</h3><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
+      <div class="card"><h2>Logros</h2><div class="row">${g.badges.map((b) => `<span class="chip" title="${esc(b.description)}">${esc(b.name)}</span>`).join('')}</div><p class="muted">Insignias sin valor monetario; se otorgan una sola vez.</p></div>`;
   },
   async analytics() {
     const [rs, md, nb, ab, sp, chs, ji, srcq] = await Promise.all([api('/analytics/campaigns'), api('/models'), api('/nba/summary'), can('abuse.read') ? api('/risk/bonus-abuse') : null, api('/experiments/splits'), api('/channels/status'), api('/analytics/journey-impact'), can('performance.read') ? api('/analytics/sources') : null]);
     const f3 = (x) => x === null || x === undefined ? '—' : x.toLocaleString('es-CO', { maximumFractionDigits: 3, minimumFractionDigits: 3 });
-    const models = `<div class="card scroll"><h3>Modelos predictivos</h3>
+    const models = `<div class="card scroll"><h2>Modelos predictivos</h2>
       <p class="muted" style="margin-top:0">${md.notes.map(esc).join(' ')}</p>
       <table><tr><th>Modelo</th><th>Población</th><th class="num">Entrenamiento</th><th class="num">Validación</th><th class="num">AUC</th><th class="num">AUC base</th><th class="num">Brier</th><th>Variables con más peso</th></tr>
       ${md.models.map((m) => `<tr><td>${esc(m.label)}${m.usable ? '' : '<br><span class="warn">muestra insuficiente</span>'}</td><td class="muted">${esc(m.population)}</td><td class="num">${int(m.train.n)} <span class="muted">(${int(m.train.positives)} +)</span></td><td class="num">${int(m.validation.n)} <span class="muted">(${int(m.validation.positives)} +)</span></td>
@@ -983,11 +1085,11 @@ const VIEWS = {
       <tr><td>${esc(md.value.label)}</td><td class="muted">Jugadores con primer depósito</td><td class="num">—</td><td class="num">${int(md.value.validation.n)}</td><td class="num" colspan="2">MAE ${moneyC(md.value.validation.mae_minor)} <span class="muted">vs. base ${moneyC(md.value.validation.baseline_mae_minor)}</span></td><td></td><td class="muted">${esc(md.value.method)}</td></tr>
       </table>
       <div class="row" style="margin-top:12px"><span class="chip brand">${int(md.summary.high_churn)} con riesgo de abandono ≥ 60 %</span><span class="chip brand">${int(md.summary.vip_early)} VIP tempranos</span><span class="chip">${int(md.summary.not_promo_eligible)} no elegibles para promoción (juego responsable)</span><span class="muted">Usa <code>pred.churn</code>, <code>pred.deposit</code>, <code>pred.value_30d</code>, <code>pred.vip</code> y <code>pred.product</code> en Segmentos.</span></div></div><br>`;
-    const nbaCard = `<div class="card scroll"><h3>Mejor acción siguiente</h3><table><tr><th>Acción recomendada</th><th class="num">Jugadores</th><th class="num">Valor esperado</th><th></th></tr>
+    const nbaCard = `<div class="card scroll"><h2>Mejor acción siguiente</h2><table><tr><th>Acción recomendada</th><th class="num">Jugadores</th><th class="num">Valor esperado</th><th><span class="sr-only">Acciones</span></th></tr>
       ${nb.actions.map((a) => `<tr><td>${esc(a.label)}</td><td class="num">${int(a.players)}</td><td class="num">${moneyC(a.expected_value_minor)}</td><td class="num">${a.action === 'no_contact' || !can('segments.preview') ? '' : `<button class="ghost" data-nba='${esc(JSON.stringify({ field: 'nba.action', op: 'eq', value: a.action }))}'>Ver segmento</button>`}</td></tr>`).join('')}</table>
       <p class="muted">${esc(nb.note)} ${int(nb.with_blocked_candidates)} jugadores tenían alguna acción bloqueada por política (consentimiento, frecuencia, juego responsable), que nunca se recomienda.</p></div><br>`;
     const TIER = { ok: ['ok', 'Normal'], watch: ['warn', 'Vigilar'], high: ['bad', 'Alto'] };
-    const abuseCard = !ab ? '' : `<div class="card scroll"><h3>Abuso de bonos</h3>
+    const abuseCard = !ab ? '' : `<div class="card scroll"><h2>Abuso de bonos</h2>
       <div class="row"><span class="chip bad">${int(ab.tiers.high)} riesgo alto</span><span class="chip">${int(ab.tiers.watch)} vigilar</span><span class="chip">${int(ab.tiers.ok)} normales</span><span class="chip brand">${int(ab.tiers.valuable)} valiosos (bono escalable)</span>
         <span class="muted">${int(ab.held_grants)} bonos retenidos para revisión · ${int(ab.scaled_grants.down)} reducidos · ${int(ab.scaled_grants.up)} escalados</span>
         ${ab.tiers.high && can('segments.preview') ? `<button class="ghost" data-nba='${esc(JSON.stringify({ field: 'abuse.tier', op: 'eq', value: 'high' }))}'>Ver segmento</button>` : ''}</div>
@@ -1000,18 +1102,18 @@ const VIEWS = {
           ${can('abuse.review') ? `<button class="ghost" data-abr="${esc(a.player_id)}" data-st="cleared">Descartar</button> <button class="ghost" data-abr="${esc(a.player_id)}" data-st="confirmed">Confirmar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin jugadores marcados.</td></tr>'}</table>
       <p class="muted">${esc(ab.note)} Reglas ${esc(ab.rules.version)}; una revisión vale ${ab.rules.review_valid_days} días. Usa <code>abuse.tier</code> y <code>abuse.score</code> en Segmentos.</p></div><br>`;
     const PH = { fixed: 'Reparto fijo', warmup: 'Calentamiento', optimizing: 'Optimizando' };
-    const splitCard = !sp.splits.length ? '' : `<div class="card scroll"><h3>Experimentos A/B/n en recorridos</h3>${sp.splits.map((x) => `
+    const splitCard = !sp.splits.length ? '' : `<div class="card scroll"><h2>Experimentos A/B/n en recorridos</h2>${sp.splits.map((x) => `
       <div class="row"><b>${esc(x.journey)}</b><span class="chip">v${x.version} · ${esc(x.node)}</span><span class="chip brand">${PH[x.phase]}</span><span class="muted">conversión: ${esc(x.metric.event)} en ${x.metric.window_hours} h${x.mode === 'bandit' ? ` · exploración mínima ${x.min_explore_pct} %` : ''}</span></div>
       <table><tr><th>Variante</th><th class="num">Asignados</th><th class="num">Cerrados</th><th class="num">Conversiones</th><th class="num">Tasa (IC 95 %)</th><th class="num">Prob. de ser la mejor</th><th class="num">Reparto actual</th></tr>
       ${x.variants.map((v) => `<tr><td>${esc(v.label)}</td><td class="num">${int(v.assigned)}</td><td class="num">${int(v.decided)}</td><td class="num">${int(v.conversions)}</td>
         <td class="num">${v.rate === null ? '—' : `${pct(v.rate, 1)} <span class="muted">[${pct(v.ci95[0], 1)}; ${pct(v.ci95[1], 1)}]</span>`}</td><td class="num">${v.p_best === null ? '—' : pct(v.p_best, 0)}</td><td class="num">${pct(v.allocation, 0)}</td></tr>`).join('')}</table>
       <p>${esc(x.decision)}</p>`).join('')}<p class="muted">${esc(sp.note)}</p></div><br>`;
     const CHN = { inapp: 'In-app (bandeja)', email: 'Email', webpush: 'Push web', sms: 'SMS', whatsapp: 'WhatsApp', telegram: 'Telegram' };
-    const chCard = `<div class="card scroll"><h3>Canales de entrega</h3><table><tr><th>Canal</th><th class="num" title="Aceptados por el canal o el proveedor">Aceptados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
+    const chCard = `<div class="card scroll"><h2>Canales de entrega</h2><table><tr><th>Canal</th><th class="num" title="Aceptados por el canal o el proveedor">Aceptados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
       ${chs.channels.map((c) => `<tr><td>${esc(CHN[c.channel] ?? c.channel)}</td><td class="num">${int(c.accepted)}</td><td class="num">${int(c.failed)}</td><td class="num">${int(c.suppressed)}</td><td class="num">${int(c.deferred)}</td><td class="muted">${c.top_reasons.map((r) => `${lbl(r.reason)} (${int(r.n)})`).join(' · ')}</td></tr>`).join('')}</table>
       <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} mensajes en la bandeja, ${int(chs.inbox.read)} abiertos por el jugador (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Una apertura se cuenta cuando el jugador abre o archiva el mensaje en su bandeja. Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
     const JN = (n) => n === null || n === undefined ? '—' : `${n >= 0 ? '+' : '−'}${moneyC(Math.abs(n))}`;
-    const impactCard = `<div class="card scroll"><h3>Ranking de recorridos por impacto</h3><table><tr><th>#</th><th>Recorrido</th><th class="num">Tratados / control</th><th class="num">Depósito tras entrar</th><th class="num">NGR por jugador (trat. / ctrl.)</th><th class="num">Incremento por jugador (IC 95 %)</th><th class="num">Costo</th><th class="num">ROI</th></tr>
+    const impactCard = `<div class="card scroll"><h2>Ranking de recorridos por impacto</h2><table><tr><th>#</th><th>Recorrido</th><th class="num">Tratados / control</th><th class="num">Depósito tras entrar</th><th class="num">NGR por jugador (trat. / ctrl.)</th><th class="num">Incremento por jugador (IC 95 %)</th><th class="num">Costo</th><th class="num">ROI</th></tr>
       ${ji.journeys.map((r, i) => `<tr><td>${r.rank_score === null ? '—' : i + 1}</td><td>${esc(r.name)}${r.lift.note ? `<br><span class="warn">${esc(r.lift.note)}</span>` : ''}</td><td class="num">${int(r.treatment.n)} / ${int(r.control.n)}${r.maturing ? `<br><span class="muted">${int(r.maturing)} madurando</span>` : ''}</td>
         <td class="num">${pct(r.treatment.deposit_rate, 0)} / ${r.control.n ? pct(r.control.deposit_rate, 0) : '—'}</td><td class="num">${moneyC(r.treatment.ngr_per_player_minor)} / ${r.control.n ? moneyC(r.control.ngr_per_player_minor) : '—'}</td>
         <td class="num"><b class="${r.lift.ngr_ci95_minor && r.lift.ngr_ci95_minor[0] > 0 ? 'ok' : r.lift.ngr_ci95_minor && r.lift.ngr_ci95_minor[1] < 0 ? 'bad' : ''}">${JN(r.lift.ngr_per_player_minor)}</b>${r.lift.ngr_ci95_minor ? `<br><span class="muted">[${JN(r.lift.ngr_ci95_minor[0])}; ${JN(r.lift.ngr_ci95_minor[1])}]</span>` : ''}</td>
@@ -1019,27 +1121,29 @@ const VIEWS = {
       ${ji.rewards.length ? `<p><b>Recompensas:</b> ${ji.rewards.map((w) => `${lbl(w.reward_id)}: ${w.ngr_per_cost === null ? 'sin medición' : `${w.ngr_per_cost >= 0 ? '+' : '−'}$${num(Math.abs(w.ngr_per_cost), 2)} de NGR incremental por cada $1 de bono`}${w.reliable ? '' : ' (muestra insuficiente)'}`).join(' · ')}</p>` : ''}
       <p class="muted">${esc(ji.note)} Verde: el intervalo está por encima de cero; rojo: por debajo. El orden descuenta la incertidumbre.</p></div><br>`;
     const VD = { buena: ['ok', 'Buena'], vigilar: ['warn', 'Vigilar'], mala: ['bad', 'Mala'], sin_datos: ['muted', 'Sin datos'] };
-    const srcCard = !srcq ? '' : `<div class="card scroll"><h3>Calidad de fuentes de adquisición · ${srcq.days} días</h3><table><tr><th>Fuente</th><th class="num">Registros</th><th class="num">Primer depósito</th><th class="num">Valor previsto 30 d</th><th class="num">Activos a 7 d</th><th class="num">Abuso</th><th class="num">Riesgo JR</th><th class="num" title="Cohortes registradas en la ventana de esta tabla">Costo por FTD (${srcq.days} d)</th><th>Veredicto</th></tr>
+    const srcCard = !srcq ? '' : `<div class="card scroll"><h2>Calidad de fuentes de adquisición · ${srcq.days} días</h2><table><tr><th>Fuente</th><th class="num">Registros</th><th class="num">Primer depósito</th><th class="num">Valor previsto 30 d</th><th class="num">Activos a 7 d</th><th class="num">Abuso</th><th class="num">Riesgo JR</th><th class="num" title="Cohortes registradas en la ventana de esta tabla">Costo por FTD (${srcq.days} d)</th><th>Veredicto</th></tr>
       ${srcq.sources.map((s) => `<tr><td>${esc(s.name)}<br><span class="muted">${esc(s.channel)}</span></td><td class="num">${int(s.registrations)}</td><td class="num">${pct(s.ftd_rate, 0)}</td><td class="num">${s.predicted_value_30d_minor === null ? '—' : moneyC(s.predicted_value_30d_minor)}</td><td class="num">${s.d7_active_rate === null ? '—' : pct(s.d7_active_rate, 0)}</td><td class="num">${pct(s.abuse_share, 0)}</td><td class="num">${pct(s.rg_share, 0)}</td><td class="num">${s.cost_per_ftd_minor === null ? '—' : moneyC(s.cost_per_ftd_minor)}</td>
         <td><span class="${VD[s.verdict][0]}">${VD[s.verdict][1]}</span><br><span class="muted">${s.reasons.map(esc).join('; ')}</span></td></tr>`).join('')}</table>
       <p class="muted">Promedio del período: primer depósito ${pct(srcq.baseline.ftd_rate, 0)}, valor previsto ${srcq.baseline.predicted_value_30d_minor === null ? '—' : moneyC(srcq.baseline.predicted_value_30d_minor)}, activos a 7 días ${srcq.baseline.d7_active_rate === null ? '—' : pct(srcq.baseline.d7_active_rate, 0)}. ${esc(srcq.note)}</p></div><br>`;
-    return `${models}${impactCard}${srcCard}${nbaCard}${chCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control (depósito en 14 días tras entrar)</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
+    return `${models}${impactCard}${srcCard}${nbaCard}${chCard}${splitCard}${abuseCard}<div class="card scroll"><h2>Tratamiento vs. control (depósito en 14 días tras entrar)</h2><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
       ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td class="num">${int(r.treatment.conversions)}/${int(r.treatment.n)}</td><td class="num">${r.control.n ? `${int(r.control.conversions)}/${int(r.control.n)}` : '—'}</td><td class="num">${pct(r.observed_conversion)}</td>
         <td>${r.estimated_lift.absolute === null ? '—' : `${pp(r.estimated_lift.absolute)} [${pp(r.estimated_lift.ci95[0])}; ${pp(r.estimated_lift.ci95[1])}]`}${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
   },
   async loyalty() {
     const list = await api('/players?sort=recent');
-    return `<div class="row"><label>Jugador <select id="lp">${list.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label></div><div id="lout"></div>`;
+    // campo con búsqueda (sugiere al escribir) en vez de un selector con cientos de ids; #lp guarda el jugador elegido
+    return `<div class="row"><label>Jugador <input id="lpq" list="lplist" autocomplete="off" placeholder="Escribe parte del id" value="${esc(list[0]?.player_id ?? '')}"></label><datalist id="lplist">${list.map((p) => `<option value="${esc(p.player_id)}"></option>`).join('')}</datalist>
+      <select id="lp" hidden aria-hidden="true" tabindex="-1">${list.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select><span id="lpmsg" class="muted" role="status"></span></div><div id="lout"></div>`;
   },
   async copilot() {
     const tools = await api('/copilot/tools');
-    return `<div class="card"><h3>Herramientas disponibles para tu rol</h3>${tools.map((t) => `<span class="chip">${esc(t.name)}</span>`).join('') || '<span class="muted">Ninguna</span>'}
+    return `<div class="card"><h2>Herramientas disponibles para tu rol</h2>${tools.map((t) => `<span class="chip">${esc(t.name)}</span>`).join('') || '<span class="muted">Ninguna</span>'}
       <p class="muted">Solo lectura de agregados y borradores. Sin permisos para enviar, publicar, otorgar premios ni cambiar restricciones.</p>
       ${SESSION.copilot_ask ? '<div class="row"><input id="q" style="flex:1; min-width:0" placeholder="Pregunta en lenguaje natural"><button id="ask">Preguntar</button></div>' : '<p class="muted">Las preguntas en lenguaje natural (Claude) se habilitan en el servidor con credenciales de Anthropic. Aquí puedes ejecutar las herramientas directamente.</p>'}
-      <h3>Llamada directa a herramienta</h3>
-      <div class="row"><select id="tool">${tools.map((t) => `<option>${esc(t.name)}</option>`).join('')}</select></div>
-      <textarea id="tin" rows="5">{"metric": "kyc_verified_rate"}</textarea>
+      <h2>Llamada directa a herramienta</h2>
+      <div class="row"><label>Herramienta <select id="tool">${tools.map((t) => `<option>${esc(t.name)}</option>`).join('')}</select></label></div>
+      <textarea id="tin" rows="5" aria-label="Parámetros de la herramienta (JSON)">{"metric": "kyc_verified_rate"}</textarea>
       <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
   },
   async policies() {
@@ -1047,18 +1151,18 @@ const VIEWS = {
     const F = { channels_enabled: 'Canales habilitados', max_marketing_per_day: 'Máx. marketing al día', max_marketing_per_week: 'Máx. marketing por semana', quiet_hours: 'Horario silencioso', incentives_allowed: 'Incentivos permitidos', require_kyc_for_incentives: 'KYC para incentivos', rg_feed_max_staleness_ms: 'Antigüedad máx. del feed JR' };
     const fname = (f) => f.startsWith('max_marketing_per_day_by_channel.') ? `Máx. diario por ${f.split('.')[1]}` : F[f] ?? f;
     const fval = (f, v) => v === null || v === undefined ? '—' : f === 'quiet_hours' ? `${v.start}:00–${v.end}:00` : f === 'rg_feed_max_staleness_ms' ? `${Math.round(v / 60000)} min` : typeof v === 'boolean' ? (v ? 'sí' : 'no') : Array.isArray(v) ? v.join(', ') : String(v);
-    const cards = d.policies.map((p) => `<div class="card"><h3>${esc(p.market)} · ${esc(p.brand_id)} <span class="chip brand">${esc(p.version)}</span>${p.pending ? ` <span class="chip warn">${p.pending} propuesta(s) pendiente(s)</span>` : ''}</h3>
+    const cards = d.policies.map((p) => `<div class="card"><h2>${esc(p.market)} · ${esc(p.brand_id)} <span class="chip brand">${esc(p.version)}</span>${p.pending ? ` <span class="chip warn">${p.pending} propuesta(s) pendiente(s)</span>` : ''}</h2>
       <table>${['channels_enabled', 'max_marketing_per_day', 'max_marketing_per_week', 'quiet_hours', 'incentives_allowed', 'require_kyc_for_incentives', 'rg_feed_max_staleness_ms'].map((f) => `<tr><th>${esc(F[f])}</th><td>${esc(fval(f, p[f]))}</td></tr>`).join('')}
       <tr><th>Máx. diario por canal</th><td>${Object.entries(p.max_marketing_per_day_by_channel ?? {}).map(([c, n]) => `${esc(c)} ${n}`).join(' · ') || '—'}</td></tr></table>
       <p class="muted">${p.history.length ? `Versiones aprobadas: ${p.history.map((h) => `${esc(h.version)} (${esc(h.approved_by)}, ${new Date(h.at).toLocaleDateString('es-CO')})`).join(' · ')}` : 'Versión inicial de la configuración.'}</p>
       ${can('policy.propose') ? `<button class="ghost" data-pedit="${esc(p.market)}">Proponer cambios</button>` : ''}</div>`).join('<br>');
     const ST = { pending: ['warn', 'Pendiente'], approved: ['ok', 'Aprobada y aplicada'], rejected: ['bad', 'Rechazada'], superseded: ['muted', 'Obsoleta'] };
-    const props = `<div class="card scroll"><h3>Propuestas</h3>${d.proposals.map((x) => `<div style="margin-bottom:14px"><div class="row"><b>${esc(x.market)} · ${esc(x.proposed.version)}</b><span class="${ST[x.status][0]}">${ST[x.status][1]}</span><span class="muted">por ${esc(x.proposed_by)}${x.decided_by ? ` · decidió ${esc(x.decided_by)}` : ''}${x.base_version ? ` · sobre ${esc(x.base_version)}` : ' · mercado nuevo'}</span></div>
-        <table><tr><th>Campo</th><th>Antes</th><th>Después</th><th></th></tr>${x.changes.map((c) => `<tr><td>${esc(fname(c.field))}</td><td>${esc(fval(c.field.split('.')[0], c.from))}</td><td>${esc(fval(c.field.split('.')[0], c.to))}</td><td>${c.loosens ? '<span class="warn">Relaja una protección</span>' : ''}</td></tr>`).join('')}</table>
+    const props = `<div class="card scroll"><h2>Propuestas</h2>${d.proposals.map((x) => `<div style="margin-bottom:14px"><div class="row"><b>${esc(x.market)} · ${esc(x.proposed.version)}</b><span class="${ST[x.status][0]}">${ST[x.status][1]}</span><span class="muted">por ${esc(x.proposed_by)}${x.decided_by ? ` · decidió ${esc(x.decided_by)}` : ''}${x.base_version ? ` · sobre ${esc(x.base_version)}` : ' · mercado nuevo'}</span></div>
+        <table><tr><th>Campo</th><th>Antes</th><th>Después</th><th><span class="sr-only">Acciones</span></th></tr>${x.changes.map((c) => `<tr><td>${esc(fname(c.field))}</td><td>${esc(fval(c.field.split('.')[0], c.from))}</td><td>${esc(fval(c.field.split('.')[0], c.to))}</td><td>${c.loosens ? '<span class="warn">Relaja una protección</span>' : ''}</td></tr>`).join('')}</table>
         ${x.justification ? `<div class="muted">Justificación: ${esc(x.justification)}</div>` : ''}${x.reject_reason ? `<div class="bad">Rechazo: ${esc(x.reject_reason)}</div>` : ''}
         ${x.status === 'pending' && can('journeys.approve') ? `<div class="row"><button data-pok="${esc(x.id)}">Aprobar y aplicar</button><input id="prr-${esc(x.id)}" placeholder="Motivo del rechazo" size="24"><button class="ghost" data-pno="${esc(x.id)}">Rechazar</button></div>` : ''}</div>`).join('') || '<p class="muted">Sin propuestas.</p>'}
       <p class="muted">${esc(d.note)}</p></div>`;
-    const form = !can('policy.propose') ? '' : `<div class="card" id="pform" style="display:none"><h3>Proponer cambios · <span id="pfm"></span></h3>
+    const form = !can('policy.propose') ? '' : `<div class="card" id="pform" style="display:none"><h2>Proponer cambios · <span id="pfm"></span></h2>
       <div class="row"><label>Mercado <input id="pf_market" size="3" maxlength="2"></label><label>Máx. al día <input id="pf_day" type="number" min="0" max="10" size="3"></label><label>Máx. por semana <input id="pf_week" type="number" min="0" max="50" size="3"></label>
         <label>Silencio desde <input id="pf_qs" type="number" min="0" max="23" size="3"></label><label>hasta <input id="pf_qe" type="number" min="0" max="23" size="3"></label><label>Feed JR máx. (min) <input id="pf_stale" type="number" min="15" max="1440" size="5"></label></div>
       <div class="row">${d.channels.map((c) => `<label><input type="checkbox" data-pfch="${c}"> ${esc(c)}</label><input type="number" min="0" max="10" data-pfcap="${c}" size="2" aria-label="Máx. diario ${esc(c)}">`).join('')}</div>
@@ -1071,7 +1175,7 @@ const VIEWS = {
     const [d, cat] = await Promise.all([api('/content/drafts'), can('journeys.draft') ? api('/journeys/builder') : null]);
     const ST = { draft: ['', 'Borrador'], pending_approval: ['warn', 'Pendiente de aprobación'], approved: ['ok', 'Aprobado: plantilla creada'], rejected: ['bad', 'Rechazado'] };
     const LOC = { es: 'Español', en: 'Inglés', pt: 'Portugués' };
-    const form = !can('journeys.draft') ? '' : `<div class="card"><h3>Pedir un borrador ${d.ai_enabled ? '<span class="chip brand">Claude</span>' : '<span class="chip">Texto base (sin IA)</span>'}</h3>
+    const form = !can('journeys.draft') ? '' : `<div class="card"><h2>Pedir un borrador ${d.ai_enabled ? '<span class="chip brand">Claude</span>' : '<span class="chip">Texto base (sin IA)</span>'}</h2>
       <div class="row"><label>Clave de plantilla <input id="ctkey" value="fin_de_semana_puntos" size="22"></label>
         <label>Propósito <select id="ctpur"><option value="marketing">Marketing</option><option value="service">Servicio</option></select></label>
         <label>Tono <select id="cttone"><option>cercano</option><option>formal</option><option>entusiasta</option></select></label>
@@ -1082,15 +1186,15 @@ const VIEWS = {
     const issues = (x) => x.moderation.length ? `<ul class="issues">${x.moderation.map((i) => `<li class="${i.severity === 'block' ? 'error' : 'warning'}">${i.severity === 'block' ? 'Bloquea' : 'Revisar'} · ${esc(LOC[i.locale] ?? i.locale ?? '')}${i.field ? ' ' + esc(i.field) : ''}: ${esc(i.message)}</li>`).join('')}</ul>` : '<p class="ok">Moderación sin observaciones.</p>';
     const editable = (x) => (x.status === 'draft' || x.status === 'rejected') && can('journeys.draft');
     const draftCard = (x) => `<div class="card" style="margin-bottom:12px"><div class="row" style="justify-content:space-between"><b>${esc(x.brief.key)}</b><span class="${ST[x.status][0]}">${ST[x.status][1]}</span></div>
-      <div class="muted">${esc(x.brief.goal)} · ${x.brief.purpose === 'service' ? 'servicio' : 'marketing'} · ${x.source === 'claude' ? `escrito por ${esc(x.model ?? 'Claude')}` : 'texto base sin IA'} · ${new Date(x.created_at).toLocaleString('es-CO')}${x.reject_reason ? ` · rechazo: ${esc(x.reject_reason)}` : ''}</div>
+      <div class="muted">${esc(x.brief.goal)} · ${x.brief.purpose === 'service' ? 'servicio' : 'marketing'} · ${x.source === 'claude' ? `escrito por ${esc(x.model ?? 'Claude')}` : 'texto base sin IA'} · ${ago(x.created_at)}${x.reject_reason ? ` · rechazo: ${esc(x.reject_reason)}` : ''}</div>
       ${Object.entries(x.texts).map(([l, t]) => `<div style="margin-top:8px"><b>${esc(LOC[l] ?? l)}</b>
         ${editable(x) ? `<input data-ce="${esc(x.id)}" data-l="${l}" data-f="subject" value="${esc(t.subject ?? '')}" style="width:100%;margin:4px 0" aria-label="Asunto ${l}"><textarea data-ce="${esc(x.id)}" data-l="${l}" data-f="body" rows="3" aria-label="Texto ${l}">${esc(t.body)}</textarea>${t.sms !== undefined ? `<input data-ce="${esc(x.id)}" data-l="${l}" data-f="sms" value="${esc(t.sms)}" style="width:100%;margin-top:4px" aria-label="SMS ${l}">` : ''}`
           : `<div><i>${esc(t.subject ?? '')}</i></div><div>${esc(t.body)}</div>${t.sms ? `<div class="muted">SMS: ${esc(t.sms)}</div>` : ''}`}</div>`).join('')}
       ${issues(x)}
       <div class="row">${editable(x) ? `<button class="ghost" data-csave="${esc(x.id)}">Guardar cambios y revisar</button>` : ''}${x.status === 'draft' && can('journeys.submit') ? `<button data-csub="${esc(x.id)}">Enviar a aprobación</button>` : ''}
         ${x.status === 'pending_approval' && can('journeys.approve') ? `<button data-cok="${esc(x.id)}">Aprobar y crear plantilla</button><input id="crr-${esc(x.id)}" placeholder="Motivo del rechazo" size="22"><button class="ghost" data-cno="${esc(x.id)}">Rechazar</button>` : ''}</div></div>`;
-    const tpls = cat ? `<div class="card scroll"><h3>Plantillas disponibles</h3><table><tr><th>Clave</th><th>Asunto</th><th>Tipo</th></tr>${cat.templates.map((t) => `<tr><td>${esc(t.key)}</td><td>${esc(t.subject)}</td><td>${t.purpose === 'service' ? 'servicio' : 'promocional'}</td></tr>`).join('')}</table></div>` : '';
-    return `${form}<h3>Borradores</h3>${d.drafts.map(draftCard).join('') || '<p class="muted">Aún no hay borradores.</p>'}<br>${tpls}`;
+    const tpls = cat ? `<div class="card scroll"><h2>Plantillas disponibles</h2><table><tr><th>Clave</th><th>Asunto</th><th>Tipo</th></tr>${cat.templates.map((t) => `<tr><td>${esc(t.key)}</td><td>${esc(t.subject)}</td><td>${t.purpose === 'service' ? 'servicio' : 'promocional'}</td></tr>`).join('')}</table></div>` : '';
+    return `${form}<h2>Borradores</h2>${d.drafts.map(draftCard).join('') || '<p class="muted">Aún no hay borradores.</p>'}<br>${tpls}`;
   },
   async onsite() {
     const [d, players] = await Promise.all([api('/onsite/campaigns'), api('/players?sort=recent')]);
@@ -1104,15 +1208,15 @@ const VIEWS = {
       return '';
     };
     const rule = (r) => r.op === 'in' ? `${r.field} ∈ ${r.value.join(', ')}` : `${r.field} ${r.op} ${r.value}`;
-    const list = `<div class="card scroll"><h3>Campañas en el sitio</h3><table><tr><th>Ubicación</th><th>Campaña</th><th>Para quién</th><th class="num">Prioridad</th><th>Estado</th><th class="num">Impresiones</th><th class="num">Jugadores</th><th class="num">Clics (CTR)</th><th class="num">Descartes</th><th></th></tr>
-      ${d.campaigns.map((c) => `<tr><td>${esc(PL[c.placement])}</td><td><b>${esc(c.name)}</b><div class="muted">${esc(c.content.es.title)} · ${c.purpose === 'service' ? 'servicio' : 'marketing'}</div></td><td class="muted">${esc(rule(c.rules))}</td><td class="num">${c.priority}</td>
+    const list = `<div class="card scroll"><h2>Campañas en el sitio</h2><table><tr><th>Ubicación</th><th>Campaña</th><th>Para quién</th><th class="num">Prioridad</th><th>Estado</th><th class="num">Impresiones</th><th class="num">Jugadores</th><th class="num">Clics (CTR)</th><th class="num">Descartes</th><th><span class="sr-only">Acciones</span></th></tr>
+      ${d.campaigns.map((c) => `<tr><td>${esc(PL[c.placement])}</td><td><b>${esc(c.name)}</b><div class="muted">${esc(c.content.es.title)} · ${c.purpose === 'service' ? 'servicio' : 'marketing'}</div></td><td class="muted">${esc(c.rules_text ?? rule(c.rules))}<details class="tech"><summary>Ver detalle técnico</summary><code>${esc(rule(c.rules))}</code></details></td><td class="num">${c.priority}</td>
         <td><span class="${ST[c.status][0]}">${ST[c.status][1]}</span>${c.status === 'active' && !c.live ? ' <span class="muted">(fuera de vigencia)</span>' : ''}</td><td class="num">${int(c.stats.impressions)}</td><td class="num">${int(c.stats.unique_players)}</td>
         <td class="num">${int(c.stats.clicks)} <span class="muted">(${c.stats.ctr === null ? '—' : pct(c.stats.ctr, 1)})</span></td><td class="num">${int(c.stats.dismisses)}</td><td class="num">${act(c)}</td></tr>`).join('') || '<tr><td colspan="10" class="muted">Sin campañas.</td></tr>'}</table>
       <p class="muted">${esc(d.note)}</p></div><br>`;
-    const preview = `<div class="card"><h3>Vista previa por jugador</h3><div class="row"><label>Jugador <select id="osp">${players.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label>
+    const preview = `<div class="card"><h2>Vista previa por jugador</h2><div class="row"><label>Jugador <select id="osp">${players.map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label>
       <label>Ubicación <select id="ospl">${d.placements.map((x) => `<option value="${x}">${esc(PL[x])}</option>`).join('')}</select></label><button class="ghost" id="osgo">Ver qué se muestra</button></div><div id="osout"></div></div><br>`;
-    const today = new Date(), plus = new Date(Date.now() + 14 * 864e5);
-    const form = !can('journeys.draft') ? '' : `<div class="card"><h3>Nueva campaña</h3>
+    const today = new Date(), plus = new Date(serverNow() + 14 * 864e5);
+    const form = !can('journeys.draft') ? '' : `<div class="card"><h2>Nueva campaña</h2>
       <div class="row"><label>Identificador <input id="osid" value="promo_${today.getDate()}" size="14"></label><label>Nombre <input id="osname" value="Recarga de fin de semana" size="24"></label>
         <label>Ubicación <select id="osplace">${d.placements.map((x) => `<option value="${x}">${esc(PL[x])}</option>`).join('')}</select></label>
         <label>Propósito <select id="ospur"><option value="marketing">Marketing</option><option value="service">Servicio</option></select></label>
@@ -1130,13 +1234,13 @@ const VIEWS = {
     const OUT = { contacted: 'Contactado', limits_suggested: 'Límites sugeridos', escalated_to_rg: 'Escalado a restricción en SS1', no_action: 'Sin acción' };
     const ST = { open: ['bad', 'Abierto'], in_review: ['warn', 'En gestión'], closed: ['ok', 'Cerrado'] };
     return `<div class="kpis"><div class="kpi-card"><div class="lbl">Casos abiertos</div><div class="val">${int(S.open)}</div></div><div class="kpi-card"><div class="lbl">Riesgo alto</div><div class="val bad">${int(S.high)}</div></div><div class="kpi-card"><div class="lbl">Riesgo medio</div><div class="val">${int(S.medium)}</div></div><div class="kpi-card"><div class="lbl">En gestión</div><div class="val">${int(S.in_review)}</div></div><div class="kpi-card"><div class="lbl">Cerrados</div><div class="val">${int(S.closed)}</div></div></div><br>
-      <div class="card"><h3>Señales en casos abiertos</h3><div class="row">${r.signals.map((x) => `<span class="chip">${esc(x.label)}: <b>${int(x.cases)}</b></span>`).join('') || '<span class="muted">—</span>'}</div>
+      <div class="card"><h2>Señales en casos abiertos</h2><div class="row">${r.signals.map((x) => `<span class="chip">${esc(x.label)}: <b>${int(x.cases)}</b></span>`).join('') || '<span class="muted">—</span>'}</div>
         <p class="muted">Intervenciones automáticas: ${int(r.interventions.started)} recorridos iniciados, ${int(r.interventions.messages_accepted)} mensajes de herramientas de control enviados${r.interventions.messages_not_sent ? `, ${int(r.interventions.messages_not_sent)} no enviados (horario o canal)` : ''}. ${int(S.marketing_on_hold)} jugadores con marketing e incentivos en pausa.</p></div><br>
-      <div class="card scroll"><h3>Cola de casos</h3>
+      <div class="card scroll"><h2>Cola de casos</h2>
         ${can('rg.act') ? `<div class="row"><label>Resultado <select id="rgout">${Object.entries(OUT).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label><input id="rgnote" style="flex:1; min-width:0" placeholder="Nota de la gestión (obligatoria, queda en la auditoría)"></div>` : ''}
-        <table><tr><th>Jugador</th><th>Nivel</th><th class="num">Puntaje</th><th>Señales</th><th>Abierto</th><th>Estado</th><th></th></tr>
+        <table><tr><th>Jugador</th><th>Nivel</th><th class="num">Puntaje</th><th>Señales</th><th>Abierto</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr>
         ${r.cases.map((c) => `<tr><td>${esc(c.player_id)}</td><td><span class="${c.level === 'high' ? 'bad' : 'warn'}">${c.level === 'high' ? 'Alto' : 'Medio'}</span></td><td class="num">${c.score}</td>
-          <td>${c.signals.map((x) => `<div><b>${esc(x.label)}</b> <span class="muted">${esc(x.detail)}</span></div>`).join('')}</td><td class="muted">${new Date(c.opened_at).toLocaleString('es-CO')}</td>
+          <td>${c.signals.map((x) => `<div><b>${esc(x.label)}</b> <span class="muted">${esc(x.detail)}</span></div>`).join('')}</td><td class="muted">${ago(c.opened_at)}</td>
           <td><span class="${ST[c.status][0]}">${ST[c.status][1]}</span>${c.assignee ? ` <span class="muted">${esc(c.assignee)}</span>` : ''}${c.outcome ? `<br><span class="muted">${esc(OUT[c.outcome])}: ${esc(c.notes.at(-1)?.text ?? '')}</span>` : ''}</td>
           <td class="num">${can('rg.act') && c.status !== 'closed' ? `${c.status === 'open' ? `<button class="ghost" data-rgtake="${esc(c.case_id)}">Tomar</button> ` : ''}<button class="ghost" data-rgclose="${esc(c.case_id)}">Cerrar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin casos.</td></tr>'}</table>
         <p class="muted">${esc(r.note)} Reglas ${esc(r.rules.version)}: ≥ ${r.rules.velocity_count_24h} depósitos en 24 h, redepósito en ≤ ${r.rules.chase_minutes} min tras perder ≥ ${Math.round(r.rules.chase_loss_share * 100)} %, juego entre ${r.rules.night_from}:00 y ${r.rules.night_to}:00 en ≥ ${r.rules.night_days_7d} de 7 días, apuesta media ≥ ${r.rules.stake_multiple}× la habitual.</p></div>`;
@@ -1147,24 +1251,24 @@ const VIEWS = {
     const ST = { active: ['ok', 'Activa'], paused: ['warn', 'En pausa'], disabled: ['bad', 'Desactivada por fallos'] };
     const DS = { delivered: ['ok', 'Entregada'], pending: ['warn', 'Pendiente'], failed: ['bad', 'Rechazada'], dead: ['bad', 'Agotó reintentos'] };
     const admin = can('integration.sync');
-    const subs = `<div class="card scroll"><h3>Webhooks salientes</h3><table><tr><th>Destino</th><th>Eventos</th><th>Estado</th><th class="num">Entregadas</th><th class="num">Pendientes</th><th class="num">Fallidas</th><th></th></tr>
+    const subs = `<div class="card scroll"><h2>Webhooks salientes</h2><table><tr><th>Destino</th><th>Eventos</th><th>Estado</th><th class="num">Entregadas</th><th class="num">Pendientes</th><th class="num">Fallidas</th><th><span class="sr-only">Acciones</span></th></tr>
       ${w.subscriptions.map((s) => `<tr><td>${esc(s.url)}<br><span class="muted">${esc(s.description || s.id)} · secreto ${esc(s.secret_hint)}</span></td><td>${s.events.map((e) => `<span class="chip">${esc(EV[e] ?? e)}</span>`).join(' ')}</td><td><span class="${ST[s.status][0]}">${ST[s.status][1]}</span></td>
         <td class="num">${int(s.deliveries.delivered)}</td><td class="num">${int(s.deliveries.pending)}</td><td class="num">${int(s.deliveries.failed + s.deliveries.dead)}</td>
         <td class="num">${admin ? `${s.status === 'active' ? `<button class="ghost" data-wha="pause" data-whid="${esc(s.id)}">Pausar</button>` : `<button class="ghost" data-wha="resume" data-whid="${esc(s.id)}">Reactivar</button>`} <button class="ghost" data-wha="rotate" data-whid="${esc(s.id)}">Rotar secreto</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin suscripciones.</td></tr>'}</table>
       <p class="muted">${esc(w.note)}</p>${admin ? '<div class="row"><button class="ghost" id="whsend">Enviar pendientes ahora</button></div>' : ''}</div><br>`;
-    const form = !admin ? '' : `<div class="card"><h3>Nueva suscripción</h3><div class="row"><label>URL https <input id="whurl" size="40" value="https://hooks.syssoft1.com/crm"></label><label>Descripción <input id="whdesc" size="24" value="Backoffice SS1"></label></div>
+    const form = !admin ? '' : `<div class="card"><h2>Nueva suscripción</h2><div class="row"><label>URL https <input id="whurl" size="40" value="https://hooks.syssoft1.com/crm"></label><label>Descripción <input id="whdesc" size="24" value="Backoffice SS1"></label></div>
       <div class="row">${w.events.map((e) => `<label><input type="checkbox" data-whev="${e}" ${['rg.case_opened', 'reward.confirmed'].includes(e) ? 'checked' : ''}> ${esc(EV[e] ?? e)}</label>`).join('')}</div>
       <div class="row"><button id="whcreate">Crear</button></div><div id="whout"></div></div><br>`;
-    const recent = `<div class="card scroll"><h3>Entregas recientes</h3><table><tr><th>Fecha</th><th>Evento</th><th>Estado</th><th class="num">Intentos</th><th class="num">Última respuesta</th><th></th></tr>
-      ${w.recent.map((d) => `<tr><td>${new Date(d.created_at).toLocaleString('es-CO')}<br><span class="muted">${esc(d.id)}</span></td><td>${esc(EV[d.event] ?? d.event)}</td><td><span class="${DS[d.status][0]}">${DS[d.status][1]}</span>${d.status === 'pending' && d.attempts ? `<br><span class="muted">reintento ${new Date(d.next_at).toLocaleTimeString('es-CO')}</span>` : ''}</td><td class="num">${d.attempts}</td><td class="num">${d.last_status ?? '—'}</td>
+    const recent = `<div class="card scroll"><h2>Entregas recientes</h2><table><tr><th>Fecha</th><th>Evento</th><th>Estado</th><th class="num">Intentos</th><th class="num">Última respuesta</th><th><span class="sr-only">Acciones</span></th></tr>
+      ${w.recent.map((d) => `<tr><td>${ago(d.created_at)}<br><span class="muted">${esc(d.id)}</span></td><td>${esc(EV[d.event] ?? d.event)}</td><td><span class="${DS[d.status][0]}">${DS[d.status][1]}</span>${d.status === 'pending' && d.attempts ? `<br><span class="muted">reintento ${new Date(d.next_at).toLocaleTimeString('es-CO')}</span>` : ''}</td><td class="num">${d.attempts}</td><td class="num">${d.last_status ?? '—'}</td>
         <td class="num">${admin && (d.status === 'failed' || d.status === 'dead') ? `<button class="ghost" data-whr="${esc(d.id)}">Reintentar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin entregas todavía.</td></tr>'}</table>
       <p class="muted">Bus de eventos (en memoria hasta conectar Kafka/RabbitMQ): ${w.bus_topics.length ? w.bus_topics.map(esc).join(', ') : 'sin temas'}. En la demo, las URL que contienen «falla» simulan un receptor caído.</p></div>`;
     return form + subs + recent;
   },
   async audit() {
     const a = await api('/audit');
-    return `<div class="card scroll"><h3>Registro de auditoría <span class="chip ${a.chain_valid ? 'ok' : 'bad'}">cadena ${a.chain_valid ? 'íntegra' : 'alterada'}</span></h3>
-      <table><tr><th>#</th><th>Fecha</th><th>Actor</th><th>Acción</th><th>Sujeto</th><th>Detalle</th></tr>${a.entries.slice().reverse().map((e) => `<tr><td>${e.seq}</td><td>${new Date(e.at).toLocaleString('es-CO')}</td><td>${esc(e.actor)}</td><td>${esc(e.action)}</td><td>${esc(e.subject)}</td><td><code>${esc(JSON.stringify(e.details))}</code></td></tr>`).join('')}</table></div>`;
+    return `<div class="card scroll"><h2>Registro de auditoría <span class="chip ${a.chain_valid ? 'ok' : 'bad'}">cadena ${a.chain_valid ? 'íntegra' : 'alterada'}</span></h2>
+      <table><tr><th>#</th><th>Fecha</th><th>Actor</th><th>Acción</th><th>Sujeto</th><th>Detalle</th></tr>${a.entries.slice().reverse().map((e) => `<tr><td>${e.seq}</td><td>${ago(e.at)}</td><td>${esc(e.actor)}</td><td>${esc(e.action)}</td><td>${esc(e.subject)}</td><td><code>${esc(JSON.stringify(e.details))}</code></td></tr>`).join('')}</table></div>`;
   },
 };
 
@@ -1195,53 +1299,101 @@ const BIND = {
     };
   },
   profile() {
+    const narrow = () => window.matchMedia('(max-width: 760px)').matches;
+    const closeDetail = () => { const was = PROFILE.open; document.body.classList.remove('pdetail-open'); PROFILE.open = null; setRoute({ player: null }); renderList(); const back = was && document.querySelector(`[data-p="${CSS.escape(was)}"]`); (back || $('#pq')).focus(); };
+    /** muestra el panel del perfil: al lado en escritorio, a pantalla completa en móvil; el foco va al título */
+    const reveal = () => {
+      if (narrow()) document.body.classList.add('pdetail-open');
+      else $('#pdetail').scrollIntoView({ block: 'nearest' });
+      ($('#pdetail-h') ?? $('#pdetail')).focus({ preventScroll: !narrow() });
+    };
+    const backBtn = '<button type="button" class="ghost pback" id="pback">← Volver a la lista</button>';
+    const filtered = () => {
+      const q = $('#pq').value.trim().toLowerCase(), k = $('#pkyc').value, r = $('#prg').value, l = $('#plvl').value;
+      return PROFILE.list.filter((p) => (!q || p.player_id.toLowerCase().includes(q)) && (!k || p.kyc === k) && (!r || p.rg === r) && (!l || p.level === l));
+    };
+    const PAGE = 25;
+    const renderList = () => {
+      const rows = filtered(), pages = Math.max(1, Math.ceil(rows.length / PAGE));
+      PROFILE.page = Math.min(PROFILE.page, pages - 1);
+      const shown = rows.slice(PROFILE.page * PAGE, PROFILE.page * PAGE + PAGE);
+      const q = $('#pq').value.trim();
+      $('#pcount').textContent = `${plural(rows.length, 'jugador', 'jugadores')}${rows.length !== PROFILE.list.length ? ` de ${int(PROFILE.list.length)}` : ''}`;
+      $('#plist').innerHTML = rows.length ? `<div class="scroll"><table aria-labelledby="plist-h"><thead><tr><th scope="col">Jugador</th><th scope="col">KYC</th><th scope="col">Juego responsable</th><th scope="col">Nivel</th></tr></thead><tbody>
+          ${shown.map((p) => `<tr${PROFILE.open === p.player_id ? ' class="sel"' : ''}><td><a class="plink" href="${esc(routeHash({ ...ROUTE, tab: 'profile', player: p.player_id }))}" data-p="${esc(p.player_id)}"${PROFILE.open === p.player_id ? ' aria-current="true"' : ''}>${esc(p.player_id)}</a></td><td>${lbl(p.kyc)}</td><td class="${p.rg && p.rg !== 'none' ? 'bad' : ''}">${lbl(p.rg)}</td><td>${esc(p.level ?? '—')}</td></tr>`).join('')}</tbody></table></div>
+          ${pages > 1 ? `<nav class="pager" aria-label="Páginas de jugadores"><button type="button" class="ghost" id="pprev" ${PROFILE.page === 0 ? 'disabled' : ''}>Anterior</button><span>Página ${PROFILE.page + 1} de ${pages}</span><button type="button" class="ghost" id="pnext" ${PROFILE.page >= pages - 1 ? 'disabled' : ''}>Siguiente</button></nav>` : ''}`
+        : `<div class="notfound" role="status"><b>Ningún jugador coincide${q ? ` con «${esc(q)}»` : ''}.</b><p class="muted">Prueba con otra parte del identificador o quita filtros. Solo aparecen jugadores del tenant y la marca seleccionados.</p></div>`;
+      document.querySelectorAll('[data-p]').forEach((a) => a.onclick = (e) => { e.preventDefault(); open(a.dataset.p); });
+      if ($('#pprev')) $('#pprev').onclick = () => { PROFILE.page--; renderList(); $('#pprev')?.focus(); };
+      if ($('#pnext')) $('#pnext').onclick = () => { PROFILE.page++; renderList(); $('#pnext')?.focus(); };
+    };
     const open = async (id) => {
       // #6: aviso claro y sin dejar en pantalla al jugador anterior
-      if (!id) { $('#pdetail').innerHTML = '<p class="muted">Escribe un identificador de jugador para buscarlo.</p>'; $('#pq').focus(); return; }
+      if (!id) { $('#pq').focus(); return; }
+      PROFILE.open = id;
       let d;
       try { d = await api('/players/' + encodeURIComponent(id)); }
       catch (e) {
-        $('#pdetail').innerHTML = `<div class="notfound" role="alert"><h3>No encontramos al jugador «${esc(id)}»</h3><p class="muted">${e.data?.error === 'not_found' || /not.?found|no existe/i.test(e.message) ? 'Revisa el identificador seudonimizado o elige uno de la lista. Solo aparecen jugadores del tenant y la marca seleccionados.' : esc(e.message)}</p></div>`;
+        $('#pdetail').innerHTML = `${backBtn}<div class="notfound" role="alert"><h2 id="pdetail-h" tabindex="-1">No encontramos al jugador «${esc(id)}»</h2><p class="muted">${e.data?.error === 'not_found' || /not.?found|no existe/i.test(e.message) ? 'Revisa el identificador seudonimizado o elige uno de la lista. Solo aparecen jugadores del tenant y la marca seleccionados.' : esc(e.message)}</p></div>`;
+        if ($('#pback')) $('#pback').onclick = closeDetail;
+        reveal();
         return;
       }
-      setRoute({ player: id });
+      setRoute({ player: id }, ROUTE.player !== id);
+      renderList();
       const p = d.profile;
-      const f = (name, x, human = false) => `<tr><th>${name}</th><td>${human ? lbl(x.value) : esc(x.value)}</td><td class="muted">${esc(x.source)} · ${x.as_of ? new Date(x.as_of).toLocaleString('es-CO') : '—'} · v${x.version}</td></tr>`;
+      // valor arriba y procedencia (fuente · fecha · versión) como línea secundaria: no se recorta en pantallas angostas
+      const f = (name, x, human = false) => `<tr><th scope="row">${name}</th><td><span class="pv">${human ? lbl(x.value) : esc(x.value)}</span><span class="src" title="Fuente, fecha y versión del dato">${esc(x.source)} · ${x.as_of ? when(x.as_of) : '—'} · v${x.version}</span></td></tr>`;
       const ex = d.eligibility_explanation;
-      $('#pdetail').innerHTML = `<h3>${esc(p.player_id)} · ${esc(p.brand_id)}</h3>
-        <div class="scroll"><table>${f('Email', p.contact.email)}${f('KYC', p.kyc, true)}${f('Juego responsable', p.rg, true)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
+      $('#pdetail').innerHTML = `${backBtn}<h2 id="pdetail-h" tabindex="-1">${esc(p.player_id)} · ${esc(p.brand_id)}</h2>
+        <div class="scroll"><table class="psheet" aria-label="Datos del jugador">${f('Email', p.contact.email)}${f('KYC', p.kyc, true)}${f('Juego responsable', p.rg, true)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
         ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + label(k), { ...v, value: v.value === true || v.value === 'granted' ? 'Otorgado' : v.value === false || v.value === 'revoked' ? 'Retirado' : v.value })).join('')}</table></div>
-        <h3 style="margin-top:12px">Por qué recibe o no marketing</h3>
+        <h2 style="margin-top:12px">Por qué recibe o no marketing</h2>
         ${Object.entries(ex.marketing).map(([c, x]) => `<div><b>${esc(label(c))}</b>: <span class="${x.kind === 'allow' ? 'ok' : x.kind === 'defer' ? 'warn' : 'bad'}">${esc(label(x.kind))}</span> <span class="muted">${x.reasons.map(lbl).join(', ')} · política ${esc(x.policy_version)}</span></div>`).join('')}
         <div><b>Incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${esc(label(ex.incentive.kind))}</span> <span class="muted">${ex.incentive.reasons.map(lbl).join(', ')}</span></div>
-        <h3 style="margin-top:12px">Segmentación</h3>
+        <h2 style="margin-top:12px">Segmentación</h2>
         <div class="row"><span class="chip brand">${esc(d.segmentation.lifecycle.label)}</span>${d.segmentation.rfm ? `<span class="chip">RFM ${d.segmentation.rfm.r}-${d.segmentation.rfm.f}-${d.segmentation.rfm.m} · ${esc(d.segmentation.rfm.label)}</span><span class="muted">${d.segmentation.rfm.recency_days} d desde la última actividad · ${d.segmentation.rfm.frequency} depósitos · ${moneyC(d.segmentation.rfm.monetary_minor)}</span>` : '<span class="muted">Sin RFM: aún no deposita</span>'}</div>
         ${d.segmentation.persona ? `<div class="row"><span class="chip">Persona ${esc(d.segmentation.persona.id)}: ${esc(d.segmentation.persona.name)}</span></div>` : ''}
-        ${d.segmentation.nba ? `<h3 style="margin-top:12px">Mejor acción siguiente</h3>
+        ${d.segmentation.nba ? `<h2 style="margin-top:12px">Mejor acción siguiente</h2>
           <div class="row"><span class="chip brand">${esc(d.segmentation.nba.chosen.label)}</span>${d.segmentation.nba.chosen.expected_value_minor ? `<span class="muted">valor esperado ${moneyC(d.segmentation.nba.chosen.expected_value_minor)}</span>` : ''}<span class="muted">${esc(d.segmentation.nba.chosen.why)}</span></div>
           ${d.segmentation.nba.candidates.length > 1 ? `<div class="muted">Alternativas: ${d.segmentation.nba.candidates.filter((c) => c.action !== d.segmentation.nba.chosen.action).map((c) => `${esc(c.label)} (${c.allowed ? moneyC(c.expected_value_minor) : 'bloqueada: ' + esc((c.blocked_by ?? []).join(', '))})`).join(' · ')}</div>` : ''}
           <div class="muted">${esc(d.segmentation.nba.note)}</div>` : ''}
         ${(() => { const pr = d.segmentation.predictions; if (!pr) return ''; const P = (x) => x ? pct(x.p, 0) : '—';
-          return `<h3 style="margin-top:12px">Predicciones</h3>
+          return `<h2 style="margin-top:12px">Predicciones</h2>
           <div class="row">${pr.vip_early ? '<span class="chip brand">VIP temprano</span>' : ''}${pr.promo_eligible ? '' : '<span class="chip bad">No elegible para promoción (juego responsable)</span>'}
             <span class="chip">Abandono ${P(pr.churn)}</span><span class="chip">Depósito en 30 d ${P(pr.deposit)}</span><span class="chip">Valor 30 d ${moneyC(pr.value_30d_minor)}</span>
             ${pr.preferences.product ? `<span class="chip">Prefiere ${esc(pr.preferences.product)}${pr.preferences.daypart ? ' · ' + esc(pr.preferences.daypart) : ''}</span>` : ''}</div>
           ${pr.churn ? `<div class="muted">Por qué ese riesgo: ${pr.churn.reasons.map(esc).join(' · ')}</div>` : ''}`; })()}
-        ${d.rg_risk && (d.rg_risk.signals.length || d.rg_risk.cases.length) ? `<h3 style="margin-top:12px">Riesgo de juego</h3>
+        ${d.rg_risk && (d.rg_risk.signals.length || d.rg_risk.cases.length) ? `<h2 style="margin-top:12px">Riesgo de juego</h2>
           <div class="row"><span class="chip ${d.rg_risk.level === 'high' ? 'bad' : ''}">${d.rg_risk.level === 'high' ? 'Alto' : d.rg_risk.level === 'medium' ? 'Medio' : 'Sin señales ahora'} · ${d.rg_risk.score}/100</span>${d.rg_risk.cases.map((c) => `<span class="chip">Caso ${c.status === 'closed' ? 'cerrado' : 'abierto'} · ${new Date(c.opened_at).toLocaleDateString('es-CO')}</span>`).join('')}</div>
           ${d.rg_risk.signals.map((x) => `<div class="muted"><b>${esc(x.label)}</b>: ${esc(x.detail)}</div>`).join('')}` : ''}
-        ${d.bonus_abuse && (d.bonus_abuse.signals.length || d.bonus_abuse.valuable) ? `<h3 style="margin-top:12px">Abuso de bonos</h3>
+        ${d.bonus_abuse && (d.bonus_abuse.signals.length || d.bonus_abuse.valuable) ? `<h2 style="margin-top:12px">Abuso de bonos</h2>
           <div class="row"><span class="chip ${d.bonus_abuse.tier === 'high' ? 'bad' : d.bonus_abuse.tier === 'watch' ? '' : 'brand'}">${d.bonus_abuse.tier === 'high' ? 'Riesgo alto' : d.bonus_abuse.tier === 'watch' ? 'Vigilar' : 'Valioso'} · ${d.bonus_abuse.score}/100</span><span class="muted">Bono sugerido ×${d.bonus_abuse.multiplier}${d.bonus_abuse.review ? ' · revisión: ' + esc(d.bonus_abuse.review.status) : ''}</span></div>
           ${d.bonus_abuse.signals.map((x) => `<div class="muted"><b>${esc(x.label)}</b>: ${esc(x.detail)}</div>`).join('')}` : ''}
-        ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${int(d.loyalty.points)} pts · ${int(d.loyalty.percent_to_next)} % hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
-        <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${lbl(g.reward_id)} · ${lbl(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
-        <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(label(r.channel))} · ${lbl(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(label(r.status))}</span> <span class="muted">${r.reason ? lbl(r.reason) : ''}</span></div>`).join('') || '<span class="muted">—</span>'}
-        <h3 style="margin-top:12px">Línea de tiempo</h3><div class="scroll"><table>${p.timeline.map((t) => `<tr><td class="muted">${new Date(t.occurred_at).toLocaleString('es-CO')}</td><td>${lbl(t.event_type)}</td><td class="muted">${esc(t.source)}</td></tr>`).join('')}</table></div>`;
+        ${d.loyalty ? `<h2 style="margin-top:12px">Fidelidad</h2>${esc(d.loyalty.level)} · ${int(d.loyalty.points)} pts · ${int(d.loyalty.percent_to_next)} % hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
+        <h2 style="margin-top:12px">Recompensas</h2>${d.grants.map((g) => `<span class="chip">${lbl(g.reward_id)} · ${lbl(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
+        <h2 style="margin-top:12px">Mensajes</h2>${d.receipts.map((r) => `<div>${esc(label(r.channel))} · ${lbl(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(label(r.status))}</span> <span class="muted">${r.reason ? lbl(r.reason) : ''}</span></div>`).join('') || '<span class="muted">—</span>'}
+        <h2 style="margin-top:12px">Línea de tiempo</h2><div class="scroll"><table aria-label="Línea de tiempo del jugador">${p.timeline.map((t) => `<tr><td class="muted">${when(t.occurred_at)}</td><td>${lbl(t.event_type)}</td><td class="muted">${esc(t.source)}</td></tr>`).join('')}</table></div>`;
+      $('#pback').onclick = closeDetail;
+      reveal();
     };
-    document.querySelectorAll('[data-p]').forEach((a) => a.onclick = (e) => { e.preventDefault(); open(a.dataset.p); });
-    $('#pgo').onclick = () => open($('#pq').value.trim());
-    $('#pq').onkeydown = (e) => { if (e.key === 'Enter') open($('#pq').value.trim()); };
-    if (ROUTE.player) { $('#pq').value = ROUTE.player; open(ROUTE.player); }
+    PROFILE.page = 0;
+    const refilter = () => { PROFILE.page = 0; renderList(); };
+    $('#pq').oninput = refilter;
+    ['#pkyc', '#prg', '#plvl'].forEach((s) => $(s).onchange = refilter);
+    // Enter: si queda un solo resultado (o el texto es un id exacto) se abre; si no, el foco va a la lista
+    $('#pq').onkeydown = (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const q = $('#pq').value.trim(), rows = filtered();
+      const exact = rows.find((p) => p.player_id === q);
+      if (exact || rows.length === 1) open((exact ?? rows[0]).player_id);
+      else if (rows.length) document.querySelector('[data-p]')?.focus();
+      else if (q) open(q);
+    };
+    $('#pdetail').onkeydown = (e) => { if (e.key === 'Escape' && document.body.classList.contains('pdetail-open')) closeDetail(); };
+    renderList();
+    if (ROUTE.player) open(ROUTE.player);
   },
   segments() {
     document.querySelectorAll('[data-use]').forEach((b) => b.onclick = () => {
@@ -1252,7 +1404,7 @@ const BIND = {
       try {
         const excl = $('#excl').value.trim();
         const r = await api('/segments/preview', { method: 'POST', body: { rules: JSON.parse($('#rules').value), exclusions: excl ? JSON.parse(excl) : undefined } });
-        $('#segout').innerHTML = `<div class="grid" style="margin-top:10px"><div class="card"><h3>Tamaño</h3><div class="kpi">${r.size}</div></div><div class="card"><h3>Excluidos</h3><div class="kpi">${r.excluded}</div></div><div class="card"><h3>Universo</h3><div class="kpi">${r.universe}</div></div></div><p class="muted">Snapshot ${esc(r.snapshot_hash.slice(0, 12))}. La elegibilidad se revalida al ejecutar.</p>`;
+        $('#segout').innerHTML = `<div class="grid" style="margin-top:10px"><div class="card"><h2>Tamaño</h2><div class="kpi">${r.size}</div></div><div class="card"><h2>Excluidos</h2><div class="kpi">${r.excluded}</div></div><div class="card"><h2>Universo</h2><div class="kpi">${r.universe}</div></div></div><p class="muted">Snapshot ${esc(r.snapshot_hash.slice(0, 12))}. La elegibilidad se revalida al ejecutar.</p>`;
       } catch (e) { $('#segout').innerHTML = `<p class="bad">${esc(e.message)} ${esc(JSON.stringify(e.data?.errors ?? ''))}</p>`; }
     };
   },
@@ -1260,8 +1412,16 @@ const BIND = {
     document.querySelectorAll('[data-sim]').forEach((b) => b.onclick = async () => {
       const id = b.dataset.sim;
       const pid = document.querySelector(`[data-simp="${id}"]`).value;
-      const r = await api(`/journeys/${id}/simulate`, { method: 'POST', body: { player_id: pid, payload: { level: 'Plata', season: '2026-Q4', percent: 55, grant_id: 'sim', reward_type: 'free_spins', value: { amount_minor: 100000, currency: 'COP' }, expires_at: '2026-12-31T00:00:00Z' } } });
-      document.querySelector(`[data-simout="${id}"]`).innerHTML = `<pre class="trace">${esc(r.trace.map((s) => `${s.node.padEnd(14)} ${s.type.padEnd(12)} ${s.outcome}${s.decision ? '  ← ' + s.decision.reasons.join(',') : ''}`).join('\n'))}\n→ ${esc(r.status)} (sin efectos externos)</pre>`;
+      let r;
+      try { r = await api(`/journeys/${id}/simulate`, { method: 'POST', body: { player_id: pid } }); } // el servidor usa un ejemplo del disparador
+      catch (e) { flash(`No se pudo simular: ${e.message}`, 'bad'); return; }
+      const STEP = { enter: 'Entra', wait: 'Espera', condition: 'Condición', message: 'Mensaje', grant_reward: 'Recompensa', split: 'Prueba A/B/n', exit: 'Fin' };
+      const out = document.querySelector(`[data-simout="${id}"]`);
+      out.innerHTML = `<div class="simres" role="status" tabindex="-1"><b>Simulación con ${esc(pid)}</b> <span class="muted">(sin efectos externos: no se envía ni se otorga nada)</span>
+        <ol>${r.trace.map((s) => `<li>${esc(STEP[s.type] ?? s.type)} <span class="muted">${esc(s.node)}</span>: ${lbl(s.outcome)}${s.decision?.reasons?.length ? ` <span class="muted">· ${s.decision.reasons.map(lbl).join(', ')}</span>` : ''}</li>`).join('')}</ol>
+        <div>Resultado: <b>${lbl(r.status)}</b>${r.incentive ? ' · incluye un incentivo' : ''}</div></div>`;
+      flash(`Simulación lista: ${label(r.status)}. El resultado está debajo del recorrido.`, 'ok');
+      out.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); out.querySelector('.simres')?.focus({ preventScroll: true });
     });
     const act = (attr, action) => document.querySelectorAll(`[data-${attr}]`).forEach((b) => b.onclick = async () => {
       try { await api(`/journeys/${b.dataset[attr]}/${action}`, { method: 'POST', body: { reason: 'manual' } }); flash(action === 'pause' ? 'Recorrido en pausa: las instancias quedan esperando.' : 'Recorrido reanudado.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
@@ -1389,36 +1549,36 @@ const BIND = {
       $('#lout').innerHTML = `<div class="phone">
         <div class="row" style="justify-content:space-between"><span class="muted">RumbaWin · Temporada ${esc(l.season)}</span><button type="button" class="chip ${ib.unread ? 'brand' : ''}" onclick="document.getElementById('inbox').scrollIntoView({ behavior: 'smooth' })" aria-label="Bandeja: ${ib.unread} sin leer">🔔 ${ib.unread}</button></div>
         ${hb?.content ? `<div class="card" style="margin:8px 0;border-left:3px solid var(--brand)"><b>${esc(hb.content.title)}</b><div>${esc(hb.content.body)}</div>${hb.content.cta_label ? `<div class="muted">${esc(hb.content.cta_label)} →</div>` : ''}</div>` : ''}
-        <h2 style="margin:6px 0">Nivel ${esc(l.level)}</h2>
+        <h2 class="lvl" style="margin:6px 0">Nivel ${esc(l.level)}</h2>
         <div class="bar" role="progressbar" aria-valuenow="${l.percent_to_next}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso al siguiente nivel"><span style="width:${l.percent_to_next}%"></span></div>
         <p>${l.next_level ? `${int(l.percent_to_next)} % hacia <b>${esc(l.next_level)}</b> · faltan ${int(l.points_to_next)} pts` : 'Nivel máximo'}</p>
-        <h3 id="inbox">Bandeja ${ib.unread ? `<span class="chip brand">${ib.unread} sin leer</span>` : ''}</h3>
+        <h2 id="inbox">Bandeja ${ib.unread ? `<span class="chip brand">${ib.unread} sin leer</span>` : ''}</h2>
         ${ib.items.slice(0, 6).map((m) => `<div class="card" style="margin-bottom:6px;${m.read_at ? 'opacity:.7' : 'border-left:3px solid var(--brand)'}"><div class="row" style="justify-content:space-between;margin:0"><b>${esc(m.title || m.template)}</b><span class="chip">${m.category === 'transactional' ? 'Aviso' : 'Promoción'}</span></div>
           <div>${esc(m.body)}</div><div class="muted">${new Date(m.created_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · disponible hasta el ${dateL(m.expires_at)}</div>
           ${can('player.preferences') ? `<div class="row" style="margin:4px 0 0">${m.read_at ? '' : `<button class="ghost" data-ibread="${esc(m.id)}">Marcar leído</button>`}<button class="ghost" data-ibarch="${esc(m.id)}">Archivar</button></div>` : ''}</div>`).join('') || '<p class="muted">Sin mensajes.</p>'}
         ${ib.items.length > 6 ? `<p class="muted">y ${ib.items.length - 6} más</p>` : ''}${ib.unread && can('player.preferences') ? '<button class="ghost" id="ibreadall">Marcar todo como leído</button>' : ''}
-        <h3>Recompensas</h3>${(() => {
-          const asOf = d.as_of ? Date.parse(d.as_of) : Date.now();
+        <h2>Recompensas</h2>${(() => {
+          const asOf = d.as_of ? Date.parse(d.as_of) : serverNow();
           const rs = [...d.profile.rewards].sort((a, b) => b.expires_at.localeCompare(a.expires_at));
           const active = rs.filter((r) => Date.parse(r.expires_at) > asOf), expired = rs.filter((r) => Date.parse(r.expires_at) <= asOf);
           const card = (r, exp) => `<div class="card" style="margin-bottom:6px${exp ? ';opacity:.55' : ''}">${esc(rewardLabel(r.reward_type))} · ${money(r.amount_minor, r.currency)}<br><span class="muted">${exp ? 'Venció el' : 'Vigente hasta el'} ${dateL(r.expires_at)}</span></div>`;
           return (active.map((r) => card(r, false)).join('') || '<p class="muted">Sin recompensas vigentes</p>') + (expired.length ? `<details><summary>Vencidas (${expired.length})</summary>${expired.map((r) => card(r, true)).join('')}</details>` : '');
         })()}
-        <h3>Movimientos</h3>${l.movements.slice(-6).reverse().map((m) => `<div>${m.points > 0 ? '+' : m.points < 0 ? '−' : ''}${int(Math.abs(m.points))} pts <span class="muted">${esc(moveLabel(m.reason))}</span></div>`).join('') || '<p class="muted">Aún sin movimientos.</p>'}
-        <h3>Misiones</h3>${d.gamification.opt_out ? '<p class="muted">Gamificación desactivada por el jugador.</p>' : d.gamification.missions.length ? d.gamification.missions.map((m) => {
+        <h2>Movimientos</h2>${l.movements.slice(-6).reverse().map((m) => `<div>${m.points > 0 ? '+' : m.points < 0 ? '−' : ''}${int(Math.abs(m.points))} pts <span class="muted">${esc(moveLabel(m.reason))}</span></div>`).join('') || '<p class="muted">Aún sin movimientos.</p>'}
+        <h2>Misiones</h2>${d.gamification.opt_out ? '<p class="muted">Gamificación desactivada por el jugador.</p>' : d.gamification.missions.length ? d.gamification.missions.map((m) => {
           const pctv = Math.min(100, Math.round(100 * m.value / m.target));
           return `<div style="margin-bottom:10px"><div><b>${esc(m.name)}</b> ${m.completed_at ? '<span class="chip brand">Completada</span>' : m.eligible ? '' : '<span class="chip">No disponible</span>'}</div><div class="muted">${esc(m.description)}</div>
             <div class="bar" role="progressbar" aria-valuenow="${pctv}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(m.name)}"><span style="width:${pctv}%"></span></div>
             <div class="muted">${m.kind === 'sum' ? `${moneyC(m.value)} de ${moneyC(m.target)}` : `${int(m.value)} de ${int(m.target)}${m.kind === 'streak' ? ' días seguidos' : ''}`} · ${m.reward.xp ? `${int(m.reward.xp)} XP` : 'bono'}</div></div>`; }).join('') : '<p class="muted">Sin misiones activas.</p>'}
-        ${d.gamification.opt_out ? '' : `<h3>Torneos</h3>${d.gamification.tournaments.map((t) => `<div style="margin-bottom:6px"><b>${esc(t.name)}</b> ${t.status === 'finished' ? '<span class="chip">Cerrado</span>' : ''}<div class="muted">${t.rank ? `Puesto ${t.rank} de ${int(t.participants)} · ${int(t.score)} puntos` : 'Aún sin puntos'}</div></div>`).join('') || '<p class="muted">Sin torneos.</p>'}
-        <h3>Mini-juegos</h3>${d.gamification.minigames.map((g) => { const last = LAST_SPIN[`${$('#lp').value}|${g.id}`]; return `<div class="row"><span>${esc(g.name)}</span><span class="chip">${g.spins_left ? `${plural(g.spins_left, 'tirada', 'tiradas')} hoy` : 'Sin tiradas hoy'}</span>${can('player.preferences') && g.spins_left > 0 ? `<button data-spin="${esc(g.id)}">Girar</button>` : ''}</div>
+        ${d.gamification.opt_out ? '' : `<h2>Torneos</h2>${d.gamification.tournaments.map((t) => `<div style="margin-bottom:6px"><b>${esc(t.name)}</b> ${t.status === 'finished' ? '<span class="chip">Cerrado</span>' : ''}<div class="muted">${t.rank ? `Puesto ${t.rank} de ${int(t.participants)} · ${int(t.score)} puntos` : 'Aún sin puntos'}</div></div>`).join('') || '<p class="muted">Sin torneos.</p>'}
+        <h2>Mini-juegos</h2>${d.gamification.minigames.map((g) => { const last = LAST_SPIN[`${$('#lp').value}|${g.id}`]; return `<div class="row"><span>${esc(g.name)}</span><span class="chip">${g.spins_left ? `${plural(g.spins_left, 'tirada', 'tiradas')} hoy` : 'Sin tiradas hoy'}</span>${can('player.preferences') && g.spins_left > 0 ? `<button data-spin="${esc(g.id)}">Girar</button>` : ''}</div>
           <div role="status" aria-live="polite">${last ? `<div class="card spin-result ${last.win ? 'win' : ''}" style="margin:6px 0;border-left:3px solid ${last.win ? 'var(--brand)' : 'var(--border, #555)'}"><b>${esc(last.title)}</b><div>${esc(last.text)}</div><div class="muted" title="Compromiso publicado antes de girar: el resultado se puede verificar">Tirada n.º ${int(last.nonce)} · verificable</div></div>` : ''}</div>`; }).join('') || '<p class="muted">Sin mini-juegos.</p>'}`}
-        ${d.gamification.opt_out ? '' : `<h3>Tienda</h3><div class="row"><span class="chip brand">${int(d.gamification.coins)} monedas</span></div>
+        ${d.gamification.opt_out ? '' : `<h2>Tienda</h2><div class="row"><span class="chip brand">${int(d.gamification.coins)} monedas</span></div>
           ${d.gamification.store.map((i) => `<div class="row"><span>${esc(i.name)}</span><span class="muted">${int(i.price_coins)} monedas · stock ${int(i.stock)}</span>${can('player.preferences') && i.stock > 0 && d.gamification.coins >= i.price_coins ? `<button class="ghost" data-redeem="${esc(i.id)}">Canjear</button>` : ''}</div>`).join('')}
           ${d.gamification.redemptions.length ? `<div class="muted">Canjes: ${d.gamification.redemptions.map((r) => `${esc(d.gamification.store.find((i) => i.id === r.item_id)?.name ?? 'Artículo')} (${r.status === 'fulfilled' ? 'entregado' : 'reembolsado'})`).join(' · ')}</div>` : ''}
-          <h3>Predicciones</h3>${d.gamification.predictions.map((x) => `<div style="margin-bottom:8px"><b>${esc(x.question)}</b><div class="muted">${Date.parse(x.closes_at) > Date.now() ? 'Cierra' : 'Cerró'} el ${new Date(x.closes_at).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</div><div class="row" style="margin:4px 0 0">${x.my_pick ? `<span class="chip brand">Tu elección: ${esc(x.my_pick)}</span>` : x.status === 'open' && Date.parse(x.closes_at) > Date.now() && can('player.preferences') ? x.options.map((o) => `<button class="ghost" data-pick="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join('') : '<span class="muted">Sin elección</span>'}${x.status === 'resolved' ? `<span class="muted">Resultado: ${esc(x.resolved_option)}</span>` : ''}</div></div>`).join('') || '<p class="muted">Sin predicciones.</p>'}`}
-        <h3>Logros</h3><div class="row">${d.gamification.badge_catalog.map((b) => { const got = d.gamification.badges.find((x) => x.id === b.id); return `<span class="chip ${got ? 'brand' : ''}" style="${got ? '' : 'opacity:.45'}" title="${esc(b.description)}">${esc(b.name)}</span>`; }).join('')}</div>
-        <h3>Preferencias</h3><label><input type="checkbox" id="optin" ${d.gamification.opt_out ? '' : 'checked'} ${can('player.preferences') ? '' : 'disabled'}> Recibir avisos de progreso y misiones</label>
+          <h2>Predicciones</h2>${d.gamification.predictions.map((x) => `<div style="margin-bottom:8px"><b>${esc(x.question)}</b><div class="muted">${Date.parse(x.closes_at) > serverNow() ? 'Cierra' : 'Cerró'} el ${new Date(x.closes_at).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</div><div class="row" style="margin:4px 0 0">${x.my_pick ? `<span class="chip brand">Tu elección: ${esc(x.my_pick)}</span>` : x.status === 'open' && Date.parse(x.closes_at) > serverNow() && can('player.preferences') ? x.options.map((o) => `<button class="ghost" data-pick="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join('') : '<span class="muted">Sin elección</span>'}${x.status === 'resolved' ? `<span class="muted">Resultado: ${esc(x.resolved_option)}</span>` : ''}</div></div>`).join('') || '<p class="muted">Sin predicciones.</p>'}`}
+        <h2>Logros</h2><div class="row">${d.gamification.badge_catalog.map((b) => { const got = d.gamification.badges.find((x) => x.id === b.id); return `<span class="chip ${got ? 'brand' : ''}" style="${got ? '' : 'opacity:.75;border-style:dashed'}" title="${esc(b.description)}">${esc(b.name)}</span>`; }).join('')}</div>
+        <h2>Preferencias</h2><label><input type="checkbox" id="optin" ${d.gamification.opt_out ? '' : 'checked'} ${can('player.preferences') ? '' : 'disabled'}> Recibir avisos de progreso y misiones</label>
         ${can('player.preferences') ? '' : '<p class="muted">Solo soporte o administración pueden cambiarla desde el backoffice.</p>'}</div>`;
       const rid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
       const pid = encodeURIComponent($('#lp').value);
@@ -1452,7 +1612,15 @@ const BIND = {
       };
     };
     if (ROUTE.player && [...$('#lp').options].some((o) => o.value === ROUTE.player)) $('#lp').value = ROUTE.player;
-    $('#lp').onchange = () => { setRoute({ player: $('#lp').value }); load(); };
+    $('#lpq').value = $('#lp').value;
+    $('#lp').onchange = () => { $('#lpq').value = $('#lp').value; setRoute({ player: $('#lp').value }); load(); };
+    const pickPlayer = () => {
+      const q = $('#lpq').value.trim(); const opts = [...$('#lp').options].map((o) => o.value);
+      const hit = opts.includes(q) ? q : (opts.filter((o) => o.includes(q)).length === 1 ? opts.find((o) => o.includes(q)) : null);
+      if (hit) { $('#lpmsg').textContent = ''; if (hit !== $('#lp').value) { $('#lp').value = hit; $('#lp').onchange(); } }
+      else $('#lpmsg').textContent = q ? `${plural(opts.filter((o) => o.includes(q)).length, 'jugador coincide', 'jugadores coinciden')}; elige uno de la lista.` : '';
+    };
+    $('#lpq').onchange = pickPlayer; $('#lpq').onkeydown = (e) => { if (e.key === 'Enter') pickPlayer(); };
     load();
   },
   gamification() {
@@ -1500,7 +1668,12 @@ const BIND = {
     samples.save_draft = samples.validate_policy;
     const fill = () => { $('#tin').value = JSON.stringify(samples[$('#tool').value] ?? {}, null, 2); };
     if ($('#tool')) { $('#tool').onchange = fill; fill(); }
-    $('#call').onclick = async () => { try { $('#cout').textContent = JSON.stringify(await api('/copilot/tools/' + $('#tool').value, { method: 'POST', body: JSON.parse($('#tin').value) }), null, 2); } catch (e) { $('#cout').textContent = e.message; } };
+    $('#call').onclick = async () => {
+      let body;
+      try { body = JSON.parse($('#tin').value || '{}'); }
+      catch { $('#cout').textContent = 'Los parámetros no son JSON válido. Usa comillas dobles en los nombres y valores de texto, por ejemplo {"metric": "kyc_verified_rate"}. Puedes volver al ejemplo eligiendo de nuevo la herramienta.'; $('#tin').focus(); return; }
+      try { $('#cout').textContent = JSON.stringify(await api('/copilot/tools/' + $('#tool').value, { method: 'POST', body }), null, 2); } catch (e) { $('#cout').textContent = `No se pudo ejecutar: ${e.message}`; }
+    };
     if ($('#ask')) $('#ask').onclick = async () => { $('#cout').textContent = 'Consultando…'; try { $('#cout').textContent = JSON.stringify(await api('/copilot/ask', { method: 'POST', body: { question: $('#q').value } }), null, 2); } catch (e) { $('#cout').textContent = e.message; } };
   },
 };

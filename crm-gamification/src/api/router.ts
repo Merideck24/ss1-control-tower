@@ -3,6 +3,7 @@ import type { CopilotSession, CopilotTools } from '../copilot/tools.ts';
 import { report } from '../experiments/experiments.ts';
 import { journeyAsList, validateJourney } from '../journeys/model.ts';
 import { eventLabel } from '../journeys/vars.ts';
+import { ruleText } from '../segments/ruleText.ts';
 import { autoLayout, reviewJourney } from '../journeys/builder.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
 import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
@@ -145,7 +146,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
   let r: RegExpMatchArray | null;
   try {
     if (!app.tenants.includes(T)) return { status: 403, body: { error: 'tenant_unknown', message: `Tenant ${T} no habilitado` } };
-    if (r0 === 'GET /session') return ok({ actor, permissions: Object.keys(PERMISSIONS).filter((p) => can(actor, p)), copilot_tools: app.copilot.definitionsFor(copilotSession(actor)).map((t) => t.name), copilot_ask: Boolean(opts.ask) });
+    if (r0 === 'GET /session') return ok({ now: app.clock.now().toISOString(), actor, permissions: Object.keys(PERMISSIONS).filter((p) => can(actor, p)), copilot_tools: app.copilot.definitionsFor(copilotSession(actor)).map((t) => t.name), copilot_ask: Boolean(opts.ask) });
     const brand = req.query.get('brand') || undefined;
     if (r0 === 'GET /control-tower') return ok(controlTower(app, T, brand));
     if (r0 === 'GET /integration/service-keys') {
@@ -214,7 +215,8 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const recent = req.query.get('sort') === 'recent';
       const all = app.ingestor.all(T).filter((p) => p.player_id.includes(q) && (!brand || p.brand_id === brand));
       if (recent) all.sort((a, b) => (b.timeline.at(-1)?.occurred_at ?? '').localeCompare(a.timeline.at(-1)?.occurred_at ?? ''));
-      return ok(all.slice(0, 100).map((p) => ({ player_id: p.player_id, kyc: p.kyc?.value, rg: p.rg?.value, deposits_minor: p.stats.deposits_minor, currency: p.stats.currency, level: app.loyalty.program(T, p.brand_id) ? app.loyalty.progress(T, p.brand_id, p.player_id).level : null })));
+      const limit = Math.min(5000, Math.max(1, Number(req.query.get('limit')) || 100));
+      return ok(all.slice(0, limit).map((p) => ({ player_id: p.player_id, kyc: p.kyc?.value, rg: p.rg?.value, deposits_minor: p.stats.deposits_minor, currency: p.stats.currency, level: app.loyalty.program(T, p.brand_id) ? app.loyalty.progress(T, p.brand_id, p.player_id).level : null })));
     }
     if ((r = m(/^GET \/players\/([\w-]+)$/))) {
       if (!can(actor, 'players.read')) return forbid('players.read');
@@ -391,7 +393,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     if (r0 === 'GET /content/drafts') {
       if (!can(actor, 'content.read')) return forbid('content.read');
       return ok({ drafts: app.content.drafts(T), ai_enabled: Boolean(opts.write), moderation_version: MODERATION_RULES.version,
-        note: opts.write ? 'La IA escribe borradores; la moderación y la aprobación de otra persona son obligatorias antes de que exista la plantilla.' : 'Sin credenciales de Anthropic: se genera un texto base sin IA para editar. La moderación y la aprobación son las mismas.' });
+        note: opts.write ? 'La IA escribe borradores; la moderación y la aprobación de otra persona son obligatorias antes de que exista la plantilla.' : 'IA no configurada en esta demo: se genera un texto base para editar. La moderación y la aprobación son las mismas.' });
     }
     if (r0 === 'POST /content/drafts') {
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
@@ -413,7 +415,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, 'onsite.read')) return forbid('onsite.read');
       const st = app.onsite.stats(T);
       const now = app.clock.now().toISOString();
-      return ok({ placements: PLACEMENTS, campaigns: app.onsite.campaigns(T).sort((a, b) => a.placement.localeCompare(b.placement) || b.priority - a.priority).map((c) => ({ ...c, live: c.status === 'active' && c.starts_at <= now && c.ends_at > now, stats: st.get(c.id) ?? { impressions: 0, unique_players: 0, clicks: 0, ctr: null, dismisses: 0 } })),
+      return ok({ placements: PLACEMENTS, campaigns: app.onsite.campaigns(T).sort((a, b) => a.placement.localeCompare(b.placement) || b.priority - a.priority).map((c) => ({ ...c, rules_text: ruleText(c.rules as never), live: c.status === 'active' && c.starts_at <= now && c.ends_at > now, stats: st.get(c.id) ?? { impressions: 0, unique_players: 0, clicks: 0, ctr: null, dismisses: 0 } })),
         note: 'El sitio pide qué mostrar en cada ubicación. Se aplican las mismas reglas que a los mensajes (consentimiento in-app, juego responsable, casos de riesgo abiertos), la prioridad, el tope diario por jugador y los descartes. Solo texto plano y enlaces https de la marca.' });
     }
     if (r0 === 'POST /onsite/campaigns') {
@@ -512,7 +514,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const j = req.body as never as Parameters<typeof reviewJourney>[0];
       if (!Array.isArray(j?.nodes)) return { status: 422, body: { error: 'invalid_journey', message: 'Falta la lista de pasos.' } };
       const issues = reviewJourney(j, { template: (k) => app.channels.template(T, k), reward: (id) => { const it = app.rewards.item(T, id); return it && { approved: Boolean(it.approved_by) }; } });
-      return ok({ issues, valid: !issues.some((i) => i.severity === 'error'), layout: autoLayout(j), as_list: journeyAsList(j as never, { reward: (id) => app.rewards.item(T, id)?.name }) });
+      return ok({ issues, valid: !issues.some((i) => i.severity === 'error'), layout: autoLayout(j), as_list: journeyAsList(j as never, { reward: (id) => app.rewards.item(T, id)?.name, template: (k) => app.channels.template(T, k)?.content.es?.subject }) });
     }
     if (r0 === 'GET /experiments/splits') {
       if (!can(actor, 'analytics.read')) return forbid('analytics.read');
@@ -548,7 +550,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
         frequency: (() => { const p = app.policy.policyFor({ tenant_id: T, brand_id: 'rumbawin', country: { value: 'CO' } } as never); return p ? { per_day: p.max_marketing_per_day, per_week: p.max_marketing_per_week ?? null, per_channel_day: p.max_marketing_per_day_by_channel ?? {} } : null; })(),
         note: 'Mismo grupo ⇒ un solo recorrido de marketing activo por jugador. Gana la prioridad mayor; en empate se queda el que ya está en curso. Los recorridos de servicio nunca se bloquean.' });
     }
-    if (r0 === 'GET /journeys') return ok(app.registry.list(T).filter((j) => !brand || j.brand_id === brand).map((j) => ({ ...j, as_list: journeyAsList(j, { reward: (id) => app.rewards.item(T, id)?.name }), validation: validateJourney(j) })));
+    if (r0 === 'GET /journeys') return ok(app.registry.list(T).filter((j) => !brand || j.brand_id === brand).map((j) => ({ ...j, as_list: journeyAsList(j, { reward: (id) => app.rewards.item(T, id)?.name, template: (k) => app.channels.template(T, k)?.content.es?.subject }), validation: validateJourney(j) })));
     if (r0 === 'POST /journeys') {
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
       return ok(app.registry.saveDraft(actor, req.body as never), 201);

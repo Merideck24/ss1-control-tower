@@ -42,7 +42,7 @@ export const baseWriter: WriterFn = async (b) => {
     const body = { es: `${goal}.${v}`, en: `${goal}.${v}`, pt: `${goal}.${v}` }[l] + footer[l];
     drafts[l] = { subject, body, ...(b.include_sms ? { sms: `RumbaWin: ${goal}.`.slice(0, 120) + (b.purpose === 'marketing' ? ' +18' : '') } : {}) };
   }
-  return { drafts, source: 'base', note: 'Texto base sin IA (la IA se habilita en el servidor con credenciales de Anthropic). Edítalo antes de enviarlo.' };
+  return { drafts, source: 'base', note: 'Texto base sin IA (IA no configurada en este entorno). Edítalo antes de enviarlo.' };
 };
 
 export class ContentStudio {
