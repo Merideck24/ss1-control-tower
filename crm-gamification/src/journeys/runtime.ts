@@ -1,5 +1,5 @@
 import type { AuditLog } from '../audit/audit.ts';
-import { buildVars } from './vars.ts';
+import { buildVars, TRIGGER_VARS } from './vars.ts';
 import type { ChannelHub, Locale } from '../channels/channels.ts';
 import type { EventEnvelope } from '../domain/events.ts';
 import { assignArm } from '../experiments/experiments.ts';
@@ -27,6 +27,12 @@ export type JourneyInstance = {
   trigger_event_id: string;
   correlation_id: string;
   trace: TraceStep[];
+  /**
+   * Datos del disparador que necesitan las plantillas (solo para eventos que aportan variables).
+   * Tras una espera o un diferido por horario silencioso el evento ya no está en contexto; sin esto
+   * el mensaje saldría con huecos (o el canal lo rechazaría por variables vacías).
+   */
+  trigger_payload?: { event_type: string; payload: unknown };
 };
 
 type ProfileSource = { get(tenant: string, player: string): PlayerProfile | undefined };
@@ -128,7 +134,7 @@ export class JourneyRuntime {
         }
       }
       const arm = def.purpose === 'marketing' && def.control_group_pct ? assignArm(def.tenant_id, `${def.id}`, e.player_id, def.control_group_pct) : 'treatment';
-      const inst: JourneyInstance = { instance_id, tenant_id: e.tenant_id, player_id: e.player_id, journey_id: def.id, version: def.version, arm, status: arm === 'control' ? 'held_out' : 'running', current: def.entry, trigger_event_id: e.event_id, correlation_id: e.correlation_id, trace: [{ at: this.#now(), node: def.entry, type: 'enter', outcome: arm }] };
+      const inst: JourneyInstance = { instance_id, tenant_id: e.tenant_id, player_id: e.player_id, journey_id: def.id, version: def.version, arm, status: arm === 'control' ? 'held_out' : 'running', current: def.entry, trigger_event_id: e.event_id, correlation_id: e.correlation_id, trace: [{ at: this.#now(), node: def.entry, type: 'enter', outcome: arm }], ...(TRIGGER_VARS[e.event_type] ? { trigger_payload: { event_type: e.event_type, payload: e.payload } } : {}) };
       this.#instances.set(instance_id, inst);
       const pk = `${e.tenant_id}::${e.player_id}`;
       this.#byPlayer.set(pk, [...(this.#byPlayer.get(pk) ?? []), inst]);
@@ -212,7 +218,7 @@ export class JourneyRuntime {
             inst.current = node.next;
             break;
           }
-          const vars = this.#vars(profile, ctx.event);
+          const vars = this.#vars(profile, ctx.event ?? (inst.trigger_payload as EventEnvelope | undefined));
           const receipt = this.#effects?.send({ tenant_id: inst.tenant_id, player_id: inst.player_id, address: profile.email_masked?.value ?? inst.player_id, channel: node.channel, template: node.template, locale: (profile.locale?.value ?? 'es') as Locale, vars, idempotency_key: key });
           if (receipt?.status === 'accepted' && def.purpose === 'marketing') this.#policy.recordMarketingSend(profile, node.channel);
           inst.trace.push({ at: this.#now(), node: node.id, type: 'message', outcome: this.#effects ? receipt!.status : 'simulated_send', decision, detail: receipt ? { reason: receipt.reason } : { template: node.template, vars } });

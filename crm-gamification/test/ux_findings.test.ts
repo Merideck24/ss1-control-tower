@@ -109,3 +109,31 @@ test('Rendimiento sin cambiar resultados: la ventana de latencia sigue siendo de
   for (let i = 0; i < 12_000; i++) app.ingestor.ingest(ev(T, `l${i % 50}`, 'consent.changed', { purpose: 'marketing', channel: 'email', granted: true }, clock.now().toISOString()));
   assert.equal(app.ingestor.latency(T).n, 5000);
 });
+
+test('Revisión #1: tras una espera o un diferido por horario silencioso el mensaje conserva sus variables', async () => {
+  const { app, clock } = setup('2026-11-15T15:00:00Z'); // 10:00 en Bogotá
+  const author = { id: 'ana@ss1', tenant_id: T, roles: ['crm_analyst' as const] };
+  const approver = { id: 'apr@ss1', tenant_id: T, roles: ['approver' as const] };
+  // depósito → esperar 12 h → aviso con {{amount}}; las 12 h caen a las 22:00, en horario silencioso (se difiere)
+  app.registry.saveDraft(author, { id: 'j_wait', brand_id: 'rumbawin', name: 'Depósito → aviso', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'w', nodes: [{ id: 'w', type: 'wait', duration_ms: 12 * 3_600_000, next: 'm' }, { id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] });
+  app.registry.submit(author, 'j_wait'); app.registry.approve(approver, 'j_wait'); app.registry.publish(author, 'j_wait');
+  onboard(app, clock, 'pw', T, { verify: false }); // sin bono de bienvenida: no consume el tope diario
+  app.ingestor.ingest(ev(T, 'pw', 'deposit.settled', { deposit_id: 'dw', amount_minor: 75_000_00, currency: 'COP' }, clock.now().toISOString()));
+  for (let h = 0; h < 30; h++) { clock.advance(3_600_000); app.policy.markRgFeedSynced(T); app.runtime.runDue(); }
+  const rs = app.channels.receipts(T, 'pw').filter((r) => r.template === 'deposit_progress');
+  assert.deepEqual(rs.map((r) => r.status), ['accepted'], JSON.stringify(rs.map((r) => [r.status, r.reason])));
+  assert.match(rs[0].rendered!.body, /Recibimos tu depósito de \$\s?75\.000\./);
+});
+
+test('Revisión #2: si una versión nueva agrega una variante, el reparto vuelve a calentamiento', async () => {
+  const { SplitTracker } = await import('../src/experiments/bandit.ts');
+  const st = new SplitTracker();
+  const node = (ids: string[]) => ({ id: 'ab', type: 'split' as const, mode: 'bandit' as const, metric: { event: 'deposit.settled' as const, window_hours: 1 }, warmup_per_variant: 5, min_explore_pct: 10, variants: ids.map((id) => ({ id, label: id, weight: 1, next: 'e' })) });
+  const t0 = Date.parse('2026-11-15T12:00:00Z');
+  for (let i = 0; i < 40; i++) st.assign(T, 'j', node(['a', 'b']), `p${i}`, t0);
+  const later = t0 + 2 * 3_600_000; // la ventana de 1 h ya cumplió: todas las asignaciones están decididas
+  assert.equal(st.allocation(SplitTracker.key(T, 'j', 'ab'), node(['a', 'b']), later).phase, 'optimizing');
+  const v2 = st.allocation(SplitTracker.key(T, 'j', 'ab'), node(['a', 'b', 'c']), later);
+  assert.equal(v2.phase, 'warmup', 'la variante nueva no tiene datos: pesos fijos');
+  assert.ok(Math.abs(v2.alloc.c - 1 / 3) < 1e-9, JSON.stringify(v2.alloc));
+});

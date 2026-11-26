@@ -94,7 +94,10 @@ export function reviewJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'pu
       if (t?.content) {
         // #2: una plantilla que pide variables que el disparador no trae sale con huecos
         const have = varsForTrigger(j.trigger?.event_type);
-        const need = [...new Set(Object.values(t.content).flatMap((c) => [...`${c?.subject ?? ''} ${c?.body ?? ''}`.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])))];
+        // cuerpo y asunto en todos los idiomas, más la variante SMS o los parámetros de WhatsApp del canal elegido
+        const texts = Object.values(t.content).map((c) => `${c?.subject ?? ''} ${c?.body ?? ''}`);
+        if (n.channel === 'sms' && t.channels?.sms) texts.push(...Object.values(t.channels.sms));
+        const need = [...new Set([...texts.flatMap((x) => [...String(x ?? '').matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])), ...(n.channel === 'whatsapp' ? t.channels?.whatsapp?.params ?? [] : [])])];
         const lacking = need.filter((k) => !have.includes(k));
         if (lacking.length) issues.push({ node: n.id, code: 'template_vars_unavailable', message: `«${n.template}» usa ${lacking.map((k) => `{{${k}}}`).join(', ')}, que el disparador «${j.trigger?.event_type ?? '—'}» no aporta. Elige una plantilla pensada para este recorrido.`, severity: 'error' });
       }

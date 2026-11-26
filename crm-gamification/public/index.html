@@ -620,7 +620,7 @@ const LABELS = {
   // decisiones y entregas
   allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', accepted: 'Entregado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
   inapp: 'In-app', email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', webpush: 'Push web', telegram: 'Telegram',
-  frequency_cap: 'Tope diario de mensajes', frequency_cap_week: 'Tope semanal de mensajes', frequency_cap_channel: 'Tope del canal', quiet_hours: 'Horario silencioso',
+  frequency_cap: 'Tope diario de mensajes', frequency_cap_week: 'Tope semanal de mensajes', frequency_cap_channel: 'Tope del canal', quiet_hours: 'Horario silencioso', quiet_hours_until: 'Horario silencioso hasta',
   marketing_consent_revoked: 'Retiró el consentimiento de marketing', no_marketing_consent: 'Sin consentimiento de marketing', channel_disabled: 'Canal desactivado en el mercado',
   kyc_not_verified: 'KYC sin verificar', rg_restricted: 'Restricción de juego responsable', rg_risk_case_open: 'Caso de juego responsable abierto', rg_feed_stale: 'Estado de juego responsable desactualizado', rg_status_missing: 'Sin estado de juego responsable', rg_status_changed: 'Cambió su estado de juego responsable',
   incentives_not_allowed_in_market: 'Incentivos no permitidos en el mercado', service_channel_opt_out: 'Pidió no recibir avisos por este canal', abuse_review: 'En revisión por abuso de bonos',
@@ -630,16 +630,18 @@ const LABELS = {
   'player.registered': 'Registro', 'player.verified': 'Jugador verificado', 'deposit.settled': 'Depósito acreditado', 'deposit.reversed': 'Depósito revertido', 'withdrawal.settled': 'Retiro pagado', 'bet.settled': 'Apuesta liquidada', 'reward.granted': 'Recompensa otorgada', 'loyalty.threshold_crossed': 'Cruce del 50 % del nivel', 'rg.risk_signal': 'Señal de riesgo JR', 'rg.status_changed': 'Cambio de estado JR', 'consent.changed': 'Cambio de consentimiento',
   welcome_fs_10: 'Giros gratis de bienvenida', reward_granted: 'Aviso de recompensa', loyalty_halfway: 'Mitad del nivel', verify_reminder: 'Recordatorio de verificación', deposit_progress: 'Depósito acreditado', vip_followup: 'Seguimiento VIP', welcome_message: 'Bienvenida', rg_check_in: 'Chequeo de juego responsable', rg_limits_reminder: 'Recordatorio de límites', security_confirmation: 'Confirmación de seguridad',
 };
-/** Código → texto. Acepta compuestos «motivo:detalle» y «canal:estado». */
-const label = (code) => {
-  if (code === null || code === undefined || code === '') return '—';
-  const c = String(code);
+const humanize = (c) => c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase());
+/** Un código «motivo» o «motivo:detalle» (el detalle puede ser canal, estado o una fecha ISO). */
+const labelOne = (c) => {
   if (LABELS[c]) return LABELS[c];
-  const [head, ...rest] = c.split(':');
-  if (rest.length && LABELS[head]) return `${LABELS[head]} · ${rest.map((r) => r.split(',').map((x) => LABELS[x] ?? x.replace(/_/g, ' ')).join(', ')).join(' · ')}`;
-  if (rest.length) return `${LABELS[head] ?? head} · ${LABELS[rest.join(':')] ?? rest.join(':').replace(/_/g, ' ')}`;
-  return c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase());
+  const i = c.indexOf(':');
+  if (i <= 0) return humanize(c);
+  const head = c.slice(0, i), det = c.slice(i + 1);
+  const d = /^\d{4}-\d{2}-\d{2}T/.test(det) ? new Date(det).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : (LABELS[det] ?? humanize(det));
+  return `${LABELS[head] ?? humanize(head)} · ${d}`;
 };
+/** Código → texto. Varios motivos vienen separados por comas: «frequency_cap,frequency_cap_channel:email». */
+const label = (code) => code === null || code === undefined || code === '' ? '—' : String(code).split(',').map((x) => labelOne(x.trim())).join(', ');
 const lbl = (code) => `<span title="${esc(code)}">${esc(label(code))}</span>`;
 const statusChip = (s) => `<span class="chip ${s === 'published' ? 'ok' : s === 'paused' ? 'warn' : ''}" title="${esc(s)}">${esc(label(s))}</span>`;
 const kv = (o) => Object.entries(o ?? {}).map(([k, n]) => `<span class="chip" title="${esc(k)}">${esc(label(k))}: <b>${int(n)}</b></span>`).join('') || '<span class="muted">—</span>';
@@ -1507,7 +1509,8 @@ $('#brand').onchange = () => { setRoute(); show(); };
 window.addEventListener('popstate', () => {
   const before = [$('#role').value, $('#tenant').value];
   applyRoute(parseRoute());
-  if (before[0] !== $('#role').value || before[1] !== $('#tenant').value) boot(); else { renderTabs(); show(); }
+  if (before[0] !== $('#role').value || before[1] !== $('#tenant').value) boot();
+  else { if (!TABS.some(([k, , p]) => k === current && can(p))) current = 'tower'; setRoute(); renderTabs(); show(); }
 });
 if (!EMBED.active) {
   let r = parseRoute();

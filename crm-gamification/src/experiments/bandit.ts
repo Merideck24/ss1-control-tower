@@ -64,7 +64,7 @@ export function wilson(k: number, n: number): [number, number] | null {
 export class SplitTracker {
   #byKey = new Map<string, Assignment[]>(); // tenant::journey::node
   #byPlayer = new Map<string, { key: string; a: Assignment; metric: SplitNode['metric'] }[]>();
-  #allocCache = new Map<string, { at: number; size: number; alloc: Record<string, number> }>();
+  #allocCache = new Map<string, { at: number; size: number; sig: string; alloc: Record<string, number> }>();
   #assigned = new Map<string, Map<string, Assignment>>(); // key → jugador → asignación (búsqueda O(1))
 
   static key(tenant: string, journey: string, node: string) { return `${tenant}::${journey}::${node}`; }
@@ -77,21 +77,24 @@ export class SplitTracker {
     const fixed = Object.fromEntries(node.variants.map((v, i) => [v.id, tot > 0 ? ws[i] / tot : 1 / node.variants.length]));
     if (node.mode === 'fixed') return { alloc: fixed, phase: 'fixed' };
     // con reparto vigente en caché no hace falta recalcular estadísticas (O(n) por asignación)
+    // la caché vale solo para las mismas variantes y el mismo calentamiento: una versión nueva que agrega
+    // una variante o sube el calentamiento vuelve a pasar por la fase de calentamiento
+    const sig = `${node.variants.map((v) => v.id).join('|')}#${node.warmup_per_variant ?? 30}#${node.min_explore_pct ?? 10}`;
     const size0 = this.assignments(key).length;
     const hit0 = this.#allocCache.get(key);
-    if (hit0 && now - hit0.at < 24 * HOUR && size0 - hit0.size < 50) return { alloc: hit0.alloc, phase: 'optimizing' };
+    if (hit0 && hit0.sig === sig && now - hit0.at < 24 * HOUR && size0 - hit0.size < 50) return { alloc: hit0.alloc, phase: 'optimizing' };
     const st = this.stats(key, node, now, false);
     const warm = node.warmup_per_variant ?? 30;
     if (st.some((s) => s.decided < warm)) return { alloc: fixed, phase: 'warmup' };
     // se recalcula cada 50 asignaciones nuevas o, sin volumen, una vez al día
     const size = this.assignments(key).length;
     const hit = this.#allocCache.get(key);
-    if (hit && now - hit.at < 24 * HOUR && size - hit.size < 50) return { alloc: hit.alloc, phase: 'optimizing' };
+    if (hit && hit.sig === sig && now - hit.at < 24 * HOUR && size - hit.size < 50) return { alloc: hit.alloc, phase: 'optimizing' };
     const pb = probabilityBest(st, `${key}:${size}`, 1500); // reparto: precisión suficiente; el informe usa 4.000
     const floor = Math.min(1 / node.variants.length, (node.min_explore_pct ?? 10) / 100);
     const free = 1 - floor * node.variants.length;
     const alloc = Object.fromEntries(node.variants.map((v) => [v.id, floor + free * pb[v.id]]));
-    this.#allocCache.set(key, { at: now, size, alloc });
+    this.#allocCache.set(key, { at: now, size, sig, alloc });
     return { alloc, phase: 'optimizing' };
   }
 
