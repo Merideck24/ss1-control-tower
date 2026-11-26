@@ -170,7 +170,12 @@ El admin tiene una vista llamada «CRM» con:
 - alertas por detector y severidad;
 - top de marcas.
 
-Conviene decidir con SS1 si el Control Tower del CRM la reemplaza o se integra con ella, para no duplicar pantallas.
+**Decisión (2026-11-26): el Control Tower se enchufa en ese tablero, no lo reemplaza.**
+- El tablero del admin sigue siendo la portada y conserva sus KPI, gráficos, alertas y tops.
+- Debajo se agrega `<CrmDashboardSection />` (`integrations/ss1-admin/crm/widgets/`), con lo que es solo del CRM: envíos, supresiones, recorridos, presupuestos de bonos, latencia y pausa general.
+- Las alertas del CRM no se muestran en otra lista: deberían entrar al sistema de alertas del admin (`/admin/alerts`, con `detector_key`).
+
+**Pedido a SS1:** en el front-end solo se ven lecturas (`GET /admin/alerts`, `/admin/alerts/stats`) y el cambio de estado (`/admin/alerts/{id}/status`). Falta saber cómo crea alertas el sistema. Lo más simple es que el admin reciba los webhooks firmados del CRM (`rg.case_opened`, `abuse.reviewed`, `delivery.failed`, `reward.failed`) y los registre con un `detector_key` del tipo `crm_*`.
 
 ## Lo que necesitamos de SS1
 
@@ -178,3 +183,4 @@ Conviene decidir con SS1 si el Control Tower del CRM la reemplaza o se integra c
 2. Un token de servicio de solo lectura válido para api.syssoft1.com, para comprobar estos campos con datos reales.
 3. Dónde están el email, el idioma y la zona horaria del jugador, el afiliado y el **consentimiento de marketing**.
 4. Las confirmaciones marcadas en las secciones 3 y 4.
+5. Cómo crear alertas en el sistema del admin, para que las del CRM entren como detectores `crm_*` (sección 7).

@@ -20,6 +20,8 @@ export function installCrm(app: App, options: CrmClientOptions) {
  * el puente postMessage). Al migrar una pestaña, se mueve de `embedded` a `native`.
  */
 export const CRM_VIEWS = {
+  /** enchufadas en pantallas que ya existen en el admin, no como página aparte */
+  pluggedInto: { 'control-tower': '/dashboard/crm' },
   native: ['control-tower', 'responsible-gaming', 'policies', 'integrations'],
   embedded: ['profile', 'segments', 'builder', 'approval', 'analytics', 'gamification', 'loyalty', 'content', 'onsite', 'copilot', 'audit'],
 } as const

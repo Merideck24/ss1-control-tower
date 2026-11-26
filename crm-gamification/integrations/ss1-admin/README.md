@@ -9,7 +9,7 @@ La migración es por etapas:
 
 | Vista | Estado | Ruta del admin |
 |---|---|---|
-| Control Tower | **Nativa** | `/crm/control-tower` |
+| Control Tower | **Enchufado** en el tablero «CRM» del admin | `/dashboard/crm` (y enlace directo `/crm/control-tower`) |
 | Juego responsable | **Nativa** | `/crm/responsible-gaming` |
 | Políticas por mercado | **Nativa** | `/crm/policies` |
 | Integraciones (llaves de servicio y webhooks) | **Nativa** | `/crm/integrations` |
@@ -23,6 +23,7 @@ La migración es por etapas:
 | `crm/api/client.ts` | Cliente sin dependencias. Arma rutas `/api/v1` con parámetros codificados, envía el token del admin como Bearer y aplica un tiempo de espera. Los errores son tipados (`CrmApiError`) y avisa ante un 401 para refrescar la sesión. |
 | `crm/api/types.ts` | Formas de respuesta que usan las vistas nativas. |
 | `crm/composables/useCrm.ts` | `useCrmQuery` (carga, error y refresco), `useCrmAction` (envío con mensaje) y `useCrmPermissions` (permisos efectivos que decide el CRM). |
+| `crm/widgets/*.vue` | Control Tower en piezas para el tablero «CRM» del admin: `CrmDashboardSection` (una sola llamada) y los widgets sueltos de estado, recorridos, presupuestos y supresiones. |
 | `crm/pages/*.vue` | Vistas nativas con componentes de Vuetify (`VCard`, `VTable`, `VChip`, `VDialog`…), igual que Vuexy, y con los íconos `tabler-*` del admin. |
 | `crm/plugin.ts` | `installCrm(app, { baseUrl, getToken, onUnauthorized })` y el estado de la migración (`CRM_VIEWS`). |
 | `routes.ts`, `navigation.ts` | Rutas y grupo de menú con permisos CASL por ítem. |
@@ -41,6 +42,27 @@ La migración es por etapas:
    - `DATABASE_URL`.
 
    `CRM_ALLOWED_ORIGINS` también habilita CORS para esos orígenes, sin comodín. Así las vistas nativas pueden llamar a la API directamente. Los detalles están en `../../docs/INTEGRATION.md`.
+
+## Control Tower dentro de `/dashboard/crm`
+
+El tablero «CRM» del admin sigue siendo la portada: jugadores activos, GGR, apuestas contra premios, mapa de actividad, alertas por detector y tops. El Control Tower no lo duplica. Agrega debajo solo lo que es del CRM: envíos y supresiones, recorridos con su grupo de control, presupuestos de bonos, latencia evento → decisión y la pausa general.
+
+```vue
+<!-- src/pages/dashboards/crm.vue del admin, al final de las filas existentes -->
+<script setup>
+import { CrmDashboardSection } from '@/modules/crm/crm/widgets'
+</script>
+
+<template>
+  <!-- … filas actuales del tablero … -->
+  <CrmDashboardSection v-if="$can('read', 'crm')" :brand="crmBrandKey" class="mt-6" />
+</template>
+```
+
+- `brand`: la marca elegida en el filtro del tablero, con la clave que usa el CRM (por ejemplo `rumbawin`). Vacío muestra todas. Al cambiar, la sección se recarga.
+- La sección hace una sola llamada (`getControlTower`). Si el admin prefiere repartir las piezas en sus propias filas, los widgets sueltos (`CrmStatusWidget`, `CrmJourneysWidget`, `CrmBudgetsWidget`, `CrmSuppressionWidget`) solo reciben props.
+- **Alertas:** no se muestran en la sección, porque el admin ya tiene su sistema de alertas. Las del CRM (`rg.case_opened`, `abuse.reviewed`, `delivery.failed`, `reward.failed`) salen por los webhooks firmados y la idea es que el admin las registre como un detector más. Hace falta que SS1 diga cómo crear alertas en su sistema; ver `docs/SS1_DATA_CONTRACT.md`, sección 7.
+- El menú del CRM ya no tiene ítem «Control Tower». La vista suelta `/crm/control-tower` sigue disponible como enlace directo y sí muestra las alertas del CRM.
 
 ## Cómo migrar otra pestaña
 

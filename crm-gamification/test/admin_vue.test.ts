@@ -44,6 +44,8 @@ before(async () => {
     export { installCrm, CRM_VIEWS } from '${new URL('plugin.ts', KIT).pathname}';
     export { CRM_CLIENT } from '${new URL('composables/useCrm.ts', KIT).pathname}';
     export { default as CrmControlTower } from '${new URL('pages/CrmControlTower.vue', KIT).pathname}';
+    export { CrmDashboardSection } from '${new URL('widgets/index.ts', KIT).pathname}';
+    export { crmGamificationNav } from '${new URL('../navigation.ts', KIT).pathname}';
     export { default as CrmResponsibleGaming } from '${new URL('pages/CrmResponsibleGaming.vue', KIT).pathname}';
     export { default as CrmPolicies } from '${new URL('pages/CrmPolicies.vue', KIT).pathname}';
     export { default as CrmIntegrations } from '${new URL('pages/CrmIntegrations.vue', KIT).pathname}';
@@ -103,6 +105,25 @@ test('Kit Vue: las 4 vistas nativas renderizan con Vuetify y datos simulados; lo
   assert.match(integ, /PAM/); assert.match(integ, /events:write/);
   assert.doesNotMatch(integ, /Crear llave/, 'sin integration.sync no se crean llaves');
   assert.deepEqual([...kit.CRM_VIEWS.native], ['control-tower', 'responsible-gaming', 'policies', 'integrations']);
+});
+
+test('Kit Vue: Control Tower enchufado en /dashboard/crm — una llamada, marca del admin, sin duplicar alertas ni menú', async () => {
+  const calls: { op: string; o?: { query?: Record<string, unknown> } }[] = [];
+  const tower = { as_of: '2026-11-26T10:00:00Z', global_pause: true, brand: 'rumbawin', latency: { n: 10, p50_ms: 1, p95_ms: 300, p99_ms: 400, slo_p95_ms: 250, within_slo: false }, journeys: [{ id: 'j4', name: 'Reactivación', version: 1, status: 'published', purpose: 'marketing', control_group_pct: 0, instances: {} }], deliveries: {}, suppression_reasons: { quiet_hours: 5, rg_hold: 2 }, deferred: 0, dead_letters: 2, budgets: [], alerts: [{ at: '2026-11-26T09:00:00Z', player_id: 'p-9', alert: 'abuse_review' }] };
+  const client = { call: async (op: string, o?: { query?: Record<string, unknown> }) => { calls.push({ op, o }); return op === 'getSession' ? { permissions: ['runtime.global_pause'] } : tower; }, url: () => '' };
+  const vuetify = kit.createVuetify({ components: kit.components, ssr: true });
+  const app = kit.createSSRApp({ render: () => kit.h(kit.CrmDashboardSection, { brand: 'rumbawin' }) });
+  app.use(vuetify); app.provide(kit.CRM_CLIENT, client);
+  const html = await kit.renderToString(app);
+  assert.deepEqual(calls.filter((c) => c.op === 'getControlTower').map((c) => c.o?.query?.brand), ['rumbawin'], 'una sola llamada, con la marca que elige el admin');
+  assert.match(html, /CRM · Operación/); assert.match(html, /Reactivación/); assert.match(html, /quiet_hours/); assert.match(html, /En pausa/); assert.match(html, /Reanudar envíos/);
+  assert.match(html, /text-error[^>]*>\s*300 ms/, 'latencia fuera del objetivo, en rojo');
+  assert.match(html, /text-warning[^>]*>\s*0 %/, 'recorrido de marketing sin grupo de control resaltado');
+  assert.doesNotMatch(html, /Alertas operativas|abuse_review/, 'las alertas viven en el sistema de alertas del admin');
+  const page = await render(kit.CrmControlTower, client);
+  assert.match(page, /Alertas operativas/); assert.match(page, /abuse_review/, 'la vista suelta sí las muestra');
+  assert.equal(kit.crmGamificationNav.children.some((c: { title: string }) => c.title === 'Control Tower'), false, 'sin ítem de menú propio');
+  assert.equal(kit.CRM_VIEWS.pluggedInto['control-tower'], '/dashboard/crm');
 });
 
 test('Kit Vue: Control Tower nativa contra el servidor real del CRM (llave de servicio)', async () => {

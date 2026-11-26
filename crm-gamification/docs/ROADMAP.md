@@ -11,8 +11,8 @@
 | Funciones (paridad con Fast Track, GR8 Tech y Optimove) | 54 de 59 filas hechas. Las 5 restantes dependen de terceros: datos de producción, proveedores reales, broker de eventos, certificaciones y agentes autónomos, que se descartaron a propósito |
 | Base de datos | **Fase 1 hecha.** Ver el detalle abajo |
 | API de integración v1 | **Hecha.** Ver el detalle abajo |
-| Admin de SS1 | **4 vistas nativas** (Control Tower, Juego responsable, Políticas e Integraciones). Las otras 11 siguen embebidas |
-| Pruebas | 140 automáticas, más 4 contra PostgreSQL en CI. Las vistas Vue se renderizan con Vue y Vuetify reales |
+| Admin de SS1 | **4 vistas nativas** (Juego responsable, Políticas, Integraciones y el Control Tower, que va enchufado en el tablero «CRM» del admin). Las otras 11 siguen embebidas |
+| Pruebas | 141 automáticas, más 4 contra PostgreSQL en CI. Las vistas Vue se renderizan con Vue y Vuetify reales |
 
 **Base de datos (fase 1):**
 

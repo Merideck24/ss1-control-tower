@@ -1,11 +1,12 @@
 // Grupo de menú en formato Vuexy (vertical nav). Cada ítem se muestra solo con su permiso CASL.
+// El Control Tower no tiene ítem propio: va enchufado en el tablero «CRM» del admin
+// (/dashboard/crm) con <CrmDashboardSection />. Su vista suelta sigue en /crm/control-tower.
 export const crmGamificationNav = {
   title: 'CRM y Gamificación',
   icon: { icon: 'tabler-chart-dots-3' },
   action: 'read',
   subject: 'crm',
   children: [
-    { title: 'Control Tower', to: 'crm-control-tower', action: 'read', subject: 'crm' },
     { title: 'Juego responsable', to: 'crm-responsible-gaming', action: 'update', subject: 'responsible-gaming' },
     { title: 'Políticas por mercado', to: 'crm-policies', action: 'read', subject: 'crm' },
     { title: 'Integraciones', to: 'crm-integrations', action: 'manage', subject: 'crm-settings' },
