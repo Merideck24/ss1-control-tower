@@ -1600,9 +1600,9 @@
         "tags": [
           "Recorridos"
         ],
-        "summary": "Ciclo de aprobación y publicación",
+        "summary": "Ciclo de aprobación, publicación, pausa y cierre",
         "operationId": "postJourneysJourneyIdAction",
-        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.publish` o `journeys.pause` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.publish` o `journeys.pause` o `journeys.close` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
             "name": "journey_id",
@@ -1623,7 +1623,8 @@
                 "approve",
                 "publish",
                 "pause",
-                "resume"
+                "resume",
+                "close"
               ]
             }
           },
@@ -1677,8 +1678,66 @@
           "journeys.submit",
           "journeys.approve",
           "journeys.publish",
-          "journeys.pause"
+          "journeys.pause",
+          "journeys.close"
         ]
+      }
+    },
+    "/v1/journeys/{journey_id}/runs": {
+      "get": {
+        "tags": [
+          "Recorridos"
+        ],
+        "summary": "Seguimiento: instancias por estado y versión, supresiones con motivo y fallas",
+        "operationId": "getJourneysJourneyIdRuns",
+        "description": "Cualquier usuario autenticado del tenant. Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "journey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": []
       }
     },
     "/v1/journeys/{journey_id}/simulate": {

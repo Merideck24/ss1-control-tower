@@ -55,8 +55,10 @@ export const CRM_ENDPOINTS = {
   postJourneysReview: { method: 'POST', path: '/journeys/review', params: [] as const, query: [] as const } as Op<{  }>,
   /** Grupos de solapamiento, bloqueos y riesgos · alcance analytics:read */
   getJourneysOverlap: { method: 'GET', path: '/journeys/overlap', params: [] as const, query: [] as const } as Op<{  }>,
-  /** Ciclo de aprobación y publicación */
-  postJourneysJourneyIdAction: { method: 'POST', path: '/journeys/{journey_id}/{action}', params: ['journey_id', 'action'] as const, query: [] as const } as Op<{ journey_id: string; action: 'submit' | 'approve' | 'publish' | 'pause' | 'resume' }>,
+  /** Ciclo de aprobación, publicación, pausa y cierre */
+  postJourneysJourneyIdAction: { method: 'POST', path: '/journeys/{journey_id}/{action}', params: ['journey_id', 'action'] as const, query: [] as const } as Op<{ journey_id: string; action: 'submit' | 'approve' | 'publish' | 'pause' | 'resume' | 'close' }>,
+  /** Seguimiento: instancias por estado y versión, supresiones con motivo y fallas · alcance analytics:read */
+  getJourneysJourneyIdRuns: { method: 'GET', path: '/journeys/{journey_id}/runs', params: ['journey_id'] as const, query: [] as const } as Op<{ journey_id: string }>,
   /** Simular sin efectos */
   postJourneysJourneyIdSimulate: { method: 'POST', path: '/journeys/{journey_id}/simulate', params: ['journey_id'] as const, query: [] as const } as Op<{ journey_id: string }>,
   /** Experimentos A/B/n · alcance analytics:read */

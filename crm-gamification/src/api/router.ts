@@ -10,6 +10,7 @@ import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
 import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
+import { journeyState } from '../profile/journeyState.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
 import { DomainError, HOUR, toCsv } from '../shared/util.ts';
 import { journeyImpact } from '../analytics/journeyImpact.ts';
@@ -53,6 +54,7 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'journeys.approve': ['approver'],
   'journeys.publish': ['crm_analyst', 'tenant_admin', 'approver'],
   'journeys.pause': ['crm_analyst', 'tenant_admin', 'rg_officer', 'approver'],
+  'journeys.close': ['tenant_admin', 'approver', 'rg_officer'],
   'journeys.simulate': ['crm_analyst', 'approver', 'tenant_admin'],
   'runtime.tick': ['crm_analyst', 'tenant_admin', 'rg_officer'],
   'runtime.global_pause': ['tenant_admin', 'rg_officer'],
@@ -223,9 +225,15 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const p = app.ingestor.get(T, r[1]);
       if (!p) return { status: 404, body: { error: 'not_found', message: `No existe el jugador ${r[1]} en ${T}` } };
       const decisions = Object.fromEntries(CHANNELS.map((c) => [c, app.policy.decide({ profile: p, purpose: 'marketing', channel: c })]));
+      const incentive = app.policy.decide({ profile: p, purpose: 'marketing', incentive: true });
+      const loyaltyNow = app.loyalty.program(T, p.brand_id) ? app.loyalty.progress(T, p.brand_id, p.player_id) : null;
       return ok({
         as_of: app.clock.now().toISOString(),
         profile: profileView(p),
+        journey_state: journeyState({ profile: p, now: app.clock.now(), marketing: decisions, incentive, loyalty: loyaltyNow,
+          grants: app.rewards.grants(T).filter((g) => g.player_id === p.player_id && g.status === 'confirmed').length,
+          open_predictions: app.store.predictions(T).filter((x) => x.status === 'open' && !app.store.picks(T, x.id).get(p.player_id)).length,
+          spins_left: app.games.games(T).reduce((n, g) => n + app.games.spinsLeft(T, g.id, p.player_id), 0) }),
         loyalty: app.loyalty.program(T, p.brand_id) ? { ...app.loyalty.progress(T, p.brand_id, p.player_id), movements: app.loyalty.movements(T, p.player_id).slice(-20) } : null,
         eligibility_explanation: { marketing: decisions, incentive: app.policy.decide({ profile: p, purpose: 'marketing', incentive: true }) },
         receipts: app.channels.receipts(T, p.player_id),
@@ -555,12 +563,34 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
       return ok(app.registry.saveDraft(actor, req.body as never), 201);
     }
-    if ((r = m(/^POST \/journeys\/([\w-]+)\/(submit|approve|publish|pause|resume)$/))) {
+    if ((r = m(/^POST \/journeys\/([\w-]+)\/(submit|approve|publish|pause|resume|close)$/))) {
       const [, id, action] = r;
       const perm = `journeys.${action === 'resume' ? 'pause' : action}`;
       if (!can(actor, perm)) return forbid(perm);
-      const out = action === 'submit' ? app.registry.submit(actor, id) : action === 'approve' ? app.registry.approve(actor, id) : action === 'publish' ? app.registry.publish(actor, id) : app.registry.setPaused(actor, id, action === 'pause', String(req.body.reason ?? 'manual'));
+      const out = action === 'submit' ? app.registry.submit(actor, id) : action === 'approve' ? app.registry.approve(actor, id) : action === 'publish' ? app.registry.publish(actor, id) : action === 'close' ? app.registry.close(actor, id, String(req.body.reason ?? '')) : app.registry.setPaused(actor, id, action === 'pause', String(req.body.reason ?? 'manual'));
       return ok(out);
+    }
+    if ((r = m(/^GET \/journeys\/([\w-]+)\/runs$/))) {
+      // seguimiento: instancias por estado y versión, supresiones con su motivo y fallas de entrega
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      const id = r[1];
+      const versions = app.registry.list(T).filter((j) => j.id === id);
+      if (!versions.length) return { status: 404, body: { error: 'not_found', message: 'Recorrido inexistente' } };
+      const inst = app.runtime.instances(T, { journey_id: id });
+      const tally = (xs: string[]) => xs.reduce<Record<string, number>>((a, k) => ((a[k] = (a[k] ?? 0) + 1), a), {});
+      const steps = inst.flatMap((i) => i.trace);
+      const suppressed = steps.filter((t) => t.outcome === 'suppressed').flatMap((t) => t.decision?.reasons ?? ['sin_motivo']);
+      return ok({
+        journey_id: id,
+        versions: versions.map((v) => ({ version: v.version, status: v.status, updated_at: v.updated_at })),
+        total: inst.length,
+        by_status: tally(inst.map((i) => i.status)),
+        by_version: tally(inst.map((i) => `v${i.version}`)),
+        sends: tally(steps.filter((t) => t.type === 'message').map((t) => t.outcome)),
+        suppression_reasons: tally(suppressed),
+        failures: steps.filter((t) => t.outcome === 'failed').length,
+        as_of: app.clock.now().toISOString(),
+      });
     }
     if ((r = m(/^POST \/journeys\/([\w-]+)\/simulate$/))) {
       if (!can(actor, 'journeys.simulate')) return forbid('journeys.simulate');

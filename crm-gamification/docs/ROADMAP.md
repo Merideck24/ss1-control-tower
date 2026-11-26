@@ -22,7 +22,7 @@
 
 **API de integración v1:**
 
-- OpenAPI 3.1 de 86 operaciones, verificada contra el código;
+- OpenAPI 3.1 de 87 operaciones, verificada contra el código;
 - llaves de servicio con alcances, límite de tasa y CORS.
 
 ## Fase 1 · Conexión con SS1 (2 a 3 semanas)

@@ -8,10 +8,10 @@ Módulo integrado al PAM, al servicio de bonos y al Control Tower de SS1. Implem
 
 | Área | Capacidad |
 |---|---|
-| Perfil 360 | Proyección por eventos; cada campo crítico lleva fuente, versión y fecha; línea de tiempo; contactos enmascarados; explicación de por qué un jugador recibe o no marketing |
+| Perfil 360 | Proyección por eventos; cada campo crítico lleva fuente, versión y fecha; línea de tiempo; contactos enmascarados; explicación de por qué un jugador recibe o no marketing; etapa del recorrido del jugador (registro → baja), pendientes y próxima acción permitida |
 | Ingesta | Validación de contratos, dedup por `(tenant, event_id)`, tolerancia a desorden, cola de errores, métricas por fuente, rechazo de tokens y secretos |
 | Segmentos | Reglas AND/OR/NOT sobre catálogo de campos y eventos, exclusiones, resultado determinista por snapshot |
-| Recorridos | Disparador, condición, espera, mensaje, recompensa y salida. Borrador → aprobación separada (autor ≠ aprobador) → publicación firmada e inmutable. Simulación sin efectos, pausa por recorrido y pausa general |
+| Recorridos | Disparador, condición, espera, mensaje, recompensa y salida. Borrador → simulación → revisión → aprobación separada (autor ≠ aprobador) → publicación firmada e inmutable → ejecución con versión fijada → seguimiento (estados, versiones, supresiones con motivo, fallas) → pausa, reanudación o cierre con motivo. Pausa general |
 | Políticas | Consentimiento por propósito y canal, juego responsable, KYC para incentivos, frecuencia, horario silencioso por zona horaria. Fail-closed si el estado JR falta o está desactualizado |
 | Canales | In-app, email y web push (adaptadores simulados), plantillas ES/EN/PT, recibos con estado y razón, reintentos acotados e idempotentes |
 | Recompensas | Catálogo aprobado, presupuesto con reserva, clave de idempotencia, resultado incierto conciliado antes de reenviar, conciliación con el servicio de bonos |
@@ -20,6 +20,7 @@ Módulo integrado al PAM, al servicio de bonos y al Control Tower de SS1. Implem
 | Tendencia, payback y alertas | Gráfica diaria de inversión frente a NGR, payback por cohorte semanal con curvas por campaña y alertas de KPI con severidad, acción sugerida, reconocimiento auditado y umbrales configurables |
 | Experimentos | Grupo de control estable por hash, reporte con denominador, ventana, costo, conversión observada e incremento estimado con IC 95 % |
 | Auditoría | Registro append-only encadenado por hash, con datos sensibles redactados |
+| Integración PAM | Conectores de solo lectura sobre una interfaz reemplazable (`PamSource`: cliente HTTP de SS1 o sandbox), IDs deterministas, suite de contrato común a todos los adaptadores y plan sandbox → piloto → activación gradual ([docs/PAM_INTEGRATION.md](docs/PAM_INTEGRATION.md)) |
 | Copiloto IA | Herramientas tipadas `query_metric`, `preview_segment`, `validate_policy`, `simulate_journey` y `save_draft`. Tenant y rol salen de la sesión. Sin herramientas para enviar, publicar, otorgar premios ni cambiar restricciones. Bucle con Claude vía `@anthropic-ai/sdk` |
 
 ## Diseño
@@ -43,7 +44,7 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 150 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
+npm test          # 171 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
 npm run typecheck
 npm start         # http://localhost:3000 — demo con datos sintéticos (auth de desarrollo)
 npm run start:prod  # exige token del admin de SS1 (ver docs/INTEGRATION.md)
@@ -85,5 +86,7 @@ contracts/                AsyncAPI de eventos
 docs/                     plan, arquitectura, API y trazabilidad
 test/                     pruebas por requisito
 ```
+
+Estado, QA y cómo retomar: [CONTINUIDAD.md](CONTINUIDAD.md) y [docs/QA_REPORT.md](docs/QA_REPORT.md).
 
 Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md), [docs/TRACEABILITY.md](docs/TRACEABILITY.md), [docs/ROADMAP.md](docs/ROADMAP.md) y el [contrato de datos con SS1](docs/SS1_DATA_CONTRACT.md).

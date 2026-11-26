@@ -11,6 +11,9 @@
   @font-face { font-family: 'Roboto'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/roboto-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
   @font-face { font-family: 'Roboto'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/roboto-latin-500-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
   @font-face { font-family: 'Roboto'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/roboto-latin-700-normal.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+.jstages{list-style:none;padding:0;margin:8px 0;display:grid;gap:4px}.jstages li{display:flex;gap:6px;flex-wrap:wrap;align-items:baseline}.jstages li[aria-current]{font-weight:500}
+.nextact{border:1px solid #333;border-left:4px solid var(--brand);border-radius:6px;padding:8px 10px;margin:6px 0}.nextact.okb{border-left-color:var(--ok)}.nextact.warnb{border-left-color:var(--warn)}.nextact.badb{border-left-color:var(--bad)}
+.jpending{margin:4px 0 8px;padding-left:20px}h3.sub{font-size:14px;margin:8px 0 2px}
 </style>
 <style>
   /* Diseño SS1 Admin (Vuexy/Vuetify, tema oscuro): menú lateral + barra superior flotante + tarjetas sobre fondo negro, acento dorado. */
@@ -720,7 +723,7 @@ const approvalEmpty = () => can('journeys.approve')
 // ── #10: estados, motivos y claves internas en español claro (la clave sigue en el title para soporte) ──
 const LABELS = {
   // recorridos e instancias
-  published: 'Publicado', paused: 'En pausa', draft: 'Borrador', pending_approval: 'En aprobación', approved: 'Aprobado', rejected: 'Rechazado', archived: 'Archivado',
+  published: 'Publicado', paused: 'En pausa', draft: 'Borrador', pending_approval: 'En aprobación', approved: 'Aprobado', rejected: 'Rechazado', archived: 'Archivado', closed: 'Cerrado', journey_closed: 'Recorrido cerrado',
   active: 'Activas', waiting: 'En espera', completed: 'Completadas', exited: 'Salieron', cancelled: 'Canceladas', failed: 'Con error',
   // jugador
   verified: 'Verificado', pending: 'Pendiente', unverified: 'Sin verificar', none: 'Sin restricción', self_excluded: 'Autoexcluido', cooling_off: 'Pausa temporal', limited: 'Con límites',
@@ -984,7 +987,7 @@ const VIEWS = {
         <span id="pcount" class="muted" role="status" aria-live="polite"></span></div>
       <div class="grid profile-grid">
         <div class="card"><h2 id="plist-h">Jugadores</h2><div id="plist"></div></div>
-        <section class="card pdetail" id="pdetail" tabindex="-1" aria-label="Perfil del jugador"><p class="muted">Selecciona un jugador de la lista para ver su perfil.</p></section></div>`;
+        <section class="card pdetail" id="pdetail" tabindex="0" aria-label="Perfil del jugador"><p class="muted">Selecciona un jugador de la lista para ver su perfil.</p></section></div>`;
   },
   async segments() {
     const [fields, dist, pers] = await Promise.all([api('/segments/fields'), api('/segments/rfm'), api('/personas')]);
@@ -1025,8 +1028,10 @@ const VIEWS = {
         <div class="row"><label class="simlabel">Jugador para simular <select data-simp="${esc(j.id)}" aria-label="Jugador para simular «${esc(j.name)}»">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label>
           ${can('journeys.simulate') ? `<button class="ghost" data-sim="${esc(j.id)}">Simular</button>` : ''}
           ${can('journeys.draft') ? `<button class="ghost" data-edit="${esc(j.id)}">Editar en el lienzo</button>` : ''}
-          ${!can('journeys.pause') ? '' : j.status === 'published' ? `<button class="ghost" data-pause="${esc(j.id)}">Pausar</button>` : j.status === 'paused' ? `<button class="ghost" data-resume="${esc(j.id)}">Reanudar</button>` : ''}</div>
-        <div data-simout="${esc(j.id)}"></div></div>`).join('')}</div>
+          ${!can('journeys.pause') ? '' : j.status === 'published' ? `<button class="ghost" data-pause="${esc(j.id)}">Pausar</button>` : j.status === 'paused' ? `<button class="ghost" data-resume="${esc(j.id)}">Reanudar</button>` : ''}
+          ${can('analytics.read') && ['published', 'paused', 'closed'].includes(j.status) ? `<button class="ghost" data-runs="${esc(j.id)}" aria-expanded="false">Seguimiento</button>` : ''}
+          ${can('journeys.close') && ['published', 'paused'].includes(j.status) ? `<button class="ghost" data-close="${esc(j.id)}">Cerrar…</button>` : ''}</div>
+        <div data-simout="${esc(j.id)}"></div><div data-runsout="${esc(j.id)}" role="region" aria-label="Seguimiento de «${esc(j.name)}»" hidden></div></div>`).join('')}</div>
       ${!can('journeys.draft') ? '<p class="muted">Tu rol puede consultar los recorridos pero no crear borradores.</p>' : `<br><div class="card" id="bcard"><h2>Constructor visual</h2>
         <div class="row">
           <label>Identificador <input id="bid" value="${esc(B.def.id)}" size="16"></label>
@@ -1473,7 +1478,15 @@ const BIND = {
       // valor arriba y procedencia (fuente · fecha · versión) como línea secundaria: no se recorta en pantallas angostas
       const f = (name, x, human = false) => `<tr><th scope="row">${name}</th><td><span class="pv">${human ? lbl(x.value) : esc(x.value)}</span><span class="src" title="Fuente, fecha y versión del dato">${esc(x.source)} · ${x.as_of ? when(x.as_of) : '—'} · v${x.version}</span></td></tr>`;
       const ex = d.eligibility_explanation;
+      const js = d.journey_state;
+      const ST = { hecho: ['ok', 'Hecho'], actual: ['brand', 'Ahora'], pendiente: ['muted', 'Pendiente'], bloqueado: ['bad', 'Bloqueado'], sin_fuente: ['muted', 'Sin fuente'] };
+      const na = js?.next_action;
+      const stateHtml = js ? `<section class="jstate" aria-labelledby="jstate-h"><h2 id="jstate-h" style="margin-top:8px">Estado y próxima acción</h2>
+        <div class="nextact ${na.kind === 'marketing' ? 'okb' : na.kind === 'servicio' ? 'warnb' : 'badb'}"><b>Próxima acción permitida:</b> ${esc(na.label)}${na.channel ? ` <span class="chip">${esc(label(na.channel))}</span>` : ''}<div class="muted">${esc(na.why)}</div></div>
+        <ol class="jstages">${js.stages.map((x) => `<li${x.key === js.stage ? ' aria-current="step"' : ''}><span class="chip ${ST[x.status][0]}">${ST[x.status][1]}</span> <b>${esc(x.label)}</b> <span class="muted">${esc(x.detail)}</span></li>`).join('')}</ol>
+        ${js.pending.length ? `<h3 class="sub">Pendientes</h3><ul class="jpending">${js.pending.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted">Sin pendientes.</p>'}</section>` : '';
       $('#pdetail').innerHTML = `${backBtn}<h2 id="pdetail-h" tabindex="-1">${esc(p.player_id)} · ${esc(p.brand_id)}</h2>
+        ${stateHtml}
         <div class="scroll"><table class="psheet" aria-label="Datos del jugador">${f('Email', p.contact.email)}${f('KYC', p.kyc, true)}${f('Juego responsable', p.rg, true)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
         ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + label(k), { ...v, value: v.value === true || v.value === 'granted' ? 'Otorgado' : v.value === false || v.value === 'revoked' ? 'Retirado' : v.value })).join('')}</table></div>
         <h2 style="margin-top:12px">Por qué recibe o no marketing</h2>
@@ -1569,6 +1582,27 @@ const BIND = {
       try { await api(`/journeys/${b.dataset[attr]}/${action}`, { method: 'POST', body: { reason: 'manual' } }); flash(action === 'pause' ? 'Recorrido en pausa: las instancias quedan esperando.' : 'Recorrido reanudado.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
     });
     act('pause', 'pause'); act('resume', 'resume');
+    document.querySelectorAll('[data-close]').forEach((b) => b.onclick = async () => {
+      const reason = prompt('Motivo del cierre (queda en la auditoría). Cerrar es definitivo: nadie más entra y las instancias en curso terminan.');
+      if (reason === null) return;
+      if (!reason.trim()) { flash('Escribe un motivo para cerrar el recorrido.', 'bad'); return; }
+      try { await api(`/journeys/${b.dataset.close}/close`, { method: 'POST', body: { reason } }); flash('Recorrido cerrado. Las instancias en curso salen con el motivo «recorrido cerrado».', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    });
+    document.querySelectorAll('[data-runs]').forEach((b) => b.onclick = async () => {
+      const out = document.querySelector(`[data-runsout="${b.dataset.runs}"]`);
+      if (!out.hidden) { out.hidden = true; b.setAttribute('aria-expanded', 'false'); return; }
+      try {
+        const r = await api(`/journeys/${b.dataset.runs}/runs`);
+        out.innerHTML = `<div class="simres"><b>Seguimiento</b> <span class="muted">al ${esc(when(r.as_of))}</span>
+          <div class="row">${r.versions.map((v) => `<span class="chip">v${v.version}: ${esc(label(v.status))}</span>`).join('')}</div>
+          <div>Instancias: <b>${int(r.total)}</b></div><div class="row">${kv(r.by_status)}</div>
+          <div>Por versión</div><div class="row">${Object.entries(r.by_version).map(([k, n]) => `<span class="chip">${esc(k)}: <b>${int(n)}</b></span>`).join('') || '<span class="muted">—</span>'}</div>
+          <div>Envíos</div><div class="row">${kv(r.sends)}</div>
+          <div>Supresiones por motivo</div><div class="row">${Object.keys(r.suppression_reasons).length ? kv(r.suppression_reasons) : '<span class="muted">ninguna</span>'}</div>
+          <div class="${r.failures ? 'bad' : 'ok'}">${r.failures ? `${int(r.failures)} fallas de entrega` : 'Sin fallas de entrega'}</div></div>`;
+        out.hidden = false; b.setAttribute('aria-expanded', 'true');
+      } catch (e) { flash(e.message, 'bad'); }
+    });
     if (!$('#savedraft')) return;
     document.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => { loadDraft(B.latest.find((j) => j.id === b.dataset.edit)); show().then(() => { $('#bcard').scrollIntoView({ behavior: 'smooth' }); flash(`«${B.def.name}» abierto en el lienzo. Al guardar se crea una nueva versión que requiere aprobación.`, 'ok'); }); });
     const head = () => { B.def.id = $('#bid').value.trim(); B.def.name = $('#bname').value; B.def.purpose = $('#bpurpose').value; B.def.trigger = { event_type: $('#btrigger').value };

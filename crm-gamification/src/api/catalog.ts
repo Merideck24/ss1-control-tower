@@ -71,7 +71,8 @@ export const CATALOG: Endpoint[] = [
   e('GET /journeys/builder', 'Recorridos', 'Catálogo del constructor visual', 'journeys.draft', null),
   e('POST /journeys/review', 'Recorridos', 'Revisión en vivo de un borrador', 'journeys.draft', null, { body: 'JourneyDefinition' }),
   e('GET /journeys/overlap', 'Recorridos', 'Grupos de solapamiento, bloqueos y riesgos', null, 'analytics:read'),
-  e('POST /journeys/([\\w-]+)/(submit|approve|publish|pause|resume)', 'Recorridos', 'Ciclo de aprobación y publicación', ['journeys.submit', 'journeys.approve', 'journeys.publish', 'journeys.pause'], null, { params: ['journey_id', 'action'] }),
+  e('POST /journeys/([\\w-]+)/(submit|approve|publish|pause|resume|close)', 'Recorridos', 'Ciclo de aprobación, publicación, pausa y cierre', ['journeys.submit', 'journeys.approve', 'journeys.publish', 'journeys.pause', 'journeys.close'], null, { params: ['journey_id', 'action'] }),
+  e('GET /journeys/([\\w-]+)/runs', 'Recorridos', 'Seguimiento: instancias por estado y versión, supresiones con motivo y fallas', null, 'analytics:read', { params: ['journey_id'] }),
   e('POST /journeys/([\\w-]+)/simulate', 'Recorridos', 'Simular sin efectos', 'journeys.simulate', null, { params: ['journey_id'], body: '{ player_id, payload }' }),
   e('GET /experiments/splits', 'Analítica', 'Experimentos A/B/n', 'analytics.read', 'analytics:read'),
   // Analítica y rendimiento

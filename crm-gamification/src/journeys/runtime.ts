@@ -12,6 +12,7 @@ import type { Clock } from '../shared/util.ts';
 import { hasIncentive, type JourneyDefinition, type JourneyNode } from './model.ts';
 import type { JourneyRegistry } from './registry.ts';
 
+const RUNNABLE = new Set(['published', 'archived']);
 export type InstanceStatus = 'running' | 'waiting' | 'completed' | 'exited' | 'cancelled' | 'held_out' | 'blocked_overlap' | 'preempted';
 export type TraceStep = { at: string; node: string; type: JourneyNode['type'] | 'enter' | 'exit_event'; outcome: string; decision?: Decision; detail?: Record<string, unknown> };
 export type JourneyInstance = {
@@ -67,6 +68,14 @@ export class JourneyRuntime {
     this.#splits = deps.splits ?? null;
     this.#registry = deps.registry; this.#policy = deps.policy; this.#profiles = deps.profiles; this.#effects = deps.effects; this.#audit = deps.audit; this.#clock = deps.clock;
     this.#skipWaits = deps.skipWaits ?? false;
+  }
+
+  /** Recorrido cerrado: la instancia sale con motivo explícito (no queda colgada). */
+  #closedExit(inst: JourneyInstance, def: JourneyDefinition): boolean {
+    if (def.status !== 'closed') return false;
+    inst.status = 'exited'; inst.wake_at = undefined;
+    inst.trace.push({ at: this.#now(), node: inst.current, type: 'exit_event', outcome: 'journey_closed' });
+    return true;
   }
 
   setGlobalPause(tenant: string, paused: boolean, actor: string, reason: string) {
@@ -152,7 +161,9 @@ export class JourneyRuntime {
       if (inst.status !== 'waiting') { this.#waiting.delete(inst); continue; }
       if (this.#deferred.has(inst.instance_id) || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
       const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
-      if (def.status !== 'published' || this.#globalPause.has(inst.tenant_id)) continue; // en pausa: queda esperando
+      if (this.#closedExit(inst, def)) { this.#waiting.delete(inst); continue; }
+      // versión fijada: una versión reemplazada (archived) deja terminar a quien ya entró
+      if (!RUNNABLE.has(def.status) || this.#globalPause.has(inst.tenant_id)) continue; // en pausa: queda esperando
       const node = def.nodes.find((x) => x.id === inst.current)! as Extract<JourneyNode, { type: 'wait' }>;
       this.#waiting.delete(inst);
       inst.status = 'running'; inst.wake_at = undefined; inst.current = node.next;
@@ -249,7 +260,8 @@ export class JourneyRuntime {
       const inst = this.#instances.get(id)!;
       if (inst.status !== 'waiting' || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
       const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
-      if (def.status !== 'published' || this.#globalPause.has(inst.tenant_id)) continue;
+      if (this.#closedExit(inst, def)) { this.#deferred.delete(id); this.#waiting.delete(inst); continue; }
+      if (!RUNNABLE.has(def.status) || this.#globalPause.has(inst.tenant_id)) continue;
       this.#deferred.delete(id);
       this.#waiting.delete(inst);
       inst.status = 'running'; inst.wake_at = undefined; inst.current = nodeId;

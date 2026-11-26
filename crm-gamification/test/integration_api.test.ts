@@ -44,7 +44,7 @@ test('API: OpenAPI 3.1 generada desde el catálogo y sin deriva con contracts/op
   assert.equal(spec.openapi, '3.1.0');
   assert.equal(Object.values(spec.paths).reduce((n, p) => n + Object.keys(p).length, 0), CATALOG.length);
   const op = spec.paths['/v1/journeys/{journey_id}/{action}'].post as { parameters: { name: string; schema: { enum?: string[] } }[]; security: unknown[] };
-  assert.deepEqual(op.parameters.find((p) => p.name === 'action')!.schema.enum, ['submit', 'approve', 'publish', 'pause', 'resume']);
+  assert.deepEqual(op.parameters.find((p) => p.name === 'action')!.schema.enum, ['submit', 'approve', 'publish', 'pause', 'resume', 'close']);
   assert.deepEqual(op.security, [{ ss1AdminToken: [] }], 'aprobaciones: solo personas');
   const committed = JSON.parse(await readFile(new URL('../contracts/openapi.json', import.meta.url), 'utf8'));
   assert.deepEqual(committed, JSON.parse(JSON.stringify(spec)), 'contracts/openapi.json desactualizado: corre `npm run openapi`');

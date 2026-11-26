@@ -12,7 +12,7 @@ export type JourneyNode =
   | { id: string; type: 'exit' }
   | SplitNode;
 
-export type JourneyStatus = 'draft' | 'pending_approval' | 'approved' | 'published' | 'paused' | 'archived';
+export type JourneyStatus = 'draft' | 'pending_approval' | 'approved' | 'published' | 'paused' | 'archived' | 'closed';
 
 export type JourneyDefinition = {
   id: string;

@@ -5,9 +5,10 @@
  * códigos numéricos en transacciones financieras, `country.value`, `responsible_gaming` y
  * movimientos de juego DEBIT/CREDIT/ROLLBACK/FREE_SPIN. Se aceptan también las formas de texto.
  */
+import type { PamSource } from './pam.ts';
 import type { EventEnvelope } from '../domain/events.ts';
 import type { Ingestor } from '../ingestion/ingestor.ts';
-import { Ss1ApiError, type Ss1Client, toMinor } from './ss1Client.ts';
+import { Ss1ApiError, toMinor } from './ss1Client.ts';
 
 export const SS1_ENDPOINTS = {
   players: (typeof process !== 'undefined' ? process.env.SS1_PLAYERS_PATH : undefined) ?? '/admin/players',
@@ -144,7 +145,7 @@ export function connectorQuery(name: ConnectorName, since?: string): Record<stri
   return { updated_since: since };
 }
 
-export async function runConnector(name: ConnectorName, client: Ss1Client, ingestor: Ingestor, ctx: MapContext, query: Record<string, string | number | undefined> = {}, opts: { replay?: boolean } = { replay: true }): Promise<SyncReport> {
+export async function runConnector(name: ConnectorName, client: PamSource, ingestor: Ingestor, ctx: MapContext, query: Record<string, string | number | undefined> = {}, opts: { replay?: boolean } = { replay: true }): Promise<SyncReport> {
   const rep: SyncReport = { connector: name, fetched: 0, ingested: 0, duplicates: 0, rejected: 0, skipped: 0, samples_skipped: [] };
   const map = name === 'players' ? mapPlayer : name === 'games' ? mapGameTransaction : mapFinancial;
   try {

@@ -63,7 +63,8 @@ export class JourneyRegistry {
     if (!j || j.status !== 'approved') throw new DomainError('not_approved', 'journey must be approved before publish');
     const expected = sha256(JSON.stringify({ id: j.id, version: j.version, nodes: j.nodes, trigger: j.trigger, purpose: j.purpose, approver: j.approved_by }));
     if (expected !== j.approval_signature) throw new DomainError('signature_mismatch', 'content changed after approval');
-    for (const v of versions) if (v.status === 'published' || v.status === 'paused') v.status = 'archived';
+    // las versiones publicadas están congeladas: se reemplazan (no se mutan) por su copia archivada
+    for (let i = 0; i < versions.length; i++) if (versions[i].status === 'published' || versions[i].status === 'paused') versions[i] = deepFreeze({ ...structuredClone(versions[i]), status: 'archived' as const });
     const published = deepFreeze({ ...structuredClone(j), status: 'published' as const, updated_at: this.#clock.now().toISOString() });
     versions[versions.length - 1] = published;
     this.#audit.record(actor.tenant_id, actor.id, 'journey.published', `${id}@v${j.version}`, {});
@@ -78,6 +79,20 @@ export class JourneyRegistry {
     const next = deepFreeze({ ...structuredClone(versions[idx]), status: paused ? ('paused' as const) : ('published' as const) });
     versions[idx] = next;
     this.#audit.record(actor.tenant_id, actor.id, paused ? 'journey.paused' : 'journey.resumed', `${id}@v${next.version}`, { reason });
+    return next;
+  }
+
+  /** Cierre definitivo: no admite nuevas entradas y las instancias en curso salen con «journey_closed». */
+  close(actor: Actor, id: string, reason: string): JourneyDefinition {
+    this.#need(actor, 'tenant_admin', 'approver', 'rg_officer');
+    if (!reason.trim()) throw new DomainError('reason_required', 'closing a journey requires a reason');
+    const versions = this.#versions.get(this.#key(actor.tenant_id, id)) ?? [];
+    const idx = versions.findIndex((v) => v.status === 'published' || v.status === 'paused');
+    if (idx < 0) throw new DomainError('not_found', 'no published or paused version to close');
+    for (let i = 0; i < versions.length; i++) if (versions[i].status === 'archived') versions[i] = deepFreeze({ ...structuredClone(versions[i]), status: 'closed' as const });
+    const next = deepFreeze({ ...structuredClone(versions[idx]), status: 'closed' as const, updated_at: this.#clock.now().toISOString() });
+    versions[idx] = next;
+    this.#audit.record(actor.tenant_id, actor.id, 'journey.closed', `${id}@v${next.version}`, { reason });
     return next;
   }
 
