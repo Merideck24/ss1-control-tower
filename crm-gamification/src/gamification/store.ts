@@ -51,8 +51,11 @@ export class StoreService {
   }
   onEvent(e: EventEnvelope, p: PlayerProfile | undefined) {
     if (e.event_type !== 'bet.settled' || blocked(this.#d, p)) return;
-    const coins = Math.floor((e as EventEnvelope<'bet.settled'>).payload.stake.amount_minor / this.coinRateMinor);
+    const stake = (e as EventEnvelope<'bet.settled'>).payload.stake.amount_minor;
+    const coins = Math.sign(stake) * Math.floor(Math.abs(stake) / this.coinRateMinor);
     if (coins > 0) this.#post(e.tenant_id, e.player_id, coins, 'bet.settled', `earn:${e.event_id}`);
+    // reversión: se descuenta lo ganado por esa apuesta, sin dejar el saldo negativo (si ya las gastó, se descuenta lo que queda)
+    else if (coins < 0) { const take = Math.min(-coins, this.balance(e.tenant_id, e.player_id)); if (take > 0) this.#post(e.tenant_id, e.player_id, -take, 'bet.rollback', `earn:${e.event_id}`); }
   }
   adjust(actor: { id: string; tenant_id: string }, player: string, amount: number, reason: string, ref: string) {
     if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 1_000_000) throw new DomainError('invalid_amount', 'monto inválido');

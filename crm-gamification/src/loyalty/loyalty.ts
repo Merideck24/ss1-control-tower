@@ -20,6 +20,8 @@ export class LoyaltyService {
   #optOut = new Set<string>();
   #clock: Clock;
   onThreshold?: (e: EventEnvelope<'loyalty.threshold_crossed'>) => void;
+  /** subida de nivel (nunca bajadas: una reversión que baja de nivel no genera aviso) */
+  onLevelUp?: (e: EventEnvelope<'loyalty.level_up'>) => void;
   constructor(clock: Clock) { this.#clock = clock; }
 
   setProgram(p: LoyaltyProgram): void {
@@ -57,6 +59,18 @@ export class LoyaltyService {
     const bk = `${e.tenant_id}::${e.player_id}::${e.season}`;
     this.#balances.set(bk, (this.#balances.get(bk) ?? 0) + e.points);
     const after = this.progress(e.tenant_id, brand, e.player_id);
+    const prog = this.program(e.tenant_id, brand)!;
+    const rank = (lv: string) => prog.levels.findIndex((l) => l.name === lv);
+    if (rank(after.level) > rank(before.level)) {
+      const uk = `${e.tenant_id}::${e.player_id}::${after.season}::up::${after.level}`;
+      if (!this.#notified.has(uk) && !this.isOptedOut(e.tenant_id, e.player_id)) {
+        this.#notified.add(uk);
+        this.onLevelUp?.({
+          event_id: `loyalty-up-${uk}`, event_type: 'loyalty.level_up', schema_version: 1, tenant_id: e.tenant_id, brand_id: brand, player_id: e.player_id,
+          occurred_at: entry.at, source: 'ss1.loyalty', correlation_id: e.ref, payload: { level: after.level, previous_level: before.level, season: after.season },
+        });
+      }
+    }
     const crossedHalf = after.next_level && after.percent_to_next >= 50 && (before.level !== after.level || before.percent_to_next < 50);
     const nk = `${e.tenant_id}::${e.player_id}::${after.season}::${after.level}`;
     if (crossedHalf && this.program(e.tenant_id, brand)!.halfway_notice && !this.#notified.has(nk) && !this.isOptedOut(e.tenant_id, e.player_id)) {
@@ -74,9 +88,10 @@ export class LoyaltyService {
     const p = this.program(e.tenant_id, e.brand_id);
     if (!p || e.event_type !== 'bet.settled') return undefined;
     const stake = (e as EventEnvelope<'bet.settled'>).payload.stake.amount_minor;
-    const points = Math.floor((stake / 100) * p.points_per_major_unit);
-    if (points <= 0) return undefined;
-    return this.#append({ entry_id: `le_${e.event_id}`, tenant_id: e.tenant_id, player_id: e.player_id, season: p.season, points, reason: 'bet.settled', ref: e.event_id }, e.brand_id);
+    // simétrico: una reversión (stake negativo) descuenta exactamente lo que sumó su apuesta
+    const points = Math.sign(stake) * Math.floor((Math.abs(stake) / 100) * p.points_per_major_unit);
+    if (points === 0) return undefined;
+    return this.#append({ entry_id: `le_${e.event_id}`, tenant_id: e.tenant_id, player_id: e.player_id, season: p.season, points, reason: points > 0 ? 'bet.settled' : 'bet.rollback', ref: e.event_id }, e.brand_id);
   }
 
   /** XP por misiones u otras mecánicas: asiento idempotente por `ref`. */

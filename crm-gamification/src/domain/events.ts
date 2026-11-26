@@ -14,6 +14,7 @@ export const EVENT_TYPES = [
   'bet.settled',
   'reward.granted',
   'loyalty.threshold_crossed',
+  'loyalty.level_up',
   'marketing.spend_reported',
   'withdrawal.settled',
   'rg.risk_signal',
@@ -41,6 +42,8 @@ export type PayloadByType = {
   'bet.settled': { bet_id: string; stake: Money; win?: Money; product: 'casino' | 'sports' };
   'reward.granted': { grant_id: string; reward_type: 'free_bet' | 'free_spins' | 'bonus'; value: Money; expires_at: string };
   'loyalty.threshold_crossed': { level: string; season: string; percent: number };
+  /** el jugador subió de nivel (solo subidas; una vez por nivel y temporada) */
+  'loyalty.level_up': { level: string; previous_level: string; season: string };
   'withdrawal.settled': { withdrawal_id: string } & Money;
   /** I2: señal interna del monitor de riesgo (fuente crm.risk); dispara intervenciones, no promociones. */
   'rg.risk_signal': { level: 'medium' | 'high'; score: number; signals: string[] };

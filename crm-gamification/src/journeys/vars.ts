@@ -14,6 +14,7 @@ export const COMMON_VARS = ['player_id'] as const;
 export const TRIGGER_VARS: Partial<Record<EventType, readonly string[]>> = {
   'reward.granted': ['reward_type', 'amount', 'currency', 'expires_at'],
   'loyalty.threshold_crossed': ['level', 'percent'],
+  'loyalty.level_up': ['level', 'previous_level'],
   'deposit.settled': ['amount', 'currency'],
   'withdrawal.settled': ['amount', 'currency'],
 };
@@ -22,7 +23,7 @@ export const varsForTrigger = (t?: string) => [...COMMON_VARS, ...((t && TRIGGER
 /** Nombre de cada evento disparador para personas (la clave técnica sigue en la definición). */
 export const EVENT_LABEL: Record<string, string> = {
   'player.registered': 'Registro', 'player.verified': 'Jugador verificado', 'deposit.settled': 'Depósito acreditado', 'deposit.reversed': 'Depósito revertido',
-  'withdrawal.settled': 'Retiro pagado', 'bet.settled': 'Apuesta liquidada', 'reward.granted': 'Recompensa otorgada', 'loyalty.threshold_crossed': 'Cruce del 50 % del nivel',
+  'withdrawal.settled': 'Retiro pagado', 'bet.settled': 'Apuesta liquidada', 'reward.granted': 'Recompensa otorgada', 'loyalty.threshold_crossed': 'Cruce del 50 % del nivel', 'loyalty.level_up': 'Subida de nivel',
   'rg.risk_signal': 'Señal de riesgo de juego responsable', 'rg.status_changed': 'Cambio de estado de juego responsable', 'consent.changed': 'Cambio de consentimiento',
   'marketing.spend_reported': 'Inversión reportada',
 };
@@ -51,6 +52,10 @@ export function buildVars(player_id: string, e: EventEnvelope | undefined, local
   if (e?.event_type === 'reward.granted') {
     const p = (e as EventEnvelope<'reward.granted'>).payload;
     v.reward_type = rewardLabel(p.reward_type, locale); v.amount = moneyText(p.value.amount_minor, p.value.currency, locale); v.currency = p.value.currency; v.expires_at = dateText(p.expires_at, locale);
+  }
+  if (e?.event_type === 'loyalty.level_up') {
+    const p = (e as EventEnvelope<'loyalty.level_up'>).payload;
+    v.level = p.level; v.previous_level = p.previous_level;
   }
   if (e?.event_type === 'loyalty.threshold_crossed') {
     const p = (e as EventEnvelope<'loyalty.threshold_crossed'>).payload;

@@ -35,6 +35,8 @@ export const BADGES: Badge[] = [
   { id: 'streak_7', name: 'Racha de 7 días', description: 'Jugó 7 días seguidos', test: (c) => c.bestStreak >= 7 },
   { id: 'missions_5', name: 'Cazador de misiones', description: 'Completó 5 misiones', test: (c) => c.missionsCompleted >= 5 },
   { id: 'level_silver', name: 'Nivel Plata', description: 'Alcanzó Plata o superior', test: (c) => !!c.level && c.level !== 'Bronce' },
+  { id: 'level_gold', name: 'Nivel Oro', description: 'Alcanzó Oro o superior', test: (c) => c.level === 'Oro' || c.level === 'Platino' },
+  { id: 'level_platinum', name: 'Nivel Platino', description: 'Alcanzó Platino', test: (c) => c.level === 'Platino' },
 ];
 
 const DAYF = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -115,7 +117,9 @@ export class GamificationService {
   // --- eventos ---
   onEvent(e: EventEnvelope, p: PlayerProfile | undefined) {
     if (!p) return;
-    if (e.event_type === 'bet.settled' || e.event_type === 'deposit.settled') {
+    const stake = e.event_type === 'bet.settled' ? (e as EventEnvelope<'bet.settled'>).payload.stake.amount_minor : 0;
+    // del admin de SS1 llegan movimientos sueltos: premio (stake 0) y reversión (stake negativo) no son apuestas
+    if ((e.event_type === 'bet.settled' && stake > 0) || e.event_type === 'deposit.settled') {
       const k = `${e.tenant_id}::${e.player_id}`;
       const days = this.#activityDays.get(k) ?? new Set<string>(); days.add(localDay(e.occurred_at)); this.#activityDays.set(k, days);
     }
@@ -123,13 +127,14 @@ export class GamificationService {
       if (e.event_type === 'deposit.reversed' && m.event_type === 'deposit.settled') { this.#reverse(m, e as EventEnvelope<'deposit.reversed'>); continue; }
       if (m.event_type !== e.event_type || !this.eligible(m, p, e.occurred_at)) continue;
       if (m.product && (e as EventEnvelope<'bet.settled'>).payload.product !== m.product) continue;
+      if (e.event_type === 'bet.settled' && stake <= 0 && m.kind !== 'sum') continue; // no suma rondas ni días de racha
       const key = `${e.tenant_id}::${m.id}::${e.player_id}`;
       const pr = this.#progress.get(key) ?? { mission_id: m.id, player_id: e.player_id, value: 0, days: [], counted: [], deposits: {} };
       if (pr.completed_at || pr.counted.includes(e.event_id)) continue;
       pr.counted.push(e.event_id);
       if (e.event_type === 'deposit.settled') { const d = (e as EventEnvelope<'deposit.settled'>).payload; pr.deposits[d.deposit_id] = d.amount_minor; }
       if (m.kind === 'count') pr.value += 1;
-      else if (m.kind === 'sum') pr.value += e.event_type === 'deposit.settled' ? (e as EventEnvelope<'deposit.settled'>).payload.amount_minor : (e as EventEnvelope<'bet.settled'>).payload.stake.amount_minor;
+      else if (m.kind === 'sum') pr.value = Math.max(0, pr.value + (e.event_type === 'deposit.settled' ? (e as EventEnvelope<'deposit.settled'>).payload.amount_minor : stake)); // la reversión descuenta lo apostado
       else { const d = localDay(e.occurred_at); if (!pr.days.includes(d)) pr.days.push(d); pr.value = streakEnding(pr.days, d); }
       this.#progress.set(key, pr);
       if (pr.value >= m.target) this.#complete(m, pr, p);

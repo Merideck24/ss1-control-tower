@@ -114,7 +114,10 @@ export class GamesService {
     for (const t of this.tournaments(e.tenant_id)) {
       if (t.status !== 'active' || t.brand_id !== e.brand_id || e.occurred_at < t.starts_at || e.occurred_at > t.ends_at) continue;
       if (t.product && pl.product !== t.product) continue;
-      const points = t.metric === 'bet_count' ? 1 : Math.min(pl.stake.amount_minor, t.stake_cap_minor!);
+      const stake = pl.stake.amount_minor;
+      if (stake === 0) continue; // un premio no es una apuesta
+      // una reversión (stake negativo) descuenta lo que había sumado la apuesta
+      const points = (stake > 0 ? 1 : -1) * (t.metric === 'bet_count' ? 1 : Math.min(Math.abs(stake), t.stake_cap_minor!));
       const k = `${e.tenant_id}::${t.id}`;
       const arr = this.#scores.get(k) ?? []; arr.push({ player_id: e.player_id, event_id: e.event_id, at: e.occurred_at, points }); this.#scores.set(k, arr);
     }

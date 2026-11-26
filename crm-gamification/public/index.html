@@ -442,7 +442,7 @@ const REWARD_LABEL = { free_spins: 'Giros gratis', bonus_cash: 'Saldo de bono', 
 const rewardLabel = (t) => REWARD_LABEL[t] ?? String(t ?? '').replace(/_/g, ' ');
 const plural = (n, one, many) => `${int(n)} ${n === 1 ? one : many}`;
 const dateL = (iso) => new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
-const MOVE_LABEL = [[/^bet\.settled$/, 'Apuesta liquidada'], [/^minigame:/, 'Premio de la ruleta'], [/^mission:/, 'Misión completada'], [/^tournament:/, 'Premio de torneo'], [/^store:/, 'Canje en la tienda'], [/^prediction:/, 'Predicción acertada'], [/^(reversal|reverse|compens)/, 'Ajuste']];
+const MOVE_LABEL = [[/^bet\.settled$/, 'Apuesta liquidada'], [/^bet\.rollback$/, 'Apuesta revertida'], [/^minigame:/, 'Premio de la ruleta'], [/^mission:/, 'Misión completada'], [/^tournament:/, 'Premio de torneo'], [/^store:/, 'Canje en la tienda'], [/^prediction:/, 'Predicción acertada'], [/^(reversal|reverse|compens)/, 'Ajuste']];
 const moveLabel = (r) => (MOVE_LABEL.find(([re]) => re.test(r)) ?? [null, 'Ajuste de puntos'])[1];
 const LAST_SPIN = {};
 let current = 'tower';
@@ -631,8 +631,8 @@ const LABELS = {
   template_not_found: 'Plantilla inexistente', template_vars_missing: 'Faltan datos para la plantilla', channel_not_configured: 'Canal sin configurar', provider_unavailable: 'Proveedor no disponible', no_contact_for_sms: 'Sin teléfono para SMS', no_contact_for_whatsapp: 'Sin WhatsApp', no_contact_for_telegram: 'Sin Telegram',
   overlap: 'Compite con otro recorrido', cooldown: 'Pausa entre recorridos', control_group: 'Grupo de control', global_pause: 'Pausa general', timeout: 'Tiempo agotado',
   // catálogo de recompensas y plantillas de la demo
-  'player.registered': 'Registro', 'player.verified': 'Jugador verificado', 'deposit.settled': 'Depósito acreditado', 'deposit.reversed': 'Depósito revertido', 'withdrawal.settled': 'Retiro pagado', 'bet.settled': 'Apuesta liquidada', 'reward.granted': 'Recompensa otorgada', 'loyalty.threshold_crossed': 'Cruce del 50 % del nivel', 'rg.risk_signal': 'Señal de riesgo JR', 'rg.status_changed': 'Cambio de estado JR', 'consent.changed': 'Cambio de consentimiento',
-  welcome_fs_10: 'Giros gratis de bienvenida', reward_granted: 'Aviso de recompensa', loyalty_halfway: 'Mitad del nivel', verify_reminder: 'Recordatorio de verificación', deposit_progress: 'Depósito acreditado', vip_followup: 'Seguimiento VIP', welcome_message: 'Bienvenida', rg_check_in: 'Chequeo de juego responsable', rg_limits_reminder: 'Recordatorio de límites', security_confirmation: 'Confirmación de seguridad',
+  'player.registered': 'Registro', 'player.verified': 'Jugador verificado', 'deposit.settled': 'Depósito acreditado', 'deposit.reversed': 'Depósito revertido', 'withdrawal.settled': 'Retiro pagado', 'bet.settled': 'Apuesta liquidada', 'reward.granted': 'Recompensa otorgada', 'loyalty.threshold_crossed': 'Cruce del 50 % del nivel', 'loyalty.level_up': 'Subida de nivel', 'rg.risk_signal': 'Señal de riesgo JR', 'rg.status_changed': 'Cambio de estado JR', 'consent.changed': 'Cambio de consentimiento',
+  welcome_fs_10: 'Giros gratis de bienvenida', reward_granted: 'Aviso de recompensa', loyalty_halfway: 'Mitad del nivel', loyalty_level_up: 'Subida de nivel', verify_reminder: 'Recordatorio de verificación', deposit_progress: 'Depósito acreditado', vip_followup: 'Seguimiento VIP', welcome_message: 'Bienvenida', rg_check_in: 'Chequeo de juego responsable', rg_limits_reminder: 'Recordatorio de límites', security_confirmation: 'Confirmación de seguridad',
 };
 const humanize = (c) => c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase());
 /** Un código «motivo» o «motivo:detalle» (el detalle puede ser canal, estado o una fecha ISO). */

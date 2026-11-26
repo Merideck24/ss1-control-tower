@@ -78,6 +78,7 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   risk.emit = (e) => ingestor.ingest(e);
   bonus.onGranted = (e) => ingestor.ingest(e);
   loyalty.onThreshold = (e) => ingestor.ingest(e);
+  loyalty.onLevelUp = (e) => ingestor.ingest(e);
 
   /** Rendimiento enriquecido con CRM (alcance) y Loyalty (nivel). */
   function performanceReport(tenant: string, days: number, brand?: string) {
@@ -160,6 +161,7 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
   // variantes por canal (F2): SMS corto y plantilla de WhatsApp aprobada (nombre registrado en Meta)
   const CH: Record<string, NonNullable<import('./channels/channels.ts').Template['channels']>> = {
     reward_granted: { sms: { es: 'RumbaWin: tienes {{reward_type}} por {{amount}} hasta el {{expires_at}}. Juega con responsabilidad.' }, whatsapp: { name: 'reward_granted_v1', lang: 'es', params: ['reward_type', 'amount', 'currency', 'expires_at'] } },
+    loyalty_level_up: { sms: { es: 'RumbaWin: subiste a nivel {{level}}. Mira tus beneficios en la app.' } },
     loyalty_halfway: { sms: { es: 'RumbaWin: vas al {{percent}}% del nivel {{level}}.' }, whatsapp: { name: 'loyalty_progress_v1', lang: 'es', params: ['percent', 'level'] } },
     deposit_progress: { sms: { es: 'RumbaWin: recibimos tu deposito de {{amount}}. Revisa tus misiones en la app. Juega con responsabilidad.' } },
     vip_followup: { sms: { es: 'RumbaWin VIP: tu gestor te contactara para contarte los beneficios de tu nivel. Juega con responsabilidad.' } },
@@ -176,6 +178,7 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
   t('deposit_progress', 'promotional', 'marketing', ['Tu depósito ya está acreditado', 'Recibimos tu depósito de {{amount}}. Revisa tus misiones: quizá ya estés más cerca del próximo premio.'], ['Your deposit is in', 'We received your deposit of {{amount}}. Check your missions: you may be closer to the next prize.'], ['Seu depósito foi creditado', 'Recebemos seu depósito de {{amount}}. Confira suas missões: talvez você já esteja mais perto do próximo prêmio.']);
   t('vip_followup', 'promotional', 'marketing', ['Gracias por tu confianza', 'Tu gestor VIP te contactará para contarte los beneficios de tu nivel. Juega con responsabilidad.'], ['Thanks for your trust', 'Your VIP manager will contact you about the benefits of your level. Play responsibly.'], ['Obrigado pela confiança', 'Seu gerente VIP vai entrar em contato para contar os benefícios do seu nível. Jogue com responsabilidade.']);
   t('welcome_message', 'promotional', 'marketing', ['¡Bienvenido a RumbaWin!', 'Tu cuenta ya está verificada. Explora el lobby, revisa tus misiones y fija tus límites cuando quieras.'], ['Welcome to RumbaWin!', 'Your account is verified. Explore the lobby, check your missions and set your limits whenever you like.'], ['Bem-vindo à RumbaWin!', 'Sua conta está verificada. Explore o lobby, confira suas missões e defina seus limites quando quiser.']);
+  t('loyalty_level_up', 'promotional', 'marketing', ['¡Subiste a {{level}}!', 'Pasaste de {{previous_level}} a {{level}}. Mira los beneficios de tu nuevo nivel en tu perfil.'], ['You reached {{level}}!', 'You moved up from {{previous_level}} to {{level}}. See your new benefits in your profile.'], ['Você chegou a {{level}}!', 'Você passou de {{previous_level}} para {{level}}. Veja os benefícios do seu novo nível no perfil.']);
   t('loyalty_halfway', 'promotional', 'marketing', ['¡Vas a mitad de camino!', 'Llevas el {{percent}} % del camino al nivel {{level}}.'], ['Halfway there!', 'You are {{percent}}% of the way to {{level}}.'], ['Metade do caminho!', 'Você está a {{percent}}% do nível {{level}}.']);
 
   app.rewards.addItem({ id: 'welcome_fs_10', name: 'Giros gratis de bienvenida', tenant_id, brand_id, reward_type: 'free_spins', value: { amount_minor: 1000_00, currency: 'COP' }, validity_days: 7, budget_minor: 50 * 1000_00, approved_by: 'compliance@ss1' });
@@ -196,6 +199,9 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
       { id: 'end', type: 'exit' }] },
     { ...base, id: 'j4_loyalty_halfway', name: 'Nivel → cruce del 50 %', purpose: 'marketing', trigger: { event_type: 'loyalty.threshold_crossed' }, entry: 'notify', nodes: [
       { id: 'notify', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' },
+      { id: 'end', type: 'exit' }] },
+    { ...base, id: 'j5_level_up', name: 'Subida de nivel → felicitación', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'loyalty.level_up' }, entry: 'notify', nodes: [
+      { id: 'notify', type: 'message', channel: 'inapp', template: 'loyalty_level_up', next: 'end' },
       { id: 'end', type: 'exit' }] },
     { ...base, id: 'jx_welcome_bonus', name: 'Verificado → free spins de bienvenida', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'player.verified' }, entry: 'grant', nodes: [
       { id: 'grant', type: 'grant_reward', reward_id: 'welcome_fs_10', next: 'end' },

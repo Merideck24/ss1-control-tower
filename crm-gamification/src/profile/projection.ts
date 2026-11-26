@@ -103,6 +103,7 @@ export function applyEvent(p: PlayerProfile, e: EventEnvelope): PlayerProfile {
       break;
     }
     case 'loyalty.threshold_crossed':
+    case 'loyalty.level_up':
       break;
     case 'rg.risk_signal':
       next.risk = track(next.risk, (e as EventEnvelope<'rg.risk_signal'>).payload.level, e);
