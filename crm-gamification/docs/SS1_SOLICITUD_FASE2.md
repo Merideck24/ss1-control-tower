@@ -50,7 +50,11 @@ Pedimos que incluyan, como mínimo:
 
 Y la confirmación del cliente (tenant) y la marca a las que pertenecen las filas.
 
-## 5. Qué haremos con todo esto
+## 5. Cinco operadores para validar la interfaz
+
+Cinco operadores que hoy trabajen en CRM, soporte o cumplimiento, 45 minutos cada uno, en dos semanas. Usan la demo con datos sintéticos; no hace falta acceso a datos reales. El guion, los perfiles y la rúbrica están en `docs/usabilidad/GUION.md`. Pedimos además autorización para tomar notas anonimizadas y, si cada participante acepta, grabar la pantalla.
+
+## 6. Qué haremos con todo esto
 
 1. Llamar primero a `GET /admin/auth/me` y comprobar identidad, permisos, tenant y que no haya permisos de escritura. Si falla, la prueba se detiene sin leer datos.
 2. Correr la suite de contrato (`test/pam_contract.test.ts` y la validación de filas) contra el entorno, con la credencial solo en memoria.
