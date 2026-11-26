@@ -87,11 +87,15 @@ export class PolicyEngine {
   markRgFeedSynced(tenant_id: string, at = this.#clock.now().toISOString()): void { this.#rgFeedSync.set(tenant_id, at); }
   alerts() { return [...this.#alerts]; }
 
-  recordMarketingSend(profile: PlayerProfile, channel?: Channel): void {
+  recordMarketingSend(profile: PlayerProfile | { tenant_id: string; player_id: string }, channel?: Channel, at?: number): void {
     const k = `${profile.tenant_id}::${profile.player_id}`;
     const now = this.#clock.now().getTime();
-    // se conservan 7 días: lo necesario para el tope semanal
-    this.#sends.set(k, [...(this.#sends.get(k) ?? []).filter((s) => now - s.at < 7 * DAY), { at: now, channel }]);
+    const when = at ?? now;
+    // se conservan 7 días: lo necesario para el tope semanal. Con `at` (recibos recargados de la base) no se duplica.
+    const prev = (this.#sends.get(k) ?? []).filter((s) => now - s.at < 7 * DAY);
+    if (at !== undefined && prev.some((s) => s.at === at && s.channel === channel)) return;
+    if (now - when >= 7 * DAY) return;
+    this.#sends.set(k, [...prev, { at: when, channel }]);
   }
   /** Envíos de marketing del jugador en las últimas 24 h y 7 días, por canal. */
   frequency(profile: PlayerProfile) {

@@ -210,7 +210,13 @@ export class ChannelHub {
   }
 
   /** Vuelve a cargar recibos guardados (reinicio con PostgreSQL) sin emitir efectos ni webhooks. */
-  restore(rs: Receipt[]): void { for (const r of rs) this.#receipts.set(r.idempotency_key, r); }
+  restore(rs: Receipt[]): void {
+    for (const r of rs) {
+      const prev = this.#receipts.get(r.idempotency_key);
+      if (prev && Date.parse(prev.at) > Date.parse(r.at)) continue; // no pisar un estado local más nuevo
+      this.#receipts.set(r.idempotency_key, r);
+    }
+  }
 
   receipts(tenant_id: string, player_id?: string): Receipt[] {
     return [...this.#receipts.values()].filter((r) => r.tenant_id === tenant_id && (!player_id || r.player_id === player_id));

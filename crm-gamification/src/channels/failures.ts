@@ -50,6 +50,18 @@ export class FailureQueue {
   #original = new Map<string, { reason: string; status: Receipt['status'] }>();
   /** Gancho de persistencia: se espera ANTES del efecto externo (escritura previa y bloqueo en la base). */
   beforeEffect?: (tenant: string, key: string, actor: string) => Promise<void>;
+  /** Se espera al terminar (libera el bloqueo de la base). */
+  afterEffect?: (tenant: string, key: string) => Promise<void>;
+  /** Cada intento registrado (persistencia del historial). */
+  onAttempt?: (tenant: string, key: string, a: ReprocessAttempt, original: { reason: string; status: Receipt['status'] }) => void;
+  /** Carga historial guardado (reinicio). */
+  restoreHistory(rows: { key: string; attempt: ReprocessAttempt; original?: { reason: string; status: Receipt['status'] } }[]): void {
+    for (const r of rows) {
+      const h = this.#history.get(r.key) ?? [];
+      if (!h.some((x) => x.at === r.attempt.at && x.actor === r.attempt.actor)) this.#history.set(r.key, [...h, r.attempt].sort((a, b) => a.at.localeCompare(b.at)));
+      if (r.original && !this.#original.has(r.key)) this.#original.set(r.key, r.original);
+    }
+  }
   constructor(d: { hub: ChannelHub; policy: PolicyEngine; registry: JourneyRegistry; audit: AuditLog; clock: Clock; profile: (tenant: string, player: string) => PlayerProfile | undefined }) {
     this.#hub = d.hub; this.#policy = d.policy; this.#registry = d.registry; this.#audit = d.audit; this.#clock = d.clock; this.#profile = d.profile;
   }
@@ -100,6 +112,7 @@ export class FailureQueue {
     const record = (outcome: ReprocessOutcome, detail: string) => {
       const a: ReprocessAttempt = { at: this.#clock.now().toISOString(), actor: actor.id, reason, outcome, detail };
       this.#history.set(key, [...(this.#history.get(key) ?? []), a]);
+      this.onAttempt?.(actor.tenant_id, key, a, this.#original.get(key)!);
       this.#audit.record(actor.tenant_id, actor.id, 'failure.reprocessed', key, { reason, outcome, detail, journey: r0.origin?.journey_id ?? null, version: r0.origin?.version ?? null, channel: r0.channel });
       return { outcome, detail, failure: this.#view(this.#hub.receipt(actor.tenant_id, key)!) };
     };
@@ -141,6 +154,7 @@ export class FailureQueue {
       return record(next.status === 'uncertain' ? 'uncertain' : 'failed', `Volvió a fallar: ${next.reason ?? next.status}.`);
     } finally {
       this.#locks.delete(key);
+      await this.afterEffect?.(actor.tenant_id, key).catch(() => undefined);
     }
   }
 }

@@ -36,6 +36,9 @@ export type JourneyInstance = {
   trigger_payload?: { event_type: string; payload: unknown };
 };
 
+/** Instancia tal como se guarda: incluye el paso de mensaje diferido por horario silencioso. */
+export type InstanceRecord = JourneyInstance & { deferred_node?: string };
+
 type ProfileSource = { get(tenant: string, player: string): PlayerProfile | undefined };
 
 export type Effects = {
@@ -62,6 +65,31 @@ export class JourneyRuntime {
   #clock: Clock;
   #skipWaits: boolean;
   #deferred = new Map<string, string>(); // instance → message node diferido
+  /** Persistencia: recibe las instancias que cambiaron al terminar cada operación. */
+  onChange?: (instances: InstanceRecord[]) => void;
+  #sig = (i: JourneyInstance) => `${i.status}|${i.current}|${i.wake_at ?? ''}|${i.trace.length}`;
+  #emit(xs: Iterable<JourneyInstance>) {
+    if (!this.onChange) return;
+    const out = [...new Set(xs)].map((i) => ({ ...i, ...(this.#deferred.has(i.instance_id) ? { deferred_node: this.#deferred.get(i.instance_id) } : {}) }));
+    if (out.length) this.onChange(out);
+  }
+  /** Carga instancias guardadas (reinicio): las que esperan vuelven a su temporizador. */
+  restore(records: InstanceRecord[]): void {
+    for (const r of records) {
+      const { deferred_node, ...inst } = r;
+      const prev = this.#instances.get(inst.instance_id);
+      // la traza solo crece: una copia más vieja (releída de la base) no pisa un cambio local más nuevo
+      if (prev && prev.trace.length > inst.trace.length) continue;
+      if (prev) Object.assign(prev, inst); else {
+        this.#instances.set(inst.instance_id, inst);
+        const pk = `${inst.tenant_id}::${inst.player_id}`;
+        this.#byPlayer.set(pk, [...(this.#byPlayer.get(pk) ?? []), inst]);
+      }
+      const live = this.#instances.get(inst.instance_id)!;
+      if (live.status === 'waiting') this.#waiting.add(live); else this.#waiting.delete(live);
+      if (deferred_node && live.status === 'waiting') this.#deferred.set(live.instance_id, deferred_node); else this.#deferred.delete(live.instance_id);
+    }
+  }
   #splits: SplitTracker | null;
 
   constructor(deps: { registry: JourneyRegistry; policy: PolicyEngine; profiles: ProfileSource; effects: Effects | null; audit: AuditLog; clock: Clock; skipWaits?: boolean; splits?: SplitTracker }) {
@@ -89,6 +117,7 @@ export class JourneyRuntime {
     const started: JourneyInstance[] = [];
     // salidas por evento (p.ej. player.verified termina el recordatorio de verificación)
     const mine = this.#byPlayer.get(`${e.tenant_id}::${e.player_id}`) ?? [];
+    const before = this.onChange ? new Map(mine.map((i) => [i, this.#sig(i)])) : null;
     for (const inst of mine) {
       if (!['waiting', 'running'].includes(inst.status)) continue;
       const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
@@ -150,6 +179,7 @@ export class JourneyRuntime {
       if (arm === 'treatment') this.#advance(inst, def, { event: e });
       started.push(inst);
     }
+    if (before) this.#emit([...mine.filter((i) => before.get(i) !== this.#sig(i)), ...started]);
     return started;
   }
 
@@ -157,19 +187,23 @@ export class JourneyRuntime {
   tick(): number {
     let n = 0;
     const now = this.#clock.now().getTime();
+    const changed: JourneyInstance[] = [];
     for (const inst of this.#waiting) {
       if (inst.status !== 'waiting') { this.#waiting.delete(inst); continue; }
       if (this.#deferred.has(inst.instance_id) || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
-      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
-      if (this.#closedExit(inst, def)) { this.#waiting.delete(inst); continue; }
+      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
+      if (!def) continue; // versión aún no cargada (sincronización pendiente): se intenta en el próximo ciclo
+      if (this.#closedExit(inst, def)) { this.#waiting.delete(inst); changed.push(inst); continue; }
       // versión fijada: una versión reemplazada (archived) deja terminar a quien ya entró
       if (!RUNNABLE.has(def.status) || this.#globalPause.has(inst.tenant_id)) continue; // en pausa: queda esperando
       const node = def.nodes.find((x) => x.id === inst.current)! as Extract<JourneyNode, { type: 'wait' }>;
       this.#waiting.delete(inst);
       inst.status = 'running'; inst.wake_at = undefined; inst.current = node.next;
       this.#advance(inst, def, {});
+      changed.push(inst);
       n++;
     }
+    this.#emit(changed);
     return n;
   }
 
@@ -256,18 +290,22 @@ export class JourneyRuntime {
   tickDeferred(): number {
     let n = 0;
     const now = this.#clock.now().getTime();
+    const changed: JourneyInstance[] = [];
     for (const [id, nodeId] of this.#deferred) {
       const inst = this.#instances.get(id)!;
       if (inst.status !== 'waiting' || !inst.wake_at || Date.parse(inst.wake_at) > now) continue;
-      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version)!;
-      if (this.#closedExit(inst, def)) { this.#deferred.delete(id); this.#waiting.delete(inst); continue; }
+      const def = this.#registry.get(inst.tenant_id, inst.journey_id, inst.version);
+      if (!def) continue;
+      if (this.#closedExit(inst, def)) { this.#deferred.delete(id); this.#waiting.delete(inst); changed.push(inst); continue; }
       if (!RUNNABLE.has(def.status) || this.#globalPause.has(inst.tenant_id)) continue;
       this.#deferred.delete(id);
       this.#waiting.delete(inst);
       inst.status = 'running'; inst.wake_at = undefined; inst.current = nodeId;
       this.#advance(inst, def, {});
+      changed.push(inst);
       n++;
     }
+    this.#emit(changed);
     return n;
   }
 

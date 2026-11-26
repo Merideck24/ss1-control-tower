@@ -51,8 +51,9 @@ export class PgEventStore {
   }
 
   /** Recorre los eventos en orden de llegada, por lotes (cursor por seq). */
-  async *stream(tenant: string, batch = 2000): AsyncGenerator<EventEnvelope> {
-    let after = 0;
+  /** `from`: seguir desde un seq conocido; `onSeq` recibe el último seq leído (cursor del worker). */
+  async *stream(tenant: string, batch = 2000, from = 0, onSeq?: (seq: number) => void): AsyncGenerator<EventEnvelope> {
+    let after = from;
     for (;;) {
       const rows = await withTenant(this.#db, tenant, async (c) => (await c.query(
         `SELECT seq, event_id, event_type, schema_version, tenant_id, brand_id, player_id, occurred_at, received_at, source, correlation_id, payload
@@ -60,6 +61,7 @@ export class PgEventStore {
       if (!rows.length) return;
       for (const r of rows) {
         after = Number(r.seq);
+        onSeq?.(after);
         yield { event_id: r.event_id, event_type: r.event_type, schema_version: r.schema_version, tenant_id: r.tenant_id, brand_id: r.brand_id, player_id: r.player_id,
           occurred_at: new Date(r.occurred_at).toISOString(), received_at: new Date(r.received_at).toISOString(), source: r.source, correlation_id: r.correlation_id, payload: r.payload } as EventEnvelope;
       }
@@ -69,11 +71,13 @@ export class PgEventStore {
 
 export class PgAuditStore {
   #db: Db;
-  constructor(db: Db) { this.#db = db; }
+  /** Cada proceso escribe su propia cadena (web, worker, réplica): dos escritores no chocan en `seq`. */
+  readonly writer: string;
+  constructor(db: Db, writer = 'web') { this.#db = db; this.writer = writer; }
   async append(e: AuditEntry): Promise<void> {
     await withTenant(this.#db, e.tenant_id, (c) => c.query(
-      `INSERT INTO audit_log (seq, tenant_id, at, actor, action, subject, details, prev_hash, hash) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (seq) DO NOTHING`,
-      [e.seq, e.tenant_id, e.at, e.actor, e.action, e.subject, JSON.stringify(e.details), e.prev_hash, e.hash]));
+      `INSERT INTO audit_log (writer, seq, tenant_id, at, actor, action, subject, details, prev_hash, hash) VALUES ($10,$1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (writer, seq) DO NOTHING`,
+      [e.seq, e.tenant_id, e.at, e.actor, e.action, e.subject, JSON.stringify(e.details), e.prev_hash, e.hash, this.writer]));
   }
   /** Inserta en orden; RLS obliga a agrupar tramos contiguos del mismo tenant. */
   async appendMany(es: AuditEntry[]): Promise<void> {
@@ -82,32 +86,32 @@ export class PgAuditStore {
       while (j < es.length && es[j].tenant_id === es[i].tenant_id && j - i < 500) j++;
       const vals: unknown[] = [];
       const rows = es.slice(i, j).map((e, k) => {
-        const o = k * 9;
-        vals.push(e.seq, e.tenant_id, e.at, e.actor, e.action, e.subject, JSON.stringify(e.details), e.prev_hash, e.hash);
-        return `($${o + 1},$${o + 2},$${o + 3},$${o + 4},$${o + 5},$${o + 6},$${o + 7},$${o + 8},$${o + 9})`;
+        const o = k * 10;
+        vals.push(this.writer, e.seq, e.tenant_id, e.at, e.actor, e.action, e.subject, JSON.stringify(e.details), e.prev_hash, e.hash);
+        return `($${o + 1},$${o + 2},$${o + 3},$${o + 4},$${o + 5},$${o + 6},$${o + 7},$${o + 8},$${o + 9},$${o + 10})`;
       });
-      await withTenant(this.#db, es[i].tenant_id, (c) => c.query(`INSERT INTO audit_log (seq, tenant_id, at, actor, action, subject, details, prev_hash, hash) VALUES ${rows.join(',')} ON CONFLICT (seq) DO NOTHING`, vals));
+      await withTenant(this.#db, es[i].tenant_id, (c) => c.query(`INSERT INTO audit_log (writer, seq, tenant_id, at, actor, action, subject, details, prev_hash, hash) VALUES ${rows.join(',')} ON CONFLICT (writer, seq) DO NOTHING`, vals));
       i = j;
     }
   }
   /** Último eslabón para continuar la cadena tras reiniciar. */
   async last(maintenance: Db): Promise<{ seq: number; hash: string } | null> {
-    const r = (await maintenance.query('SELECT seq, hash FROM audit_log ORDER BY seq DESC LIMIT 1')).rows[0];
+    const r = (await maintenance.query('SELECT seq, hash FROM audit_log WHERE writer = $1 ORDER BY seq DESC LIMIT 1', [this.writer])).rows[0];
     return r ? { seq: Number(r.seq), hash: r.hash } : null;
   }
   /**
    * Verifica la cadena completa (rol de mantenimiento, sin RLS): cada hash debe coincidir
    * con su contenido y con el anterior. Devuelve el primer seq roto, si lo hay.
    */
-  async verify(maintenance: Db): Promise<{ ok: boolean; entries: number; broken_at?: number }> {
-    const rows = (await maintenance.query('SELECT seq, tenant_id, at, actor, action, subject, details, prev_hash, hash FROM audit_log ORDER BY seq')).rows;
-    let prev = 'genesis';
+  async verify(maintenance: Db): Promise<{ ok: boolean; entries: number; broken_at?: number; writer?: string; writers: string[] }> {
+    const rows = (await maintenance.query('SELECT writer, seq, tenant_id, at, actor, action, subject, details, prev_hash, hash FROM audit_log ORDER BY writer, seq')).rows;
+    const prev = new Map<string, string>();
     for (const r of rows) {
       const base = { seq: Number(r.seq), at: new Date(r.at).toISOString(), tenant_id: r.tenant_id, actor: r.actor, action: r.action, subject: r.subject, details: r.details, prev_hash: r.prev_hash };
-      if (r.prev_hash !== prev || sha256(JSON.stringify(base)) !== r.hash) return { ok: false, entries: rows.length, broken_at: base.seq };
-      prev = r.hash;
+      if (r.prev_hash !== (prev.get(r.writer) ?? 'genesis') || sha256(JSON.stringify(base)) !== r.hash) return { ok: false, entries: rows.length, broken_at: base.seq, writer: r.writer, writers: [...prev.keys()] };
+      prev.set(r.writer, r.hash);
     }
-    return { ok: true, entries: rows.length };
+    return { ok: true, entries: rows.length, writers: [...prev.keys()] };
   }
 }
 
@@ -149,8 +153,8 @@ export function attachPersistence(app: App, events: PgEventStore, audit: PgAudit
 }
 
 /** Reconstruye perfiles y métricas desde el registro, sin efectos (sin recorridos, envíos ni bonos). */
-export async function rebuildFromStore(app: App, store: PgEventStore, tenants: string[]): Promise<{ events: number }> {
+export async function rebuildFromStore(app: App, store: PgEventStore, tenants: string[], cursors?: Map<string, number>): Promise<{ events: number }> {
   let n = 0;
-  for (const t of tenants) for await (const e of store.stream(t)) { app.ingestor.ingest(e, { replay: true, fromStore: true }); n++; }
+  for (const t of tenants) for await (const e of store.stream(t, 2000, cursors?.get(t) ?? 0, (seq) => cursors?.set(t, seq))) { app.ingestor.ingest(e, { replay: true, fromStore: true }); n++; }
   return { events: n };
 }

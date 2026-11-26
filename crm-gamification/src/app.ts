@@ -156,7 +156,7 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */
-export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
+export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin', opts: { journeys?: boolean } = {}) {
   app.tenants.push(tenant_id);
   app.policy.setPolicy(tenant_id, { ...DEFAULT_POLICY, brand_id });
   app.policy.markRgFeedSynced(tenant_id);
@@ -219,6 +219,9 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
       { id: 'end', type: 'exit' }] },
   ];
   for (const j of journeys) {
+    if (opts.journeys === false) break;
+    // idempotente: con PostgreSQL el recorrido ya puede venir de la base (no se crea otra versión al reiniciar)
+    if (app.registry.versionsOf(tenant_id, j.id).length) continue;
     app.registry.saveDraft(author, j);
     app.registry.submit(author, j.id);
     app.registry.approve(approver, j.id);

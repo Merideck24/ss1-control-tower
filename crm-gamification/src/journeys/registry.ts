@@ -102,6 +102,22 @@ export class JourneyRegistry {
     return j;
   }
 
+  /** Todas las versiones de un recorrido (persistencia). */
+  versionsOf(tenant: string, id: string): JourneyDefinition[] { return [...(this.#versions.get(this.#key(tenant, id)) ?? [])]; }
+
+  /** Carga versiones guardadas (reinicio o sincronización con otro proceso). Las no borrador quedan inmutables. */
+  restore(defs: JourneyDefinition[]): void {
+    for (const d of defs) {
+      const k = this.#key(d.tenant_id, d.id);
+      const vs = this.#versions.get(k) ?? [];
+      const v = d.status === 'draft' ? structuredClone(d) : deepFreeze(structuredClone(d));
+      const i = vs.findIndex((x) => x.version === d.version);
+      if (i >= 0) vs[i] = v; else vs.push(v);
+      vs.sort((a, b) => a.version - b.version);
+      this.#versions.set(k, vs);
+    }
+  }
+
   get(tenant: string, id: string, version: number): JourneyDefinition | undefined {
     return this.#versions.get(this.#key(tenant, id))?.find((v) => v.version === version);
   }

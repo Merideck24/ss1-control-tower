@@ -113,21 +113,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createApp(new OffsetClock(), { demoProviders: !process.env.CRM_PROVIDERS_LIVE });
   const demoTenants = (process.env.CRM_TENANTS ?? 'tenant-rumbawin,tenant-demo-b').split(',').map((t) => t.trim()).filter(Boolean);
   if (process.env.DATABASE_URL) {
-    // Con base de datos: continuar la auditoría, guardar todo lo nuevo y reconstruir desde el registro
-    const { createPool } = await import('../persistence/db.ts');
-    const { PgAuditStore, PgEventStore, attachPersistence, rebuildFromStore } = await import('../persistence/stores.ts');
-    const db = createPool();
-    const maintenance = process.env.DATABASE_MAINTENANCE_URL ? createPool(process.env.DATABASE_MAINTENANCE_URL, 2) : db;
-    const events = new PgEventStore(db), audit = new PgAuditStore(db);
-    const last = await audit.last(maintenance);
-    if (last) app.audit.resume(last.seq, last.hash);
-    attachPersistence(app, events, audit);
-    for (const t of demoTenants) { seedTenant(app, t); app.policy.markRgFeedSynced(t); }
-    const r = await rebuildFromStore(app, events, demoTenants);
-    console.log(`Persistencia PostgreSQL activa: ${r.events} eventos reconstruidos; auditoría continúa en #${last?.seq ?? 0}.`);
-    if (process.env.CRM_DEMO_SEED === '1' && r.events === 0) for (const t of demoTenants) seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11);
+    // Con base: instancias, recibos y versiones durables. CRM_ROLE=web deja las esperas al worker (npm run worker).
+    const role = process.env.CRM_ROLE === 'web' ? 'web' : 'all';
+    const { bootWithDb } = await import('../persistence/boot.ts');
+    const boot = await bootWithDb(app, { role, tenants: demoTenants, maintenanceUrl: process.env.DATABASE_MAINTENANCE_URL, writer: process.env.CRM_AUDIT_WRITER });
+    if (process.env.CRM_DEMO_SEED === '1' && boot.events === 0) { for (const t of demoTenants) seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); await boot.flush(); }
+    setInterval(() => { boot.tick().catch((e) => console.error('[persistencia]', (e as Error).message)); }, Number(process.env.CRM_SYNC_INTERVAL_MS ?? 1000)).unref();
+    const stop = async () => { await boot.stop().catch(() => undefined); process.exit(0); };
+    process.on('SIGTERM', () => void stop()); process.on('SIGINT', () => void stop());
   } else {
     for (const t of demoTenants) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
+    // sin base: el mismo proceso despierta esperas y diferidos (antes solo avanzaban con POST /runtime/tick)
+    setInterval(() => { try { app.runtime.runDue(); } catch (e) { console.error('[runtime]', (e as Error).message); } }, Number(process.env.CRM_SYNC_INTERVAL_MS ?? 1000)).unref();
   }
   // demo: simula el latido del feed de juego responsable (en producción lo publica la fuente)
   const heartbeat = () => demoTenants.forEach((t) => app.policy.markRgFeedSynced(t));

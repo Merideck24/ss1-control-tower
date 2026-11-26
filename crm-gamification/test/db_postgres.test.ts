@@ -110,6 +110,6 @@ test('DB: la app persiste eventos y auditoría; al reiniciar se reconstruyen per
   await db.query('ALTER TABLE audit_log DISABLE TRIGGER audit_append_only');
   await db.query(`UPDATE audit_log SET actor = 'intruso' WHERE seq = 2`);
   await db.query('ALTER TABLE audit_log ENABLE TRIGGER audit_append_only');
-  assert.deepEqual(await audit.verify(db), { ok: false, entries: v.entries, broken_at: 2 });
+  assert.deepEqual(await audit.verify(db), { ok: false, entries: v.entries, broken_at: 2, writer: 'web', writers: ['web'] });
   void pg;
 });
