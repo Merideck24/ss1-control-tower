@@ -50,7 +50,13 @@ setInterval(() => { void app.webhooks.dispatch(); }, 5_000);
  * aprobaciones ni acciones, cada escritura que sale bien se anota en localStorage y se vuelve a
  * aplicar, en orden, al abrir la página (antes de responder a la interfaz).
  */
-type Entry = { method: string; path: string; query: string; headers: Record<string, string>; body: unknown };
+type Entry = { method: string; path: string; query: string; headers: Record<string, string>; body: unknown; day?: string };
+/**
+ * Acciones de juego del jugador (ruleta, predicciones, tienda, bandeja): pertenecen al día en que se
+ * hicieron. Al cambiar de día no se reaplican, porque se contarían como de hoy (p. ej. consumirían la
+ * tirada diaria). Borradores, aprobaciones y configuración sí se conservan.
+ */
+const DAILY_ACTION = /^\/(gamification\/(minigames\/[^/]+\/spin|predictions\/[^/]+\/pick|store\/redeem)|players\/[^/]+\/inbox\/)/;
 const JOURNAL_KEY = 'ss1-crm-demo-journal-v1';
 const JOURNAL_MAX = 2000;
 const readJournal = (): Entry[] => { try { return JSON.parse(globalThis.localStorage?.getItem(JOURNAL_KEY) ?? '[]'); } catch { return []; } };
@@ -65,6 +71,7 @@ const ready = new Promise<void>((resolve) => {
   const go = async () => {
     ensureTenant('tenant-rumbawin');
     for (const e of journal) {
+      if (DAILY_ACTION.test(e.path) && e.day !== DAY_KEY) continue;
       ensureTenant(tenantOf(e.headers));
       try { await route(app, { method: e.method, path: e.path, query: new URLSearchParams(e.query), headers: e.headers, body: e.body as Record<string, unknown> }); } catch { /* una entrada inválida no bloquea las demás */ }
     }
@@ -90,7 +97,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(String(init.body)) : {};
   const method = (init?.method ?? 'GET').toUpperCase();
   const out = await route(app, { method, path: url.pathname.slice(4), query: url.searchParams, headers, body });
-  if (method !== 'GET' && out.status < 400) { journal.push({ method, path: url.pathname.slice(4), query: url.search, headers, body }); saveJournal(); }
+  if (method !== 'GET' && out.status < 400) { journal.push({ method, path: url.pathname.slice(4), query: url.search, headers, body, day: DAY_KEY }); saveJournal(); }
   if (out.contentType) return new Response(String(out.body), { status: out.status, headers: { 'content-type': out.contentType } });
   return new Response(JSON.stringify(out.body), { status: out.status, headers: { 'content-type': 'application/json' } });
 };
