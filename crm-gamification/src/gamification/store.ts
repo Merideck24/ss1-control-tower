@@ -122,8 +122,8 @@ export class StoreService {
 
   // ---- predicciones ----
   savePrediction(actor: { id: string; tenant_id: string }, pr: Omit<Prediction, 'tenant_id' | 'status' | 'created_by' | 'resolved_option' | 'resolved_by' | 'payouts'>): Prediction {
-    if (!/^[\w-]{3,48}$/.test(pr.id) || pr.options.length < 2 || new Set(pr.options).size !== pr.options.length) throw new DomainError('invalid_prediction', 'opciones inválidas');
-    if (!pr.reward.coins && !pr.reward.xp) throw new DomainError('invalid_prediction', 'sin recompensa');
+    if (!/^[\w-]{3,48}$/.test(String(pr.id ?? '')) || !Array.isArray(pr.options) || pr.options.length < 2 || new Set(pr.options).size !== pr.options.length) throw new DomainError('invalid_prediction', 'opciones inválidas');
+    if (!pr.reward || (!pr.reward.coins && !pr.reward.xp)) throw new DomainError('invalid_prediction', 'sin recompensa');
     const out: Prediction = { ...structuredClone(pr), tenant_id: actor.tenant_id, status: 'open', created_by: actor.id };
     this.#predictions.set(`${actor.tenant_id}::${pr.id}`, out);
     this.#d.audit.record(actor.tenant_id, actor.id, 'prediction.saved', pr.id, {});

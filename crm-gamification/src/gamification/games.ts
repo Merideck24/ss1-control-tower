@@ -79,7 +79,7 @@ export class GamesService {
   // ---- torneos ----
   saveTournament(actor: { id: string; tenant_id: string }, t: Omit<Tournament, 'tenant_id' | 'status' | 'created_by' | 'approved_by' | 'final'>): Tournament {
     if (!/^[\w-]{3,48}$/.test(t.id)) throw new DomainError('invalid_tournament', 'id inválido');
-    if (!t.prizes.length || t.prizes.some((p) => p.from < 1 || p.to < p.from || (!p.prize.xp && !p.prize.reward_id))) throw new DomainError('invalid_tournament', 'premios inválidos');
+    if (!Array.isArray(t.prizes) || !t.prizes.length || t.prizes.some((p) => !p || typeof p !== 'object' || !p.prize) || t.prizes.some((p) => p.from < 1 || p.to < p.from || (!p.prize.xp && !p.prize.reward_id))) throw new DomainError('invalid_tournament', 'premios inválidos');
     if (t.metric === 'stake_capped' && !(t.stake_cap_minor! > 0)) throw new DomainError('invalid_tournament', 'stake_capped requiere stake_cap_minor');
     if (Date.parse(t.ends_at) <= Date.parse(t.starts_at)) throw new DomainError('invalid_tournament', 'ventana inválida');
     const k = `${actor.tenant_id}::${t.id}`;

@@ -108,8 +108,9 @@ export function runSegment(def: SegmentDefinition, snapshot: readonly PlayerProf
 export function validateRules(node: RuleNode): string[] {
   const errs: string[] = [];
   const walk = (n: RuleNode) => {
-    if ('and' in n) n.and.forEach(walk);
-    else if ('or' in n) n.or.forEach(walk);
+    if (!n || typeof n !== 'object' || Array.isArray(n)) { errs.push('invalid_rule'); return; }
+    if ('and' in n) { if (Array.isArray(n.and)) n.and.forEach(walk); else errs.push('invalid_rule'); }
+    else if ('or' in n) { if (Array.isArray(n.or)) n.or.forEach(walk); else errs.push('invalid_rule'); }
     else if ('not' in n) walk(n.not);
     else if ('field' in n && !FIELDS[n.field]) errs.push(`unknown_field:${n.field}`);
   };

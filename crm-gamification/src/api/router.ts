@@ -35,6 +35,17 @@ export type ApiResponse = { status: number; body: unknown; contentType?: string;
 export type AskFn = (tools: CopilotTools, session: CopilotSession, question: string) => Promise<unknown>;
 
 /** Permisos por acción (RBAC). La interfaz los usa para mostrar solo lo permitido. */
+/** Ejemplo del disparador para el simulador cuando no se envía uno (las plantillas necesitan sus datos). */
+const SAMPLE_PAYLOAD: Record<string, unknown> = {
+  'deposit.settled': { deposit_id: 'sim-deposito', amount_minor: 50_000_00, currency: 'COP' },
+  'withdrawal.settled': { withdrawal_id: 'sim-retiro', amount_minor: 100_000_00, currency: 'COP' },
+  'reward.granted': { grant_id: 'sim-recompensa', reward_id: 'welcome_fs_10', reward_type: 'free_spins', value: { amount_minor: 20_000_00, currency: 'COP' }, expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString() },
+  'loyalty.threshold_crossed': { level: 'Plata', season: '2026-Q4', percent: 50 },
+  'loyalty.level_up': { level: 'Plata', previous_level: 'Bronce', season: '2026-Q4' },
+  'bet.settled': { bet_id: 'sim-apuesta', stake: { amount_minor: 10_000_00, currency: 'COP' }, win: { amount_minor: 0, currency: 'COP' }, product: 'casino' },
+  'player.verified': { kyc_status: 'verified' },
+};
+
 export const PERMISSIONS: Record<string, Role[]> = {
   'journeys.draft': ['crm_analyst', 'tenant_admin'],
   'journeys.submit': ['crm_analyst', 'tenant_admin'],
@@ -554,7 +565,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const def = app.registry.list(T).filter((j) => j.id === r![1]).at(-1);
       const p = app.ingestor.get(T, String(req.body.player_id));
       if (!def || !p) return { status: 404, body: { error: 'not_found', message: 'Recorrido o jugador inexistente' } };
-      return ok(simulateJourney(def, p, ev(T, p.player_id, def.trigger.event_type, (req.body.payload ?? {}) as never, app.clock.now().toISOString(), { source: 'simulator' }), { policy: app.policy, audit: app.audit, clock: app.clock }));
+      return ok(simulateJourney(def, p, ev(T, p.player_id, def.trigger.event_type, (req.body.payload ?? SAMPLE_PAYLOAD[def.trigger.event_type] ?? {}) as never, app.clock.now().toISOString(), { source: 'simulator' }), { policy: app.policy, audit: app.audit, clock: app.clock }));
     }
     if (r0 === 'POST /runtime/tick') {
       if (!can(actor, 'runtime.tick')) return forbid('runtime.tick');
@@ -603,7 +614,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     }
     if (r0 === 'GET /analytics/sources') {
       if (!can(actor, 'performance.read')) return forbid('performance.read');
-      const days = Math.min(90, Math.max(7, Number(req.query.get('days') ?? 30)));
+      const days = Math.min(90, Math.max(7, Number(req.query.get('days')) || 30));
       const now = app.clock.now().getTime();
       const preds = app.models(T).predictions;
       const abuse = new Set(app.abuseAll(T).filter((a) => a.tier !== 'ok').map((a) => a.player_id));
@@ -616,7 +627,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     }
     if (r0 === 'GET /performance') {
       if (!can(actor, 'performance.read')) return forbid('performance.read');
-      const days = Math.min(365, Math.max(1, Number(req.query.get('days') ?? 30)));
+      const days = Math.min(365, Math.max(1, Number(req.query.get('days')) || 30));
       return ok(app.performanceReport(T, days, brand));
     }
     if (r0 === 'GET /performance/payback') {

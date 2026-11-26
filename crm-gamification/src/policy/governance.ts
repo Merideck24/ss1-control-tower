@@ -19,6 +19,7 @@ export type PolicyProposal = {
 const quietLen = (q: { start: number; end: number }) => (q.end - q.start + 24) % 24;
 
 export function validatePolicy(p: Partial<MarketPolicy>): string[] {
+  if (!p || typeof p !== 'object') return ['Falta la política propuesta (campo «policy»).'];
   const e: string[] = [];
   const int = (x: unknown, lo: number, hi: number) => Number.isInteger(x) && (x as number) >= lo && (x as number) <= hi;
   if (!/^[A-Z]{2}$/.test(p.market ?? '')) e.push('El mercado es un código de país de 2 letras (p. ej. CO, PE, MX).');

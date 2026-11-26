@@ -74,7 +74,7 @@ export class GamificationService {
     if (Date.parse(m.ends_at) <= Date.parse(m.starts_at)) throw new DomainError('invalid_mission', 'la ventana termina antes de empezar');
     if (m.reward.reward_id && !this.#deps.rewards.item(actor.tenant_id, m.reward.reward_id)) throw new DomainError('invalid_mission', `bono ${m.reward.reward_id} no existe`);
     const prev = this.#missions.get(`${actor.tenant_id}::${m.id}`);
-    if (prev && prev.status !== 'draft') throw new DomainError('invalid_state', 'solo se editan borradores');
+    if (prev && prev.status !== 'draft') throw new DomainError('invalid_state', `La misión «${prev.id}» ya está ${({ pending_approval: 'en aprobación', active: 'activa', paused: 'en pausa', ended: 'terminada' } as Record<string, string>)[prev.status] ?? prev.status}: solo se editan borradores. Para una misión nueva usa otro id.`);
     const mission: Mission = { ...structuredClone(m), tenant_id: actor.tenant_id, status: 'draft', created_by: actor.id };
     this.#missions.set(`${actor.tenant_id}::${m.id}`, mission);
     this.#deps.audit.record(actor.tenant_id, actor.id, 'mission.draft_saved', m.id, { kind: m.kind, target: m.target, reward: m.reward });
@@ -84,6 +84,12 @@ export class GamificationService {
   activate(actor: { id: string; tenant_id: string; canApprove: boolean }, id: string): Mission {
     const m = this.get(actor.tenant_id, id);
     if (!m) throw new DomainError('not_found', id);
+    if (m.reward.reward_id && m.status === 'paused' && m.approved_by) {
+      // ya aprobada: reanudar no requiere otra aprobación (el contenido no cambió; editarla exige borrador nuevo)
+      m.status = 'active';
+      this.#deps.audit.record(m.tenant_id, actor.id, 'mission.resumed', id, { approved_by: m.approved_by });
+      return m;
+    }
     if (m.reward.reward_id) {
       if (m.status === 'draft') { m.status = 'pending_approval'; this.#deps.audit.record(m.tenant_id, actor.id, 'mission.submitted', id, {}); return m; }
       if (m.status !== 'pending_approval') throw new DomainError('invalid_state', m.status);

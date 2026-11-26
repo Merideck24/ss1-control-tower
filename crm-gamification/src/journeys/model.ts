@@ -41,6 +41,7 @@ export const hasIncentive = (j: Pick<JourneyDefinition, 'nodes'>) => j.nodes.som
 /** Valida estructura del grafo: nodos alcanzables, conexiones existentes, sin ciclos. */
 export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'purpose' | 'control_group_pct'> & { overlap?: JourneyDefinition['overlap'] }): string[] {
   const errs: string[] = [];
+  if (!Array.isArray(j.nodes) || j.nodes.some((n) => !n || typeof n !== 'object')) return ['nodes_required'];
   const ids = new Map(j.nodes.map((n) => [n.id, n]));
   if (ids.size !== j.nodes.length) errs.push('duplicate_node_id');
   if (!ids.has(j.entry)) errs.push('entry_not_found');

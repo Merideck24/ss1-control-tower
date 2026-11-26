@@ -10,6 +10,8 @@ import { route } from '../src/api/router.ts';
 import { seedDemoMissions } from '../src/demoAcquisition.ts';
 import { assignArm } from '../src/experiments/experiments.ts';
 import { setup, ev, T } from './helpers.ts';
+import { useDeterministicIds, useRandomIds } from '../src/shared/util.ts';
+import { after } from 'node:test';
 
 const H = 3_600_000, D = 24 * H;
 /** un jugador que cae en tratamiento (o en control) de todos los recorridos de marketing indicados */
@@ -18,7 +20,11 @@ const playerIn = (arm: 'treatment' | 'control', journeys: [string, number][]) =>
   throw new Error('sin candidato');
 };
 
+// ids deterministas (semilla de la ruleta incluida): el resultado no depende de la vuelta
+after(() => useRandomIds());
+
 function world() {
+  useDeterministicIds('e2e-player-lifecycle');
   const { app, clock } = setup('2026-11-16T14:00:00Z'); // lunes 9:00 en Bogotá
   seedDemoMissions(app, T, clock.now().getTime());
   let n = 0;
@@ -86,7 +92,11 @@ test('E2E: un jugador sube de nivel, completa los retos y cada módulo cuadra co
   const oro = w.app.channels.receipts(T, P).filter((r) => r.template === 'loyalty_level_up').at(-1)!;
   assert.ok(oro.status === 'accepted' || (oro.status === 'suppressed' && /frequency_cap/.test(oro.reason ?? '')), `${oro.status} ${oro.reason}`);
   assert.equal(titles().filter((t) => t === '¡Subiste a Oro!').length, oro.status === 'accepted' ? 1 : 0);
-  assert.equal(titles().filter((t) => t === '¡Vas a mitad de camino!').length, 2, 'un aviso del 50 % por nivel');
+  // aviso del 50 %: una decisión por nivel (Plata y Oro); en la bandeja, solo los que los topes dejaron salir
+  assert.equal(w.app.runtime.instances(T, { player_id: P, journey_id: 'j4_loyalty_halfway' }).length, 2, 'un aviso del 50 % por nivel');
+  const halfSent = w.app.channels.receipts(T, P).filter((r) => r.template === 'loyalty_halfway');
+  assert.ok(halfSent.every((r) => r.status === 'accepted' || (r.status === 'suppressed' && /frequency_cap/.test(r.reason ?? ''))), JSON.stringify(halfSent.map((r) => [r.status, r.reason])));
+  assert.equal(titles().filter((t) => t === '¡Vas a mitad de camino!').length, halfSent.filter((r) => r.status === 'accepted').length);
   assert.ok(d.gamification.badges.some((b: any) => b.id === 'level_gold'));
 
   // cierre del torneo (1.er puesto: 1.000 XP) y de la predicción (+100 monedas)
