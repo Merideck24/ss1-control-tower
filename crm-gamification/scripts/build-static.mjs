@@ -21,6 +21,12 @@ for (const f of ['brand/ss1-logo.webp', 'brand/ss1-icon.webp']) {
   const uri = `data:image/webp;base64,${(await readFile(`public/${f}`)).toString('base64')}`;
   withBundle = withBundle.split(f).join(uri);
 }
+// tipografía incrustada: la demo no depende de Google Fonts ni de ningún otro origen
+for (const w of [400, 500, 700]) {
+  const f = `fonts/roboto-latin-${w}-normal.woff2`;
+  withBundle = withBundle.split(f).join(`data:font/woff2;base64,${(await readFile(`public/${f}`)).toString('base64')}`);
+}
+if (/fonts\.googleapis|fonts\.gstatic/.test(withBundle)) throw new Error('la versión estática no debe cargar fuentes externas');
 
 const outDir = process.env.CRM_OUT_DIR ?? 'dist';
 await mkdir(outDir, { recursive: true });

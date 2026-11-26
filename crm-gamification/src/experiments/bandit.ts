@@ -65,6 +65,7 @@ export class SplitTracker {
   #byKey = new Map<string, Assignment[]>(); // tenant::journey::node
   #byPlayer = new Map<string, { key: string; a: Assignment; metric: SplitNode['metric'] }[]>();
   #allocCache = new Map<string, { at: number; size: number; alloc: Record<string, number> }>();
+  #assigned = new Map<string, Map<string, Assignment>>(); // key → jugador → asignación (búsqueda O(1))
 
   static key(tenant: string, journey: string, node: string) { return `${tenant}::${journey}::${node}`; }
   assignments(key: string) { return this.#byKey.get(key) ?? []; }
@@ -75,6 +76,10 @@ export class SplitTracker {
     const tot = ws.reduce((s, w) => s + w, 0);
     const fixed = Object.fromEntries(node.variants.map((v, i) => [v.id, tot > 0 ? ws[i] / tot : 1 / node.variants.length]));
     if (node.mode === 'fixed') return { alloc: fixed, phase: 'fixed' };
+    // con reparto vigente en caché no hace falta recalcular estadísticas (O(n) por asignación)
+    const size0 = this.assignments(key).length;
+    const hit0 = this.#allocCache.get(key);
+    if (hit0 && now - hit0.at < 24 * HOUR && size0 - hit0.size < 50) return { alloc: hit0.alloc, phase: 'optimizing' };
     const st = this.stats(key, node, now, false);
     const warm = node.warmup_per_variant ?? 30;
     if (st.some((s) => s.decided < warm)) return { alloc: fixed, phase: 'warmup' };
@@ -93,16 +98,18 @@ export class SplitTracker {
   /** Asignación estable: un jugador ve siempre la misma variante de un mismo split. */
   assign(tenant: string, journey: string, node: SplitNode, player: string, now: number): Assignment {
     const key = SplitTracker.key(tenant, journey, node.id);
-    const prior = this.assignments(key).find((a) => a.player_id === player);
+    const prior = this.#assigned.get(key)?.get(player);
     if (prior) return prior;
     const { alloc } = this.allocation(key, node, now);
     const u = stableBucket(`${key}::${player}`);
     let acc = 0, variant = node.variants.at(-1)!.id;
     for (const v of node.variants) { acc += alloc[v.id] ?? 0; if (u < acc) { variant = v.id; break; } }
     const a: Assignment = { player_id: player, variant, at: now, allocation: alloc };
-    this.#byKey.set(key, [...this.assignments(key), a]);
+    const list = this.#byKey.get(key); if (list) list.push(a); else this.#byKey.set(key, [a]);
+    const idx = this.#assigned.get(key); if (idx) idx.set(player, a); else this.#assigned.set(key, new Map([[player, a]]));
     const pk = `${tenant}::${player}`;
-    this.#byPlayer.set(pk, [...(this.#byPlayer.get(pk) ?? []), { key, a, metric: node.metric }]);
+    const mine = this.#byPlayer.get(pk); const entry = { key, a, metric: node.metric };
+    if (mine) mine.push(entry); else this.#byPlayer.set(pk, [entry]);
     return a;
   }
 

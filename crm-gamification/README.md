@@ -29,6 +29,9 @@ La interfaz sigue el diseño del panel de administración de SS1 (plantilla Vuex
 ## Demo en línea
 
 - **GitHub Pages:** https://merideck24.github.io/ss1-control-tower/ — versión estática que ejecuta el mismo dominio en el navegador con datos sintéticos (sin servidor). Se publica automáticamente desde `main` con `.github/workflows/crm-pages.yml`.
+  - Datos reproducibles: la historia se genera con el reloj congelado en las 00:00 de hoy (hora de Bogotá), así todas las recargas del mismo día muestran las mismas cifras. Para fijar una fecha (por ejemplo en una presentación): `?fecha=2026-11-25`.
+  - Autocontenida: tipografía Roboto incluida en el archivo (sin Google Fonts) y ningún pedido a otros orígenes. La página se pinta al instante y el segundo tenant se genera solo al elegirlo.
+  - Los cambios (borradores, aprobaciones, acciones) se guardan en el navegador; «Restablecer demo» los borra.
 - Generar localmente: `npm run build:static` → `dist/index.html`.
 
 La demo estática no incluye el copiloto en lenguaje natural (requiere credenciales Anthropic en el servidor); las herramientas del copiloto sí funcionan.
@@ -40,7 +43,7 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 148 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
+npm test          # 150 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
 npm run typecheck
 npm start         # http://localhost:3000 — demo con datos sintéticos (auth de desarrollo)
 npm run start:prod  # exige token del admin de SS1 (ver docs/INTEGRATION.md)

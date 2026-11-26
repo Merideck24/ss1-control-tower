@@ -36,12 +36,14 @@ const REWARD_LABEL: Record<string, Record<Locale, string>> = {
 };
 export const rewardLabel = (type: string, locale: Locale = 'es') => REWARD_LABEL[type]?.[locale] ?? type.replace(/_/g, ' ');
 
+const FMT = new Map<string, Intl.NumberFormat | Intl.DateTimeFormat>();
+const fmt = <T extends Intl.NumberFormat | Intl.DateTimeFormat>(key: string, make: () => T): T => { let f = FMT.get(key) as T | undefined; if (!f) { f = make(); FMT.set(key, f); } return f; };
 /** Monto en unidades mínimas → texto para el jugador (sin decimales en monedas como COP). */
 export function moneyText(minor: number, currency: string, locale: Locale = 'es') {
   const zero = ['COP', 'CLP', 'PYG', 'JPY', 'KRW'].includes(currency);
-  return (minor / 100).toLocaleString(INTL[locale], { style: 'currency', currency, maximumFractionDigits: zero ? 0 : 2, minimumFractionDigits: zero ? 0 : 2 });
+  return fmt(`m|${locale}|${currency}`, () => new Intl.NumberFormat(INTL[locale], { style: 'currency', currency, maximumFractionDigits: zero ? 0 : 2, minimumFractionDigits: zero ? 0 : 2 })).format(minor / 100);
 }
-export const dateText = (iso: string, locale: Locale = 'es') => new Date(iso).toLocaleDateString(INTL[locale], { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Bogota' });
+export const dateText = (iso: string, locale: Locale = 'es') => fmt(`d|${locale}`, () => new Intl.DateTimeFormat(INTL[locale], { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Bogota' })).format(new Date(iso));
 
 /** Valores listos para el jugador a partir del evento disparador. `amount` ya incluye la moneda. */
 export function buildVars(player_id: string, e: EventEnvelope | undefined, locale: Locale = 'es'): Record<string, string | number> {

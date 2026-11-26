@@ -37,7 +37,17 @@ export type RgCase = {
 
 type Win = { deposits: { at: number; amount: number }[]; bets: { at: number; stake: number; win: number }[]; nightDays: Set<string> };
 const hourFmt = new Map<string, Intl.DateTimeFormat>();
+const PARTS_MEMO = new Map<string, { day: string; hour: number }>();
 function localParts(t: number, tz: string) {
+  // memo por tramo de 15 min (exacto: los desfases horarios son múltiplos de 15 min)
+  const key = `${tz}|${Math.floor(t / 900_000)}`;
+  const hit = PARTS_MEMO.get(key); if (hit) return hit;
+  const v = localPartsRaw(Math.floor(t / 900_000) * 900_000, tz);
+  if (PARTS_MEMO.size > 50_000) PARTS_MEMO.clear();
+  PARTS_MEMO.set(key, v);
+  return v;
+}
+function localPartsRaw(t: number, tz: string) {
   let f = hourFmt.get(tz);
   if (!f) { f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', hourCycle: 'h23' }); hourFmt.set(tz, f); }
   const p = Object.fromEntries(f.formatToParts(new Date(t)).map((x) => [x.type, x.value]));

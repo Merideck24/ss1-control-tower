@@ -18,7 +18,42 @@ export class OffsetClock implements Clock {
   advance(ms: number): void { this.#offset += ms; }
 }
 
-export const uuid = (): string => globalThis.crypto.randomUUID();
+/**
+ * Reloj de demo reproducible: congelado mientras se siembra la historia (el resultado no depende
+ * de la velocidad de la máquina ni del milisegundo de carga) y después sigue la hora real.
+ */
+export class DemoClock implements Clock {
+  #t: number;
+  #live = false;
+  #offset = 0;
+  constructor(start: number) { this.#t = start; }
+  now(): Date { return new Date(this.#live ? Date.now() + this.#offset : this.#t); }
+  advance(ms: number): void { if (this.#live) this.#offset += ms; else this.#t += ms; }
+  /** Pasa a la hora real. Con `at`, la demo arranca en ese instante y avanza desde ahí. */
+  goLive(at?: number): void { this.#offset = at === undefined ? 0 : at - Date.now(); this.#live = true; }
+  /** Congela el reloj en `at` (p. ej. para sembrar más historia de forma reproducible). */
+  freeze(at: number): void { this.#t = at; this.#live = false; }
+  /** Vuelve a la hora real conservando el desfase que tenía. */
+  resume(): void { this.#live = true; }
+}
+
+/** Inicio del día de calendario (00:00) en Bogotá, que no tiene horario de verano (UTC−5). */
+export function startOfBogotaDay(t: number): number {
+  const local = new Date(t - 5 * 3_600_000);
+  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), 5);
+}
+
+let idSource: () => string = () => globalThis.crypto.randomUUID();
+export const uuid = (): string => idSource();
+/**
+ * Solo demos y pruebas: identificadores reproducibles a partir de una semilla. Nunca en producción:
+ * la semilla de los mini-juegos (commit-reveal) debe ser impredecible.
+ */
+export function useRandomIds(): void { idSource = () => globalThis.crypto.randomUUID(); }
+export function useDeterministicIds(seed: string): void {
+  let n = 0;
+  idSource = () => { const h = sha256(`${seed}:${++n}`); return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`; };
+}
 
 const K = new Uint32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,

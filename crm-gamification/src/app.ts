@@ -219,6 +219,14 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
 }
 
 let seq = 0;
+/**
+ * Demo reproducible: la siembra de cada tenant numera sus eventos desde una base fija (y luego el
+ * contador sigue por encima de todo lo usado, así ningún id se repite).
+ */
+export function withEventSeq<T>(base: number, fn: () => T): T {
+  const prev = seq; seq = base;
+  try { return fn(); } finally { seq = Math.max(prev, seq); }
+}
 /** Helper para crear eventos sintéticos. */
 export function ev<T extends EventEnvelope['event_type']>(tenant_id: string, player_id: string, event_type: T, payload: EventEnvelope<T>['payload'], occurred_at: string, opts: Partial<EventEnvelope> = {}): EventEnvelope<T> {
   return { event_id: `evt-${++seq}-${event_type}`, event_type, schema_version: 1, tenant_id, brand_id: 'rumbawin', player_id, occurred_at, source: event_type.startsWith('player') ? 'ss1.pam' : event_type.startsWith('rg') ? 'ss1.rg' : event_type.startsWith('consent') ? 'ss1.pam' : 'ss1.wallet', correlation_id: `corr-${seq}`, payload, ...opts } as EventEnvelope<T>;

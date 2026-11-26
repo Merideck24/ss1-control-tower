@@ -38,9 +38,23 @@ export const BADGES: Badge[] = [
 ];
 
 const DAYF = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
-const localDay = (iso: string) => DAYF.format(new Date(iso));
-const prevDay = (d: string) => new Date(Date.parse(d + 'T12:00:00Z') - 86_400_000).toISOString().slice(0, 10);
-function streakEnding(days: string[], last: string): number { const set = new Set(days); let n = 0, d = last; while (set.has(d)) { n++; d = prevDay(d); } return n; }
+// memo por tramo de 15 min: exacto en cualquier zona (los desfases son múltiplos de 15 min) y evita miles de llamadas a Intl
+const DAY_MEMO = new Map<number, string>();
+const localDay = (iso: string) => {
+  const k = Math.floor(Date.parse(iso) / 900_000);
+  let d = DAY_MEMO.get(k);
+  if (d === undefined) { d = DAYF.format(new Date(k * 900_000)); if (DAY_MEMO.size > 50_000) DAY_MEMO.clear(); DAY_MEMO.set(k, d); }
+  return d;
+};
+const dayNum = (d: string) => Math.round(Date.parse(d + 'T12:00:00Z') / 86_400_000);
+function streakEnding(days: string[], last: string): number { const set = new Set(days.map(dayNum)); let n = 0, d = dayNum(last); while (set.has(d)) { n++; d--; } return n; }
+/** Racha más larga de días consecutivos, en una sola pasada (antes: cuadrático en días por evento). */
+function longestStreak(days: Iterable<string>): number {
+  const ns = [...new Set([...days].map(dayNum))].sort((a, b) => a - b);
+  let best = 0, run = 0, prev = NaN;
+  for (const n of ns) { run = n === prev + 1 ? run + 1 : 1; prev = n; if (run > best) best = run; }
+  return best;
+}
 
 export class GamificationService {
   #missions = new Map<string, Mission>();
@@ -150,8 +164,7 @@ export class GamificationService {
     const k = `${p.tenant_id}::${p.player_id}`;
     if (this.#deps.loyalty.isOptedOut(p.tenant_id, p.player_id)) return;
     const have = this.#badges.get(k) ?? [];
-    const days = [...(this.#activityDays.get(k) ?? [])].sort();
-    let best = 0; for (const d of days) best = Math.max(best, streakEnding(days, d));
+    const best = longestStreak(this.#activityDays.get(k) ?? []);
     const prog = this.#deps.loyalty.program(p.tenant_id, p.brand_id) ? this.#deps.loyalty.progress(p.tenant_id, p.brand_id, p.player_id) : null;
     const ctx: BadgeCtx = { profile: p, missionsCompleted: this.playerMissions(p.tenant_id, p.player_id).filter((x) => x.completed_at).length, bestStreak: best, level: prog?.level ?? null };
     for (const b of BADGES) if (!have.some((h) => h.id === b.id) && b.test(ctx)) have.push({ id: b.id, at: this.#deps.clock.now().toISOString() });

@@ -86,3 +86,26 @@ test('#10 #12 #15: alertas con nombres y ventanas legibles; la bandeja de la dem
   assert.ok(s.delivered > 0 && s.read / s.delivered > 0.15 && s.read / s.delivered < 0.6, `aperturas ${s.read}/${s.delivered}`);
   for (const m of app.adapters.inapp.all(T)) if (m.read_at) assert.ok(m.read_at >= m.created_at && Date.parse(m.read_at) <= app.clock.now().getTime(), 'nunca se lee antes de llegar ni en el futuro');
 });
+
+test('Demo reproducible: misma fecha ancla ⇒ mismos datos, aunque cambie la hora de carga', async () => {
+  const { createApp, seedTenant, withEventSeq } = await import('../src/app.ts');
+  const { DemoClock, startOfBogotaDay, useDeterministicIds, useRandomIds } = await import('../src/shared/util.ts');
+  const snap = (loadedAt: string) => {
+    const anchor = startOfBogotaDay(Date.parse(loadedAt));
+    useDeterministicIds(`ss1-demo:${new Date(anchor).toISOString().slice(0, 10)}:${T}`);
+    const app = createApp(new DemoClock(anchor), { demoProviders: true });
+    withEventSeq(0, () => { seedTenant(app, T); seedAcquisitionHistory(app, T, 30, 0.3, 7); });
+    useRandomIds();
+    const ps = app.ingestor.all(T).sort((a, b) => a.player_id.localeCompare(b.player_id));
+    return JSON.stringify({ n: ps.length, stats: ps.map((p) => [p.player_id, p.stats.deposits_minor, p.stats.stake_minor, p.stats.last_bet_at]), grants: app.rewards.grants(T).map((g) => [g.grant_id, g.player_id, g.status]).sort(), inbox: app.adapters.inapp.stats(T) });
+  };
+  // 9:00 y 20:30 de Bogotá del mismo día (la segunda ya es «mañana» en UTC)
+  assert.equal(snap('2026-11-25T14:00:00Z'), snap('2026-11-26T01:30:00Z'));
+  assert.equal(startOfBogotaDay(Date.parse('2026-11-26T01:30:00Z')), Date.parse('2026-11-25T05:00:00Z'));
+});
+
+test('Rendimiento sin cambiar resultados: la ventana de latencia sigue siendo de 5.000 eventos', async () => {
+  const { app, clock } = setup();
+  for (let i = 0; i < 12_000; i++) app.ingestor.ingest(ev(T, `l${i % 50}`, 'consent.changed', { purpose: 'marketing', channel: 'email', granted: true }, clock.now().toISOString()));
+  assert.equal(app.ingestor.latency(T).n, 5000);
+});

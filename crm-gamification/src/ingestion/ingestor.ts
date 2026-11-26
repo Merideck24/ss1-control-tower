@@ -62,7 +62,8 @@ export class Ingestor {
       // proyección + políticas + recorridos + efectos de este evento (incluye eventos derivados)
       const buf = this.#lat.get(e.tenant_id) ?? [];
       buf.push({ type: e.event_type, ms: (globalThis.performance?.now() ?? Date.now()) - t0, lag_ms: Math.max(0, Date.parse(e.received_at!) - Date.parse(e.occurred_at)) });
-      if (buf.length > this.latencyWindow) buf.splice(0, buf.length - this.latencyWindow);
+      // recorte por lotes (antes: splice de 5.000 elementos en cada evento); latency() lee solo la ventana
+      if (buf.length > 2 * this.latencyWindow) buf.splice(0, buf.length - this.latencyWindow);
       this.#lat.set(e.tenant_id, buf);
     }
     return { status: 'applied', profile };
@@ -74,7 +75,7 @@ export class Ingestor {
   sourceMetrics() { return Object.fromEntries(this.#bySource); }
   /** Percentiles de latencia evento→decisión en la ventana reciente, total y por tipo. */
   latency(tenant: string) {
-    const xs = this.#lat.get(tenant) ?? [];
+    const xs = (this.#lat.get(tenant) ?? []).slice(-this.latencyWindow);
     const pct = (vals: number[], q: number) => { if (!vals.length) return null; const s = [...vals].sort((a, b) => a - b); return Math.round(s[Math.min(s.length - 1, Math.ceil(q * s.length) - 1)] * 100) / 100; };
     const sum = (ys: typeof xs) => ({ n: ys.length, p50_ms: pct(ys.map((y) => y.ms), 0.5), p95_ms: pct(ys.map((y) => y.ms), 0.95), p99_ms: pct(ys.map((y) => y.ms), 0.99), max_ms: ys.length ? Math.round(Math.max(...ys.map((y) => y.ms)) * 100) / 100 : null, lag_p95_ms: pct(ys.map((y) => y.lag_ms), 0.95) });
     const types = [...new Set(xs.map((x) => x.type))];
