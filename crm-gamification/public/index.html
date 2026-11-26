@@ -51,13 +51,27 @@
   nav#tabs button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: transparent; color: var(--ink); opacity: .86; text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 400; padding: 9px 14px; box-shadow: none; border-radius: var(--radius); }
   nav#tabs button:hover { background: rgba(255, 255, 255, .06); opacity: 1; }
   nav#tabs button svg { width: 22px; height: 22px; flex: none; stroke: currentColor; }
-  nav#tabs button[aria-selected="true"] { background: var(--brand-grad); color: var(--brand-ink); opacity: 1; font-weight: 500; box-shadow: 0 2px 6px color-mix(in srgb, var(--brand) 35%, transparent); }
+  nav#tabs button[aria-current="page"] { background: var(--brand-grad); color: var(--brand-ink); opacity: 1; font-weight: 500; box-shadow: 0 2px 6px color-mix(in srgb, var(--brand) 35%, transparent); }
   .sidebar .foot { margin-top: auto; padding: 14px 22px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
   .shell { min-width: 0; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
   header.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; margin-top: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 14px; background: rgba(17, 17, 17, .88); backdrop-filter: blur(9px); border-radius: var(--radius); box-shadow: var(--shadow); }
   header.topbar h1 { font-size: 17px; font-weight: 500; margin: 0; }
   header.topbar .ctx { margin-left: auto; display: flex; gap: 10px; align-items: center; color: var(--muted); flex-wrap: wrap; font-size: 13px; }
   header.topbar label { display: flex; gap: 6px; align-items: center; }
+  .ctx-panel { display: contents; }
+  .ctx-btn { display: none; }
+  @media (max-width: 760px) {
+    /* #8: cabecera de una sola línea (≈ 52 px); el contexto se abre a pedido y no tapa el contenido */
+    header.topbar { margin-top: 8px; gap: 8px; flex-wrap: nowrap; padding: 6px 10px; }
+    header.topbar h1 { font-size: 16px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    header.topbar .synth, header.topbar #mode { display: none; }
+    .ctx-btn { display: inline-flex; padding: 4px 10px; font-size: 12px; max-width: 46vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; }
+    .ctx-panel { display: none; }
+    body.ctx-open .ctx-panel { display: flex; flex-direction: column; gap: 8px; position: absolute; top: calc(100% + 6px); right: 0; left: 0; padding: 12px; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); z-index: 16; }
+    body.ctx-open .ctx-panel .ctx { margin-left: 0; flex-direction: column; align-items: stretch; }
+    header.topbar label { justify-content: space-between; }
+    main { padding-block: 14px 32px; }
+  }
   .menu-btn { display: none; background: transparent; color: var(--ink); padding: 6px; box-shadow: none; }
   .menu-btn svg { width: 24px; height: 24px; stroke: currentColor; display: block; }
   main { padding-block: 22px 40px; max-width: 1400px; margin: 0 auto; }
@@ -75,6 +89,7 @@
   body.embedded .layout { display: block; min-height: 0; }
   body.embedded .sidebar { position: static; height: auto; width: auto; transform: none; box-shadow: none; background: transparent; padding: 0 max(16px, env(safe-area-inset-left, 0px)); }
   body.embedded .brandbar, body.embedded .sidebar .section, body.embedded .sidebar .foot, body.embedded .menu-btn, body.embedded header.topbar .ctx, body.embedded #pageTitle { display: none; }
+  body.embedded .ctx-btn { display: none !important; }
   body.embedded nav#tabs { flex-direction: row; overflow-x: auto; padding: 12px 0 0; gap: 6px; }
   body.embedded nav#tabs button { width: auto; white-space: nowrap; padding: 8px 14px; }
   body.embedded .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -175,16 +190,18 @@
   <aside class="sidebar" aria-label="Navegación principal">
     <div class="brandbar"><img src="brand/ss1-logo.webp" alt="SS1 SyssoftOne" width="170" height="80"></div>
     <div class="section">CRM y gamificación</div>
-    <nav role="tablist" id="tabs" aria-orientation="vertical"></nav>
-    <div class="foot">Datos sintéticos de demostración. No son cifras reales.</div>
+    <nav id="tabs" aria-label="Secciones del CRM"></nav>
+    <div class="foot">Datos sintéticos de demostración. No son cifras reales.
+      <button type="button" class="ghost" id="demoReset" hidden title="Borra los cambios guardados en este navegador y vuelve a los datos iniciales">Restablecer demo</button></div>
   </aside>
   <div class="scrim" id="scrim"></div>
   <div class="shell">
     <header class="topbar">
-      <button class="menu-btn" id="menuBtn" aria-label="Abrir menú"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button type="button" class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-controls="tabs" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <h1 id="pageTitle">Control Tower</h1>
-      <span class="chip brand">Datos sintéticos</span><span class="chip" id="mode" hidden>Demo en navegador</span>
-      <label class="brandsel" title="Filtra jugadores, recorridos, rendimiento y Control Tower por marca">Marca <select id="brand"><option value="">Todas</option></select></label>
+      <button type="button" class="ghost ctx-btn" id="ctxBtn" aria-expanded="false" aria-controls="ctxPanel" title="Marca, tenant y rol">Contexto ▾</button>
+      <span class="chip brand synth">Datos sintéticos</span><span class="chip" id="mode" hidden>Demo en navegador</span>
+      <div class="ctx-panel" id="ctxPanel"><label class="brandsel" title="Filtra jugadores, recorridos, rendimiento y Control Tower por marca">Marca <select id="brand"><option value="">Todas</option></select></label>
       <div class="ctx">
         <label>Tenant <select id="tenant"><option>tenant-rumbawin</option><option>tenant-demo-b</option></select></label>
         <label>Rol <select id="role">
@@ -195,7 +212,7 @@
           <option value="tenant_admin">Admin de tenant</option>
           <option value="auditor">Auditor</option>
         </select></label>
-      </div>
+      </div></div>
     </header>
     <main><div id="flash" class="flash" role="status" hidden></div><div id="view" aria-live="polite"></div></main>
   </div>
@@ -216,9 +233,14 @@ function flash(msg, kind = '') {
 }
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const moneyC = (minor, cur = 'COP') => minor === null || minor === undefined ? '—' : (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, notation: 'compact', maximumFractionDigits: 1 });
+// #11: es-CO escribe «K» bajo 10 000 y «k» desde 10 000; se unifica en «k» (y «-» → «−»)
+const moneyC = (minor, cur = 'COP') => minor === null || minor === undefined ? '—' : (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, notation: 'compact', maximumFractionDigits: 1 }).replace(/\sK$|K$/, (m) => m.replace('K', 'k')).replace(/^-/, '−');
 const pct = (x, d = 1) => x === null || x === undefined ? '—' : (x * 100).toLocaleString('es-CO', { maximumFractionDigits: d, minimumFractionDigits: d }) + ' %';
 const int = (n) => (n ?? 0).toLocaleString('es-CO');
+/** #11: decimales con coma (es-CO) en toda la interfaz */
+const num = (x, d = 1) => x === null || x === undefined ? '—' : Number(x).toLocaleString('es-CO', { maximumFractionDigits: d });
+/** puntos porcentuales con signo y coma decimal: +6,8 pp */
+const pp = (x, d = 1) => x === null || x === undefined ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x * 100).toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d })} pp`;
 let perfDays = 60;
 const CHANNEL = { google: 'Google', meta: 'Meta', affiliate: 'Afiliados', tiktok: 'TikTok', organic: 'Orgánico', all: '' };
 const ret = (r) => r.eligible === 0 ? '<span class="muted" title="Ningún FTD tiene aún la antigüedad necesaria">inmadura</span>' : `${pct(r.rate)} <span class="muted">(${r.retained}/${r.eligible})</span>`;
@@ -374,7 +396,7 @@ function perfSection(p) {
       ${tile('CTR', pct(t.ctr, 2), `${int(t.clicks)} clics`)}
       ${tile('FTD %', pct(t.ftd_rate), `${int(t.ftd)} FTD de ${int(t.registrations)} registros`)}
       ${tile('CPA', moneyC(t.cpa_minor), 'por registro')}
-      ${tile('Costo por FTD', moneyC(t.cost_per_ftd_minor), 'inversión / FTD')}
+      ${tile(`Costo por FTD · ${perfDays} d`, moneyC(t.cost_per_ftd_minor), `inversión / FTD de los últimos ${perfDays} días`)}
       ${tile('Depósitos', moneyC(t.deposits_minor), 'netos de reversos')}
       ${tile('GGR', moneyC(t.ggr_minor), 'apuestas − premios')}
       ${tile('NGR', moneyC(t.ngr_minor), `bonos ${moneyC(t.bonus_cost_minor)} · impuesto ${moneyC(t.gaming_tax_minor)}`)}
@@ -397,7 +419,7 @@ function perfSection(p) {
         ${rows.map((c) => `<tr class="${c.campaign_id === 'total' ? 'total' : ''}"><td>${esc(c.campaign_name)}</td><td class="num">${pct(c.crm_reach, 0)}</td><td class="num">${pct(c.loyalty_silver_plus, 0)}</td><td class="num">${moneyC(c.bonus_cost_minor)}</td><td class="num">${moneyC(c.ngr_per_ftd_minor)}</td></tr>`).join('')}</table></div>
     </div><br>
     <div class="card scroll"><h3>Rendimiento por campaña</h3>
-      <table><tr><th>Campaña</th><th class="num">Inversión</th><th class="num">CTR</th><th class="num">Registros</th><th class="num">FTD %</th><th class="num">CPA</th><th class="num">Costo/FTD</th><th class="num">Depósitos</th><th class="num">GGR</th><th class="num">NGR</th><th class="num">D7</th><th class="num">D30</th><th class="num">ROI</th></tr>
+      <table><tr><th>Campaña</th><th class="num">Inversión</th><th class="num">CTR</th><th class="num">Registros</th><th class="num">FTD %</th><th class="num">CPA</th><th class="num" title="Cohortes registradas en el período elegido">Costo/FTD (${perfDays} d)</th><th class="num">Depósitos</th><th class="num">GGR</th><th class="num">NGR</th><th class="num">D7</th><th class="num">D30</th><th class="num">ROI</th></tr>
       ${rows.map((c) => `<tr class="${c.campaign_id === 'total' ? 'total' : ''}"><td>${esc(c.campaign_name)}${c.channel && c.channel !== 'all' ? `<br><span class="chip">${esc(CHANNEL[c.channel] ?? c.channel)}</span>` : ''}</td><td class="num">${moneyC(c.spend_minor)}</td><td class="num">${pct(c.ctr, 2)}</td><td class="num">${int(c.registrations)}</td><td class="num">${pct(c.ftd_rate)}</td><td class="num">${moneyC(c.cpa_minor)}</td><td class="num">${moneyC(c.cost_per_ftd_minor)}</td><td class="num">${moneyC(c.deposits_minor)}</td><td class="num">${moneyC(c.ggr_minor)}</td><td class="num">${moneyC(c.ngr_minor)}</td><td class="num">${ret(c.retention_d7)}</td><td class="num">${ret(c.retention_d30)}</td><td class="num">${roiCell(c.roi)}</td></tr>`).join('')}
       </table>
       <details><summary>Cómo se calcula</summary>
@@ -408,7 +430,46 @@ function perfSection(p) {
 }
 
 const money = (minor, cur = 'COP') => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: cur, maximumFractionDigits: 0 });
+// ── textos para el jugador (#9): nada de claves internas ni formatos crudos ──
+const REWARD_LABEL = { free_spins: 'Giros gratis', bonus_cash: 'Saldo de bono', cashback: 'Reembolso', free_bet: 'Apuesta gratis' };
+const rewardLabel = (t) => REWARD_LABEL[t] ?? String(t ?? '').replace(/_/g, ' ');
+const plural = (n, one, many) => `${int(n)} ${n === 1 ? one : many}`;
+const dateL = (iso) => new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+const MOVE_LABEL = [[/^bet\.settled$/, 'Por tus apuestas'], [/^minigame:/, 'Premio de la ruleta'], [/^mission:/, 'Misión completada'], [/^tournament:/, 'Premio de torneo'], [/^store:/, 'Canje en la tienda'], [/^prediction:/, 'Predicción acertada'], [/^(reversal|reverse|compens)/, 'Ajuste']];
+const moveLabel = (r) => (MOVE_LABEL.find(([re]) => re.test(r)) ?? [null, 'Ajuste de puntos'])[1];
+const LAST_SPIN = {};
 let current = 'tower';
+
+// ── #7: una URL por pantalla (#/pestaña?rol=…), botón atrás y contexto que sobrevive a la recarga ──
+let ROUTE = {};
+const ROUTE_KEY = 'ss1-crm-route-v1';
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } } };
+function parseRoute() {
+  const [tab, qs] = location.hash.replace(/^#\/?/, '').split('?');
+  const q = new URLSearchParams(qs ?? '');
+  return { tab: tab || null, role: q.get('rol'), tenant: q.get('tenant'), brand: q.get('marca'), player: q.get('jugador') };
+}
+function routeHash(r) {
+  const q = new URLSearchParams();
+  for (const [k, v] of [['rol', r.role], ['tenant', r.tenant], ['marca', r.brand], ['jugador', r.player]]) if (v) q.set(k, v);
+  return `#/${r.tab}${String(q) ? '?' + q : ''}`;
+}
+/** Escribe la ruta actual en la URL. `push` crea una entrada de historial (cambio de pantalla). */
+function setRoute(patch = {}, push = false) {
+  const own = !EMBED.active; // embebido: el admin decide la sesión y el rol
+  ROUTE = { tab: current, role: own ? $('#role').value : null, tenant: own ? $('#tenant').value : null, brand: $('#brand').value || null, player: patch.player !== undefined ? patch.player : ROUTE.tab === current ? ROUTE.player : null };
+  const h = routeHash(ROUTE);
+  if (h !== location.hash) history[push && own ? 'pushState' : 'replaceState'](null, '', h);
+  if (own) store.set(ROUTE_KEY, h);
+  ctxSummary();
+}
+function applyRoute(r) {
+  const has = (sel, v) => v && [...$(sel).options].some((o) => o.value === v);
+  if (!EMBED.active && has('#role', r.role)) $('#role').value = r.role;
+  if (!EMBED.active && has('#tenant', r.tenant)) $('#tenant').value = r.tenant;
+  if (r.tab && TABS.some(([k]) => k === r.tab)) current = r.tab;
+  ROUTE = r;
+}
 
 // ---------- Integración con admin.syssoft1.com (modo embebido, protocolo v1) ----------
 const CRM_CONFIG = window.SS1_CRM_CONFIG ?? {};
@@ -474,7 +535,7 @@ async function api(path, opts = {}) {
 
 async function loadSession() {
   SESSION = await api('/session');
-  try { const bs = await api('/brands'); const cur = $('#brand').value; $('#brand').innerHTML = '<option value="">Todas</option>' + bs.map((b) => `<option value="${esc(b.brand_id)}">${esc(b.brand_id)} (${b.players})</option>`).join(''); $('#brand').value = bs.some((b) => b.brand_id === cur) ? cur : ''; $('#brand').closest('label').hidden = bs.length < 2; } catch { /* sin marcas */ }
+  try { const bs = await api('/brands'); const cur = $('#brand').value || ROUTE.brand || ''; $('#brand').innerHTML = '<option value="">Todas</option>' + bs.map((b) => `<option value="${esc(b.brand_id)}">${esc(b.brand_id)} (${b.players})</option>`).join(''); $('#brand').value = bs.some((b) => b.brand_id === cur) ? cur : ''; $('#brand').closest('label').hidden = bs.length < 2; } catch { /* sin marcas */ }
   if (EMBED.session) {
     EMBED.ready = true;
     if (EMBED.pendingTab && TABS.some(([k, , p]) => k === EMBED.pendingTab && can(p))) current = EMBED.pendingTab;
@@ -503,13 +564,19 @@ const ICON_PATHS = {
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[k] ?? ''}</svg>`;
 function renderTabs() {
-  $('#tabs').innerHTML = TABS.filter(([, , p]) => can(p)).map(([k, l]) => `<button role="tab" aria-selected="${k === current}" data-k="${k}">${icon(k)}<span>${l}</span></button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach((b) => b.onclick = () => { current = b.dataset.k; flash(''); document.body.classList.remove('nav-open'); renderTabs(); show(); window.scrollTo(0, 0); });
+  $('#tabs').innerHTML = TABS.filter(([, , p]) => can(p)).map(([k, l]) => `<button type="button" aria-label="${esc(l)}"${k === current ? ' aria-current="page"' : ''} data-k="${k}">${icon(k)}<span>${l}</span></button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach((b) => b.onclick = () => { current = b.dataset.k; flash(''); document.body.classList.remove('nav-open'); setRoute({ player: null }, true); renderTabs(); show(); window.scrollTo(0, 0); });
   const t = TABS.find(([k]) => k === current);
   if (t) { $('#pageTitle').textContent = t[1]; document.title = `${t[1]} · SS1 CRM y Fidelidad`; toParent({ type: 'ss1-crm:title', title: t[1], tab: current }); }
 }
+const syncMenu = () => { const open = document.body.classList.contains('nav-open'); $('#menuBtn').setAttribute('aria-expanded', String(open)); $('#menuBtn').setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú'); };
+new MutationObserver(syncMenu).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 $('#menuBtn').onclick = () => document.body.classList.toggle('nav-open');
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('nav-open')) { document.body.classList.remove('nav-open'); $('#menuBtn').focus(); } });
+// #8: en pantallas angostas el contexto (marca, tenant, rol) se despliega a pedido
+$('#ctxBtn').onclick = () => { const open = document.body.classList.toggle('ctx-open'); $('#ctxBtn').setAttribute('aria-expanded', String(open)); };
+const ctxSummary = () => { $('#ctxBtn').textContent = `${$('#role').selectedOptions[0]?.textContent ?? ''}${$('#brand').value ? ' · ' + $('#brand').value : ''} ▾`; };
 
 /** H6: botón «CSV» en cada tarjeta con tabla. Neutraliza fórmulas y respeta comillas. */
 function tableToCsv(t) {
@@ -534,8 +601,45 @@ async function show() {
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
 }
 
-const statusChip = (s) => `<span class="chip ${s === 'published' ? 'ok' : s === 'paused' ? 'warn' : ''}">${esc(s)}</span>`;
-const kv = (o) => Object.entries(o ?? {}).map(([k, n]) => `<span class="chip">${esc(k)}: <b>${n}</b></span>`).join('') || '<span class="muted">—</span>';
+/** #14: el vacío de Aprobación indica el paso que corresponde al rol actual */
+const approvalEmpty = () => can('journeys.approve')
+  ? 'Sin solicitudes pendientes. Cuando un analista envíe un recorrido a aprobación, aparecerá aquí para que lo revises.'
+  : can('journeys.draft')
+    ? 'Sin solicitudes pendientes. Crea un borrador en Constructor y envíalo a aprobación; lo revisa una persona con rol Aprobador.'
+    : 'Sin solicitudes pendientes. Los recorridos los envía un analista CRM y los aprueba una persona con rol Aprobador.';
+// ── #10: estados, motivos y claves internas en español claro (la clave sigue en el title para soporte) ──
+const LABELS = {
+  // recorridos e instancias
+  published: 'Publicado', paused: 'En pausa', draft: 'Borrador', pending_approval: 'En aprobación', approved: 'Aprobado', rejected: 'Rechazado', archived: 'Archivado',
+  active: 'Activas', waiting: 'En espera', completed: 'Completadas', exited: 'Salieron', cancelled: 'Canceladas', failed: 'Con error',
+  // jugador
+  verified: 'Verificado', pending: 'Pendiente', unverified: 'Sin verificar', none: 'Sin restricción', self_excluded: 'Autoexcluido', cooling_off: 'Pausa temporal', limited: 'Con límites',
+  // decisiones y entregas
+  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', accepted: 'Entregado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
+  inapp: 'In-app', email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', webpush: 'Push web', telegram: 'Telegram',
+  frequency_cap: 'Tope diario de mensajes', frequency_cap_week: 'Tope semanal de mensajes', frequency_cap_channel: 'Tope del canal', quiet_hours: 'Horario silencioso',
+  marketing_consent_revoked: 'Retiró el consentimiento de marketing', no_marketing_consent: 'Sin consentimiento de marketing', channel_disabled: 'Canal desactivado en el mercado',
+  kyc_not_verified: 'KYC sin verificar', rg_restricted: 'Restricción de juego responsable', rg_risk_case_open: 'Caso de juego responsable abierto', rg_feed_stale: 'Estado de juego responsable desactualizado', rg_status_missing: 'Sin estado de juego responsable', rg_status_changed: 'Cambió su estado de juego responsable',
+  incentives_not_allowed_in_market: 'Incentivos no permitidos en el mercado', service_channel_opt_out: 'Pidió no recibir avisos por este canal', abuse_review: 'En revisión por abuso de bonos',
+  template_not_found: 'Plantilla inexistente', template_vars_missing: 'Faltan datos para la plantilla', channel_not_configured: 'Canal sin configurar', provider_unavailable: 'Proveedor no disponible', no_contact_for_sms: 'Sin teléfono para SMS', no_contact_for_whatsapp: 'Sin WhatsApp', no_contact_for_telegram: 'Sin Telegram',
+  overlap: 'Compite con otro recorrido', cooldown: 'Pausa entre recorridos', control_group: 'Grupo de control', global_pause: 'Pausa general', timeout: 'Tiempo agotado',
+  // catálogo de recompensas y plantillas de la demo
+  'player.registered': 'Registro', 'player.verified': 'Jugador verificado', 'deposit.settled': 'Depósito acreditado', 'deposit.reversed': 'Depósito revertido', 'withdrawal.settled': 'Retiro pagado', 'bet.settled': 'Apuesta liquidada', 'reward.granted': 'Recompensa otorgada', 'loyalty.threshold_crossed': 'Cruce del 50 % del nivel', 'rg.risk_signal': 'Señal de riesgo JR', 'rg.status_changed': 'Cambio de estado JR', 'consent.changed': 'Cambio de consentimiento',
+  welcome_fs_10: 'Giros gratis de bienvenida', reward_granted: 'Aviso de recompensa', loyalty_halfway: 'Mitad del nivel', verify_reminder: 'Recordatorio de verificación', deposit_progress: 'Depósito acreditado', vip_followup: 'Seguimiento VIP', welcome_message: 'Bienvenida', rg_check_in: 'Chequeo de juego responsable', rg_limits_reminder: 'Recordatorio de límites', security_confirmation: 'Confirmación de seguridad',
+};
+/** Código → texto. Acepta compuestos «motivo:detalle» y «canal:estado». */
+const label = (code) => {
+  if (code === null || code === undefined || code === '') return '—';
+  const c = String(code);
+  if (LABELS[c]) return LABELS[c];
+  const [head, ...rest] = c.split(':');
+  if (rest.length && LABELS[head]) return `${LABELS[head]} · ${rest.map((r) => r.split(',').map((x) => LABELS[x] ?? x.replace(/_/g, ' ')).join(', ')).join(' · ')}`;
+  if (rest.length) return `${LABELS[head] ?? head} · ${LABELS[rest.join(':')] ?? rest.join(':').replace(/_/g, ' ')}`;
+  return c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase());
+};
+const lbl = (code) => `<span title="${esc(code)}">${esc(label(code))}</span>`;
+const statusChip = (s) => `<span class="chip ${s === 'published' ? 'ok' : s === 'paused' ? 'warn' : ''}" title="${esc(s)}">${esc(label(s))}</span>`;
+const kv = (o) => Object.entries(o ?? {}).map(([k, n]) => `<span class="chip" title="${esc(k)}">${esc(label(k))}: <b>${int(n)}</b></span>`).join('') || '<span class="muted">—</span>';
 
 // ── Constructor visual de recorridos (D2): lienzo con nodos, conexiones y revisión en vivo ──
 const NW = 200, NH = 76;
@@ -549,15 +653,15 @@ const portX = (os, i) => NW * (os.length === 1 ? 0.5 : (i + 1) / (os.length + 1)
 const durLabel = (ms) => ms % 86_400_000 === 0 ? `${ms / 86_400_000} d` : `${Math.round(ms / 3_600_000 * 10) / 10} h`;
 function nodeSummary(n) {
   if (n.type === 'wait') return `${durLabel(n.duration_ms)}`;
-  if (n.type === 'message') return `${n.channel} · ${n.template}`;
-  if (n.type === 'grant_reward') return n.reward_id;
+  if (n.type === 'message') return `${label(n.channel)} · ${label(n.template)}`;
+  if (n.type === 'grant_reward') return label(n.reward_id);
   if (n.type === 'split') return `${n.mode === 'bandit' ? 'optimizado' : 'fijo'} · ${n.variants.map((v) => v.label).join(' / ')}`;
   if (n.type === 'condition') { const r = n.rule ?? {}; return `${r.field ?? '?'} ${(OPS.find((o) => o[0] === r.op) ?? ['', r.op])[1]} ${r.value ?? ''}`; }
   return 'fin del recorrido';
 }
 function newDraft() {
   return { id: 'j_nuevo', brand_id: 'rumbawin', name: 'Nuevo recorrido', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'deposit.settled' }, exit_on: [], entry: 'wait_1',
-    nodes: [{ id: 'wait_1', type: 'wait', duration_ms: 3_600_000, next: 'message_1' }, { id: 'message_1', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'exit_1' }, { id: 'exit_1', type: 'exit' }], layout: {} };
+    nodes: [{ id: 'wait_1', type: 'wait', duration_ms: 3_600_000, next: 'message_1' }, { id: 'message_1', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'exit_1' }, { id: 'exit_1', type: 'exit' }], layout: {} };
 }
 function loadDraft(j) {
   const { id, brand_id, name, purpose, control_group_pct, trigger, exit_on, entry, nodes, layout, overlap } = structuredClone(j);
@@ -650,7 +754,8 @@ function bDraw() {
   $('#bjson').value = JSON.stringify(B.def, null, 2);
   bBindCanvas();
 }
-function bChanged() { bDraw(); clearTimeout(B.timer); B.timer = setTimeout(bReview, 250); }
+const draftKey = () => `ss1-crm-builder-draft-v1:${EMBED.session?.tenantId ?? $('#tenant').value}`;
+function bChanged() { bDraw(); clearTimeout(B.timer); B.timer = setTimeout(bReview, 250); store.set(draftKey(), JSON.stringify(B.def)); }
 async function bReview() {
   try { const r = await api('/journeys/review', { method: 'POST', body: B.def }); B.issues = r.issues;
     // mientras nadie mueva pasos a mano, el lienzo se ordena solo tras cada cambio de estructura
@@ -724,7 +829,7 @@ const VIEWS = {
       <div class="card"><h3>Cola de errores</h3><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
       <div class="card"><h3>Estado</h3><div class="kpi ${t.global_pause ? 'warn' : 'ok'}">${t.global_pause ? 'En pausa' : 'Operando'}</div></div>
       <div class="card" title="Tiempo real de proceso desde que llega el evento hasta decidir y ejecutar (perfil, políticas, recorridos, envíos), últimos ${int(t.latency.window)} eventos"><h3>Evento → decisión (p95)</h3><div class="kpi ${t.latency.within_slo === false ? 'bad' : 'ok'}">${t.latency.p95_ms === null ? '—' : t.latency.p95_ms.toLocaleString('es-CO') + ' ms'}</div>
-        <div class="muted">p50 ${t.latency.p50_ms ?? '—'} · p99 ${t.latency.p99_ms ?? '—'} ms · objetivo ≤ ${t.latency.slo_p95_ms} ms · ${int(t.latency.n)} eventos${t.latency.lag_p95_ms ? ` · llegada p95 ${Math.round(t.latency.lag_p95_ms / 1000)} s` : ''}</div></div>
+        <div class="muted">p50 ${num(t.latency.p50_ms, 2)} · p99 ${num(t.latency.p99_ms, 2)} ms · objetivo ≤ ${t.latency.slo_p95_ms} ms · ${int(t.latency.n)} eventos${t.latency.lag_p95_ms ? ` · llegada p95 ${Math.round(t.latency.lag_p95_ms / 1000)} s` : ''}</div></div>
     </div><br>
     ${t.brand ? `<p class="muted">Vista filtrada por la marca <b>${esc(t.brand)}</b>.</p>` : ''}
     <div class="card scroll"><h3>Recorridos</h3><table><tr><th>Recorrido</th><th>Versión</th><th>Estado</th><th>Propósito</th><th>Control</th><th>Instancias</th></tr>
@@ -733,8 +838,8 @@ const VIEWS = {
     <div class="grid">
       <div class="card"><h3>Motivos de supresión</h3>${kv(t.suppression_reasons)}</div>
       <div class="card"><h3>Entregas por canal</h3>${kv(t.deliveries)}</div>
-      <div class="card"><h3>Presupuestos</h3>${t.budgets.map((b) => `<div>${esc(b.reward_id)}: ${money(b.committed_minor)} / ${money(b.budget_minor)}<div class="bar"><span style="width:${Math.min(100, 100 * b.committed_minor / b.budget_minor)}%"></span></div></div>`).join('')}</div>
-      <div class="card"><h3>Alertas operativas</h3>${t.alerts.length ? t.alerts.map((a) => `<div class="warn">${esc(a.alert)} · ${esc(a.player_id)}</div>`).join('') : '<span class="muted">Sin alertas</span>'}</div>
+      <div class="card"><h3>Presupuestos</h3>${t.budgets.map((b) => `<div>${lbl(b.reward_id)}: ${money(b.committed_minor)} / ${money(b.budget_minor)}<div class="bar"><span style="width:${Math.min(100, 100 * b.committed_minor / b.budget_minor)}%"></span></div></div>`).join('')}</div>
+      <div class="card"><h3>Alertas operativas</h3>${t.alerts.length ? t.alerts.map((a) => `<div class="warn">${lbl(a.alert)} · ${esc(a.player_id)}</div>`).join('') : '<span class="muted">Sin alertas</span>'}</div>
     </div>
     ${can('ingest.csv') ? `<br><div class="card"><h3>Carga por lotes (CSV)</h3>
       <div class="row"><label>Tipo <select id="csvtype"><option value="deposit.settled">Depósitos</option><option value="bet.settled">Apuestas</option><option value="withdrawal.settled">Retiros</option><option value="player.registered">Registros</option><option value="marketing.spend_reported">Inversión de medios</option></select></label>
@@ -747,7 +852,7 @@ const VIEWS = {
     const list = await api('/players');
     return `<div class="row"><input id="pq" placeholder="Buscar player_id (seudonimizado)"><button id="pgo">Buscar</button></div>
       <div class="grid profile-grid">
-        <div class="card scroll"><h3>Jugadores</h3><table>${list.map((p) => `<tr><td><a href="#" data-p="${esc(p.player_id)}">${esc(p.player_id)}</a></td><td>${esc(p.kyc)}</td><td class="${p.rg !== 'none' ? 'bad' : ''}">${esc(p.rg)}</td><td>${esc(p.level ?? '')}</td></tr>`).join('')}</table></div>
+        <div class="card scroll"><h3>Jugadores</h3><table>${list.map((p) => `<tr><td><a href="#" data-p="${esc(p.player_id)}">${esc(p.player_id)}</a></td><td>${lbl(p.kyc)}</td><td class="${p.rg !== 'none' ? 'bad' : ''}">${lbl(p.rg)}</td><td>${esc(p.level ?? '')}</td></tr>`).join('')}</table></div>
         <div class="card" id="pdetail"><p class="muted">Selecciona un jugador.</p></div></div>`;
   },
   async segments() {
@@ -769,7 +874,7 @@ const VIEWS = {
     const js = await api('/journeys');
     const latest = Object.values(js.reduce((m, j) => ((m[j.id] = j), m), {}));
     const players = await api('/players');
-    if (can('journeys.draft')) { B.catalog ??= await api('/journeys/builder'); if (!B.def) loadDraft(newDraft()); }
+    if (can('journeys.draft')) { B.catalog ??= await api('/journeys/builder'); if (!B.def) { let saved = null; try { saved = JSON.parse(store.get(draftKey()) ?? 'null'); } catch { /* borrador ilegible */ } loadDraft(saved?.nodes ? saved : newDraft()); } }
     B.latest = latest;
     const ov = await api('/journeys/overlap');
     const F = ov.frequency;
@@ -780,7 +885,7 @@ const VIEWS = {
       ${F ? `<div class="row"><span class="chip">Máx. ${F.per_day} mensajes de marketing al día</span>${F.per_week ? `<span class="chip">${F.per_week} por semana</span>` : ''}${Object.entries(F.per_channel_day).map(([c, n]) => `<span class="chip">${esc(c)}: ${n}/día</span>`).join('')}</div>` : ''}
       <p class="muted">${esc(ov.note)} «Desplazadas»: instancias que cedieron ante una de mayor prioridad; «bloqueadas»: entradas rechazadas por otra en curso o por enfriamiento.</p></div><br>`;
     return `${overlapCard}<div class="grid">${latest.map((j) => `
-      <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip">disparador: ${esc(j.trigger.event_type)}</span>${j.overlap ? `<span class="chip brand">${esc(j.overlap.group)} · prioridad ${j.overlap.priority}</span>` : ''}</div>
+      <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip" title="${esc(j.trigger.event_type)}">disparador: ${esc(label(j.trigger.event_type))}</span>${j.overlap ? `<span class="chip brand">${esc(j.overlap.group)} · prioridad ${j.overlap.priority}</span>` : ''}</div>
         <ol>${j.as_list.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
         ${j.validation.length ? `<p class="bad">${j.validation.map(esc).join(', ')}</p>` : '<p class="ok">Grafo válido</p>'}
         <div class="row"><select data-simp="${esc(j.id)}">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select>
@@ -793,12 +898,12 @@ const VIEWS = {
           <label>Identificador <input id="bid" value="${esc(B.def.id)}" size="16"></label>
           <label>Nombre <input id="bname" value="${esc(B.def.name)}" size="28"></label>
           <label>Propósito <select id="bpurpose">${['marketing', 'service'].map((v) => `<option value="${v}"${B.def.purpose === v ? ' selected' : ''}>${v === 'marketing' ? 'Marketing' : 'Servicio'}</option>`).join('')}</select></label>
-          <label>Inicia con <select id="btrigger">${B.catalog.events.map((e) => `<option${B.def.trigger.event_type === e ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select></label>
+          <label>Inicia con <select id="btrigger">${B.catalog.events.map((e) => `<option value="${esc(e)}"${B.def.trigger.event_type === e ? ' selected' : ''}>${esc(label(e))}</option>`).join('')}</select></label>
           <label>Grupo de control % <input id="bcontrol" type="number" min="0" max="50" value="${B.def.control_group_pct ?? 0}" size="4"></label>
           <label>Grupo de solapamiento <input id="bgroup" value="${esc(B.def.overlap?.group ?? '')}" size="10" placeholder="p. ej. promo"></label>
           <label>Prioridad <input id="bprio" type="number" min="1" max="100" value="${B.def.overlap?.priority ?? 50}" size="4"></label>
           <label>Enfriamiento h <input id="bcool" type="number" min="0" value="${B.def.overlap?.cooldown_hours ?? 0}" size="4"></label>
-          <label>Sale si ocurre <select id="bexit"><option value="">— ninguno —</option>${B.catalog.events.map((e) => `<option${(B.def.exit_on ?? [])[0] === e ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select></label></div>
+          <label>Sale si ocurre <select id="bexit"><option value="">— ninguno —</option>${B.catalog.events.map((e) => `<option value="${esc(e)}"${(B.def.exit_on ?? [])[0] === e ? ' selected' : ''}>${esc(label(e))}</option>`).join('')}</select></label></div>
         <div class="row" style="margin:8px 0">${B.catalog.node_types.map((t) => `<button class="ghost" data-addn="${t.type}">+ ${esc(t.label)}</button>`).join('')}<button class="ghost" id="bauto">Ordenar</button><button class="ghost" id="bnew">Nuevo</button></div>
         <div class="bwrap"><div class="canvas-scroll" id="bcanvas-wrap"></div><div><div class="card inspector" id="binspector" style="background:var(--bg)"></div><div id="bissues"></div></div></div>
         <details style="margin-top:10px"><summary class="muted">Vista avanzada (JSON, solo lectura)</summary><textarea id="bjson" rows="10" readonly></textarea></details>
@@ -807,14 +912,14 @@ const VIEWS = {
   async approval() {
     const js = await api('/journeys');
     const pending = js.filter((j) => j.status === 'pending_approval' || j.status === 'approved');
-    return `<div class="card scroll"><h3>Pendientes</h3>${pending.length ? `<table><tr><th>Recorrido</th><th>Versión</th><th>Autor</th><th>Incentivo</th><th>Pasos</th><th></th></tr>${pending.map((j) => `<tr><td>${esc(j.name)}</td><td>v${j.version}</td><td>${esc(j.created_by)}</td><td>${j.nodes.some((n) => n.type === 'grant_reward') ? '<span class="warn">Sí, aprobación separada</span>' : 'No'}</td><td>${j.as_list.map(esc).join('<br>')}</td><td>${j.status === 'pending_approval' ? (can('journeys.approve') ? `<button data-approve="${esc(j.id)}">Aprobar</button>` : '<span class="muted">Espera a un aprobador</span>') : (can('journeys.publish') ? `<button data-publish="${esc(j.id)}">Publicar</button>` : '<span class="muted">Aprobado</span>')}</td></tr>`).join('')}</table>` : '<p class="muted">Sin solicitudes. Cambia a «Analista CRM», crea un borrador en Constructor y envíalo.</p>'}
+    return `<div class="card scroll"><h3>Pendientes</h3>${pending.length ? `<table><tr><th>Recorrido</th><th>Versión</th><th>Autor</th><th>Incentivo</th><th>Pasos</th><th></th></tr>${pending.map((j) => `<tr><td>${esc(j.name)}</td><td>v${j.version}</td><td>${esc(j.created_by)}</td><td>${j.nodes.some((n) => n.type === 'grant_reward') ? '<span class="warn">Sí, aprobación separada</span>' : 'No'}</td><td>${j.as_list.map(esc).join('<br>')}</td><td>${j.status === 'pending_approval' ? (can('journeys.approve') ? `<button data-approve="${esc(j.id)}">Aprobar</button>` : '<span class="muted">Espera a un aprobador</span>') : (can('journeys.publish') ? `<button data-publish="${esc(j.id)}">Publicar</button>` : '<span class="muted">Aprobado</span>')}</td></tr>`).join('')}</table>` : `<p class="muted">${approvalEmpty()}</p>`}
       <p class="muted">El autor no puede aprobar su propio recorrido. La firma cubre versión y contenido; cualquier cambio requiere nueva aprobación.</p><div id="apout"></div></div>`;
   },
   async gamification() {
     const [g, tours, games, shop] = await Promise.all([api('/gamification/missions'), api('/gamification/tournaments'), api('/gamification/minigames'), api('/gamification/store')]);
     const ST = { draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activa', paused: 'En pausa', ended: 'Terminada' };
     const target = (m) => m.kind === 'sum' ? moneyC(m.target) : m.kind === 'streak' ? `${m.target} días seguidos` : `${int(m.target)} eventos`;
-    const reward = (m) => [m.reward.xp ? `${int(m.reward.xp)} XP` : '', m.reward.reward_id ? esc(m.reward.reward_id) : ''].filter(Boolean).join(' + ');
+    const reward = (m) => [m.reward.xp ? `${int(m.reward.xp)} XP` : '', m.reward.reward_id ? lbl(m.reward.reward_id) : ''].filter(Boolean).join(' + ');
     const act = (m) => {
       if ((m.status === 'draft' || m.status === 'paused') && can('journeys.submit')) return `<button class="ghost" data-mact="activate" data-mid="${esc(m.id)}">${m.reward.reward_id && m.status === 'draft' ? 'Enviar a aprobación' : 'Activar'}</button>`;
       if (m.status === 'pending_approval' && can('journeys.approve')) return `<button data-mact="activate" data-mid="${esc(m.id)}">Aprobar y activar</button>`;
@@ -833,16 +938,16 @@ const VIEWS = {
           <td class="num">${t.status === 'active' && Date.parse(t.ends_at) < Date.now() && can('journeys.approve') ? `<button data-tfin="${esc(t.id)}">Cerrar y premiar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin torneos.</td></tr>'}</table>
         <p class="muted">Ranking reproducible desde los eventos: a igual puntaje gana quien lo alcanzó primero. Al cierre se excluyen jugadores con gamificación desactivada o restricción de juego responsable, se guarda la foto con hash y los premios se pagan una sola vez.</p></div><br>
       ${games.map((gm) => `<div class="card scroll"><h3>${esc(gm.name)} · ${gm.kind === 'wheel' ? 'ruleta' : 'caja de premios'}</h3>
-        <div class="row"><span class="chip">${int(gm.spins_per_day)} tirada(s) gratis por día</span><span class="chip">Costo esperado ${moneyC(gm.expected.cost_per_spin_minor)} por tirada</span><span class="chip">${gm.expected.xp_per_spin} XP esperados</span><span class="chip">${int(gm.spins)} tiradas</span></div>
+        <div class="row"><span class="chip">${plural(gm.spins_per_day, 'tirada gratis', 'tiradas gratis')} por día</span><span class="chip">Costo esperado ${moneyC(gm.expected.cost_per_spin_minor)} por tirada</span><span class="chip">${num(gm.expected.xp_per_spin)} XP esperados por tirada</span><span class="chip">${plural(gm.spins, 'tirada jugada', 'tiradas jugadas')}</span></div>
         <table><tr><th>Premio</th><th class="num">Probabilidad</th><th class="num">Observado</th></tr>${gm.expected.probabilities.map((pr) => `<tr><td>${esc(pr.label)}</td><td class="num">${pct(pr.p, 1)}</td><td class="num">${gm.spins ? pct((gm.observed[pr.id] ?? 0) / gm.spins, 1) : '—'}</td></tr>`).join('')}</table>
         <p class="muted">Azar verificable: se publica el compromiso <code>${esc(gm.seeds.at(-1).commit.slice(0, 16))}…</code> (sha256 de la semilla). Al rotar, la semilla anterior se revela y cualquiera puede recalcular cada resultado con sha256(semilla:jugador:número de tirada). Sin compra ni dinero apostado.</p>
         ${gm.seeds.filter((x) => x.seed).length ? `<details><summary>Semillas reveladas (${gm.seeds.filter((x) => x.seed).length})</summary>${gm.seeds.filter((x) => x.seed).map((x) => `<div class="muted"><code>${esc(x.seed)}</code> · válida desde ${new Date(x.from).toLocaleString('es-CO')}</div>`).join('')}</details>` : ''}
         ${can('alerts.configure') ? `<div class="row" style="margin-top:8px"><button class="ghost" data-rot="${esc(gm.id)}">Rotar semilla y revelar la anterior</button></div>` : ''}</div><br>`).join('')}
       <div class="card scroll"><h3>Tienda de canjes</h3><p class="muted" style="margin-top:0">${esc(shop.coin_rate)}. El canje reserva saldo y stock a la vez; si la entrega falla (política o presupuesto), las monedas y el stock vuelven con asientos compensatorios.</p>
         <table><tr><th>Artículo</th><th>Entrega</th><th class="num">Precio</th><th class="num">Stock</th><th class="num">Canjes</th><th class="num">Reembolsos</th><th class="num">Límite</th></tr>
-        ${shop.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${i.reward.reward_id ? 'bono ' + esc(i.reward.reward_id) : i.reward.xp ? int(i.reward.xp) + ' XP' : 'físico: ' + esc(i.reward.physical)}</td><td class="num">${int(i.price_coins)} monedas</td><td class="num ${i.stock === 0 ? 'bad' : i.stock < 5 ? 'warn' : ''}">${int(i.stock)}</td><td class="num">${int(i.redeemed)}</td><td class="num">${int(i.refunded)}</td><td class="num">${int(i.per_player_limit)} por jugador</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin artículos.</td></tr>'}</table></div><br>
+        ${shop.items.map((i) => `<tr><td>${esc(i.name)}</td><td>${i.reward.reward_id ? lbl(i.reward.reward_id) : i.reward.xp ? int(i.reward.xp) + ' XP' : 'físico: ' + esc(i.reward.physical)}</td><td class="num">${int(i.price_coins)} monedas</td><td class="num ${i.stock === 0 ? 'bad' : i.stock < 5 ? 'warn' : ''}">${int(i.stock)}</td><td class="num">${int(i.redeemed)}</td><td class="num">${int(i.refunded)}</td><td class="num">${int(i.per_player_limit)} por jugador</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin artículos.</td></tr>'}</table></div><br>
       <div class="card scroll"><h3>Predicciones</h3><table><tr><th>Predicción</th><th>Cierra</th><th>Elecciones</th><th>Premio</th><th>Estado</th><th></th></tr>
-        ${shop.predictions.map((x) => `<tr><td>${esc(x.name)}<br><span class="muted">${esc(x.question)}</span></td><td class="muted">${new Date(x.closes_at).toLocaleString('es-CO')}</td><td>${x.options.map((o) => `<span class="chip">${esc(o)}: ${int(x.distribution[o])}</span>`).join('')}</td><td>${x.reward.coins ? int(x.reward.coins) + ' monedas' : ''}${x.reward.xp ? ' ' + int(x.reward.xp) + ' XP' : ''}</td>
+        ${shop.predictions.map((x) => `<tr><td>${esc(x.name)}<br><span class="muted">${esc(x.question)}</span></td><td class="muted">${new Date(x.closes_at).toLocaleString('es-CO', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</td><td>${x.options.map((o) => `<span class="chip">${esc(o)}: ${int(x.distribution[o])}</span>`).join('')}</td><td>${x.reward.coins ? int(x.reward.coins) + ' monedas' : ''}${x.reward.xp ? ' ' + int(x.reward.xp) + ' XP' : ''}</td>
           <td>${x.status === 'resolved' ? `Resuelta: <b>${esc(x.resolved_option)}</b> · ${int(x.payouts)} premios` : Date.parse(x.closes_at) > Date.now() ? '<span class="chip brand">Abierta</span>' : 'Cerrada, sin resolver'}</td>
           <td class="num">${x.status === 'open' && Date.parse(x.closes_at) <= Date.now() && can('journeys.approve') ? x.options.map((o) => `<button class="ghost" data-pres="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join(' ') : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin predicciones.</td></tr>'}</table>
         <p class="muted">Gratis, sin apuesta. Una elección por jugador, inmutable, antes del cierre. La resuelve un aprobador; los pagos se hacen una vez y excluyen restricciones de juego responsable.</p></div><br>
@@ -872,7 +977,7 @@ const VIEWS = {
       <table><tr><th>Jugador</th><th class="num">Puntaje</th><th>Nivel</th><th>Señales</th><th>Bono</th><th>Revisión</th></tr>
       ${ab.flagged.map((a) => `<tr><td>${esc(a.player_id)}</td><td class="num">${a.score}</td><td><span class="${TIER[a.tier][0]}">${TIER[a.tier][1]}</span></td>
         <td>${a.signals.map((x) => `<div><b>${esc(x.label)}</b> <span class="muted">+${x.points} · ${esc(x.detail)}</span></div>`).join('')}</td>
-        <td>${a.multiplier === 0 ? '<span class="bad">pausado</span>' : a.multiplier < 1 ? `<span class="warn">×${a.multiplier}</span>` : '×' + a.multiplier}</td>
+        <td>${a.multiplier === 0 ? '<span class="bad">pausado</span>' : a.multiplier < 1 ? `<span class="warn">×${num(a.multiplier, 2)}</span>` : '×' + num(a.multiplier, 2)}</td>
         <td>${a.review ? `<span class="${a.review.status === 'cleared' ? 'ok' : 'bad'}">${a.review.status === 'cleared' ? 'Descartado' : 'Confirmado'}</span> <span class="muted">${esc(a.review.by)} · hasta ${new Date(a.review.valid_until).toLocaleDateString('es-CO')}</span>` : ''}
           ${can('abuse.review') ? `<button class="ghost" data-abr="${esc(a.player_id)}" data-st="cleared">Descartar</button> <button class="ghost" data-abr="${esc(a.player_id)}" data-st="confirmed">Confirmar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">Sin jugadores marcados.</td></tr>'}</table>
       <p class="muted">${esc(ab.note)} Reglas ${esc(ab.rules.version)}; una revisión vale ${ab.rules.review_valid_days} días. Usa <code>abuse.tier</code> y <code>abuse.score</code> en Segmentos.</p></div><br>`;
@@ -885,24 +990,24 @@ const VIEWS = {
       <p>${esc(x.decision)}</p>`).join('')}<p class="muted">${esc(sp.note)}</p></div><br>`;
     const CHN = { inapp: 'In-app (bandeja)', email: 'Email', webpush: 'Push web', sms: 'SMS', whatsapp: 'WhatsApp', telegram: 'Telegram' };
     const chCard = `<div class="card scroll"><h3>Canales de entrega</h3><table><tr><th>Canal</th><th class="num">Entregados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
-      ${chs.channels.map((c) => `<tr><td>${esc(CHN[c.channel] ?? c.channel)}</td><td class="num">${int(c.accepted)}</td><td class="num">${int(c.failed)}</td><td class="num">${int(c.suppressed)}</td><td class="num">${int(c.deferred)}</td><td class="muted">${c.top_reasons.map((r) => `${esc(r.reason)} (${int(r.n)})`).join(' · ')}</td></tr>`).join('')}</table>
-      <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} entregados, ${int(chs.inbox.read)} leídos (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
+      ${chs.channels.map((c) => `<tr><td>${esc(CHN[c.channel] ?? c.channel)}</td><td class="num">${int(c.accepted)}</td><td class="num">${int(c.failed)}</td><td class="num">${int(c.suppressed)}</td><td class="num">${int(c.deferred)}</td><td class="muted">${c.top_reasons.map((r) => `${lbl(r.reason)} (${int(r.n)})`).join(' · ')}</td></tr>`).join('')}</table>
+      <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} entregados, ${int(chs.inbox.read)} abiertos por el jugador (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Una apertura se cuenta cuando el jugador abre o archiva el mensaje en su bandeja. Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
     const JN = (n) => n === null || n === undefined ? '—' : `${n >= 0 ? '+' : '−'}${moneyC(Math.abs(n))}`;
     const impactCard = `<div class="card scroll"><h3>Ranking de recorridos por impacto</h3><table><tr><th>#</th><th>Recorrido</th><th class="num">Tratados / control</th><th class="num">Depósito tras entrar</th><th class="num">NGR por jugador (trat. / ctrl.)</th><th class="num">Incremento por jugador (IC 95 %)</th><th class="num">Costo</th><th class="num">ROI</th></tr>
       ${ji.journeys.map((r, i) => `<tr><td>${r.rank_score === null ? '—' : i + 1}</td><td>${esc(r.name)}${r.lift.note ? `<br><span class="warn">${esc(r.lift.note)}</span>` : ''}</td><td class="num">${int(r.treatment.n)} / ${int(r.control.n)}${r.maturing ? `<br><span class="muted">${int(r.maturing)} madurando</span>` : ''}</td>
         <td class="num">${pct(r.treatment.deposit_rate, 0)} / ${r.control.n ? pct(r.control.deposit_rate, 0) : '—'}</td><td class="num">${moneyC(r.treatment.ngr_per_player_minor)} / ${r.control.n ? moneyC(r.control.ngr_per_player_minor) : '—'}</td>
         <td class="num"><b class="${r.lift.ngr_ci95_minor && r.lift.ngr_ci95_minor[0] > 0 ? 'ok' : r.lift.ngr_ci95_minor && r.lift.ngr_ci95_minor[1] < 0 ? 'bad' : ''}">${JN(r.lift.ngr_per_player_minor)}</b>${r.lift.ngr_ci95_minor ? `<br><span class="muted">[${JN(r.lift.ngr_ci95_minor[0])}; ${JN(r.lift.ngr_ci95_minor[1])}]</span>` : ''}</td>
         <td class="num">${moneyC(r.cost_minor)}</td><td class="num">${r.roi === null ? '—' : pct(r.roi, 0)}</td></tr>`).join('')}</table>
-      ${ji.rewards.length ? `<p><b>Recompensas:</b> ${ji.rewards.map((w) => `${esc(w.reward_id)}: ${w.ngr_per_cost === null ? 'sin medición' : `${w.ngr_per_cost >= 0 ? '+' : '−'}$${Math.abs(w.ngr_per_cost).toFixed(2)} de NGR incremental por cada $1 de bono`}${w.reliable ? '' : ' (muestra insuficiente)'}`).join(' · ')}</p>` : ''}
+      ${ji.rewards.length ? `<p><b>Recompensas:</b> ${ji.rewards.map((w) => `${lbl(w.reward_id)}: ${w.ngr_per_cost === null ? 'sin medición' : `${w.ngr_per_cost >= 0 ? '+' : '−'}$${num(Math.abs(w.ngr_per_cost), 2)} de NGR incremental por cada $1 de bono`}${w.reliable ? '' : ' (muestra insuficiente)'}`).join(' · ')}</p>` : ''}
       <p class="muted">${esc(ji.note)} Verde: el intervalo está por encima de cero; rojo: por debajo. El orden descuenta la incertidumbre.</p></div><br>`;
     const VD = { buena: ['ok', 'Buena'], vigilar: ['warn', 'Vigilar'], mala: ['bad', 'Mala'], sin_datos: ['muted', 'Sin datos'] };
-    const srcCard = !srcq ? '' : `<div class="card scroll"><h3>Calidad de fuentes de adquisición · ${srcq.days} días</h3><table><tr><th>Fuente</th><th class="num">Registros</th><th class="num">Primer depósito</th><th class="num">Valor previsto 30 d</th><th class="num">Activos a 7 d</th><th class="num">Abuso</th><th class="num">Riesgo JR</th><th class="num">Costo por FTD</th><th>Veredicto</th></tr>
+    const srcCard = !srcq ? '' : `<div class="card scroll"><h3>Calidad de fuentes de adquisición · ${srcq.days} días</h3><table><tr><th>Fuente</th><th class="num">Registros</th><th class="num">Primer depósito</th><th class="num">Valor previsto 30 d</th><th class="num">Activos a 7 d</th><th class="num">Abuso</th><th class="num">Riesgo JR</th><th class="num" title="Cohortes registradas en la ventana de esta tabla">Costo por FTD (${srcq.days} d)</th><th>Veredicto</th></tr>
       ${srcq.sources.map((s) => `<tr><td>${esc(s.name)}<br><span class="muted">${esc(s.channel)}</span></td><td class="num">${int(s.registrations)}</td><td class="num">${pct(s.ftd_rate, 0)}</td><td class="num">${s.predicted_value_30d_minor === null ? '—' : moneyC(s.predicted_value_30d_minor)}</td><td class="num">${s.d7_active_rate === null ? '—' : pct(s.d7_active_rate, 0)}</td><td class="num">${pct(s.abuse_share, 0)}</td><td class="num">${pct(s.rg_share, 0)}</td><td class="num">${s.cost_per_ftd_minor === null ? '—' : moneyC(s.cost_per_ftd_minor)}</td>
         <td><span class="${VD[s.verdict][0]}">${VD[s.verdict][1]}</span><br><span class="muted">${s.reasons.map(esc).join('; ')}</span></td></tr>`).join('')}</table>
       <p class="muted">Promedio del período: primer depósito ${pct(srcq.baseline.ftd_rate, 0)}, valor previsto ${srcq.baseline.predicted_value_30d_minor === null ? '—' : moneyC(srcq.baseline.predicted_value_30d_minor)}, activos a 7 días ${srcq.baseline.d7_active_rate === null ? '—' : pct(srcq.baseline.d7_active_rate, 0)}. ${esc(srcq.note)}</p></div><br>`;
     return `${models}${impactCard}${srcCard}${nbaCard}${chCard}${splitCard}${abuseCard}<div class="card scroll"><h3>Tratamiento vs. control (depósito en 14 días tras entrar)</h3><table><tr><th>Campaña</th><th>Métrica</th><th>Tratamiento</th><th>Control</th><th>Conversión observada</th><th>Incremento estimado (IC 95 %)</th><th>Costo</th></tr>
-      ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td>${r.treatment.conversions}/${r.treatment.n}</td><td>${r.control.conversions}/${r.control.n}</td><td>${(100 * r.observed_conversion).toFixed(1)} %</td>
-        <td>${(100 * r.estimated_lift.absolute).toFixed(1)} pp [${(100 * r.estimated_lift.ci95[0]).toFixed(1)}; ${(100 * r.estimated_lift.ci95[1]).toFixed(1)}] ${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
+      ${rs.map((r) => `<tr><td>${esc(r.campaign)}</td><td>${esc(r.primary_metric)}</td><td class="num">${int(r.treatment.conversions)}/${int(r.treatment.n)}</td><td class="num">${r.control.n ? `${int(r.control.conversions)}/${int(r.control.n)}` : '—'}</td><td class="num">${pct(r.observed_conversion)}</td>
+        <td>${r.estimated_lift.absolute === null ? '—' : `${pp(r.estimated_lift.absolute)} [${pp(r.estimated_lift.ci95[0])}; ${pp(r.estimated_lift.ci95[1])}]`}${r.estimated_lift.reliable ? '' : `<br><span class="warn">${esc(r.estimated_lift.note)}</span>`}</td><td>${money(r.cost_minor, r.currency)}</td></tr>`).join('')}
     </table><p class="muted">La conversión observada no es incremento. El incremento se estima contra un grupo de control asignado por jugador de forma estable.</p></div>`;
   },
   async loyalty() {
@@ -1073,16 +1178,24 @@ const BIND = {
   },
   profile() {
     const open = async (id) => {
-      const d = await api('/players/' + encodeURIComponent(id));
+      // #6: aviso claro y sin dejar en pantalla al jugador anterior
+      if (!id) { $('#pdetail').innerHTML = '<p class="muted">Escribe un identificador de jugador para buscarlo.</p>'; $('#pq').focus(); return; }
+      let d;
+      try { d = await api('/players/' + encodeURIComponent(id)); }
+      catch (e) {
+        $('#pdetail').innerHTML = `<div class="notfound" role="alert"><h3>No encontramos al jugador «${esc(id)}»</h3><p class="muted">${e.data?.error === 'not_found' || /not.?found|no existe/i.test(e.message) ? 'Revisa el identificador seudonimizado o elige uno de la lista. Solo aparecen jugadores del tenant y la marca seleccionados.' : esc(e.message)}</p></div>`;
+        return;
+      }
+      setRoute({ player: id });
       const p = d.profile;
-      const f = (label, x) => `<tr><th>${label}</th><td>${esc(x.value)}</td><td class="muted">${esc(x.source)} · ${x.as_of ? new Date(x.as_of).toLocaleString('es-CO') : '—'} · v${x.version}</td></tr>`;
+      const f = (name, x, human = false) => `<tr><th>${name}</th><td>${human ? lbl(x.value) : esc(x.value)}</td><td class="muted">${esc(x.source)} · ${x.as_of ? new Date(x.as_of).toLocaleString('es-CO') : '—'} · v${x.version}</td></tr>`;
       const ex = d.eligibility_explanation;
       $('#pdetail').innerHTML = `<h3>${esc(p.player_id)} · ${esc(p.brand_id)}</h3>
-        <div class="scroll"><table>${f('Email', p.contact.email)}${f('KYC', p.kyc)}${f('Juego responsable', p.rg)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
-        ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + k, v)).join('')}</table></div>
+        <div class="scroll"><table>${f('Email', p.contact.email)}${f('KYC', p.kyc, true)}${f('Juego responsable', p.rg, true)}${f('País', p.country)}${f('Zona horaria', p.timezone)}
+        ${Object.entries(p.consents).map(([k, v]) => f('Consentimiento ' + label(k), { ...v, value: v.value === true || v.value === 'granted' ? 'Otorgado' : v.value === false || v.value === 'revoked' ? 'Retirado' : v.value })).join('')}</table></div>
         <h3 style="margin-top:12px">Por qué recibe o no marketing</h3>
-        ${Object.entries(ex.marketing).map(([c, x]) => `<div><b>${c}</b>: <span class="${x.kind === 'allow' ? 'ok' : x.kind === 'defer' ? 'warn' : 'bad'}">${x.kind}</span> <span class="muted">${x.reasons.map(esc).join(', ')} · política ${esc(x.policy_version)}</span></div>`).join('')}
-        <div><b>incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${ex.incentive.kind}</span> <span class="muted">${ex.incentive.reasons.map(esc).join(', ')}</span></div>
+        ${Object.entries(ex.marketing).map(([c, x]) => `<div><b>${esc(label(c))}</b>: <span class="${x.kind === 'allow' ? 'ok' : x.kind === 'defer' ? 'warn' : 'bad'}">${esc(label(x.kind))}</span> <span class="muted">${x.reasons.map(lbl).join(', ')} · política ${esc(x.policy_version)}</span></div>`).join('')}
+        <div><b>Incentivos</b>: <span class="${ex.incentive.kind === 'allow' ? 'ok' : 'bad'}">${esc(label(ex.incentive.kind))}</span> <span class="muted">${ex.incentive.reasons.map(lbl).join(', ')}</span></div>
         <h3 style="margin-top:12px">Segmentación</h3>
         <div class="row"><span class="chip brand">${esc(d.segmentation.lifecycle.label)}</span>${d.segmentation.rfm ? `<span class="chip">RFM ${d.segmentation.rfm.r}-${d.segmentation.rfm.f}-${d.segmentation.rfm.m} · ${esc(d.segmentation.rfm.label)}</span><span class="muted">${d.segmentation.rfm.recency_days} d desde la última actividad · ${d.segmentation.rfm.frequency} depósitos · ${moneyC(d.segmentation.rfm.monetary_minor)}</span>` : '<span class="muted">Sin RFM: aún no deposita</span>'}</div>
         ${d.segmentation.persona ? `<div class="row"><span class="chip">Persona ${esc(d.segmentation.persona.id)}: ${esc(d.segmentation.persona.name)}</span></div>` : ''}
@@ -1102,13 +1215,15 @@ const BIND = {
         ${d.bonus_abuse && (d.bonus_abuse.signals.length || d.bonus_abuse.valuable) ? `<h3 style="margin-top:12px">Abuso de bonos</h3>
           <div class="row"><span class="chip ${d.bonus_abuse.tier === 'high' ? 'bad' : d.bonus_abuse.tier === 'watch' ? '' : 'brand'}">${d.bonus_abuse.tier === 'high' ? 'Riesgo alto' : d.bonus_abuse.tier === 'watch' ? 'Vigilar' : 'Valioso'} · ${d.bonus_abuse.score}/100</span><span class="muted">Bono sugerido ×${d.bonus_abuse.multiplier}${d.bonus_abuse.review ? ' · revisión: ' + esc(d.bonus_abuse.review.status) : ''}</span></div>
           ${d.bonus_abuse.signals.map((x) => `<div class="muted"><b>${esc(x.label)}</b>: ${esc(x.detail)}</div>`).join('')}` : ''}
-        ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${d.loyalty.points} pts · ${d.loyalty.percent_to_next}% hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
-        <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${esc(g.reward_id)} · ${esc(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
-        <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(r.channel)} · ${esc(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(r.status)}</span> <span class="muted">${esc(r.reason ?? '')}</span></div>`).join('') || '<span class="muted">—</span>'}
+        ${d.loyalty ? `<h3 style="margin-top:12px">Fidelidad</h3>${esc(d.loyalty.level)} · ${int(d.loyalty.points)} pts · ${int(d.loyalty.percent_to_next)} % hacia ${esc(d.loyalty.next_level ?? '—')}` : ''}
+        <h3 style="margin-top:12px">Recompensas</h3>${d.grants.map((g) => `<span class="chip">${lbl(g.reward_id)} · ${lbl(g.status)}</span>`).join('') || '<span class="muted">—</span>'}
+        <h3 style="margin-top:12px">Mensajes</h3>${d.receipts.map((r) => `<div>${esc(label(r.channel))} · ${lbl(r.template)} · <span class="${r.status === 'accepted' ? 'ok' : 'bad'}">${esc(label(r.status))}</span> <span class="muted">${r.reason ? lbl(r.reason) : ''}</span></div>`).join('') || '<span class="muted">—</span>'}
         <h3 style="margin-top:12px">Línea de tiempo</h3><div class="scroll"><table>${p.timeline.map((t) => `<tr><td class="muted">${new Date(t.occurred_at).toLocaleString('es-CO')}</td><td>${esc(t.event_type)}</td><td class="muted">${esc(t.source)}</td></tr>`).join('')}</table></div>`;
     };
     document.querySelectorAll('[data-p]').forEach((a) => a.onclick = (e) => { e.preventDefault(); open(a.dataset.p); });
     $('#pgo').onclick = () => open($('#pq').value.trim());
+    $('#pq').onkeydown = (e) => { if (e.key === 'Enter') open($('#pq').value.trim()); };
+    if (ROUTE.player) { $('#pq').value = ROUTE.player; open(ROUTE.player); }
   },
   segments() {
     document.querySelectorAll('[data-use]').forEach((b) => b.onclick = () => {
@@ -1254,35 +1369,36 @@ const BIND = {
       const [d, ib, hb] = await Promise.all([api('/players/' + encodeURIComponent($('#lp').value)), api('/players/' + encodeURIComponent($('#lp').value) + '/inbox'), api(`/onsite/serve/${encodeURIComponent($('#lp').value)}?placement=home_banner&request_id=widget-${encodeURIComponent($('#lp').value)}-${new Date().toISOString().slice(0, 10)}`).catch(() => null)]);
       const l = d.loyalty;
       $('#lout').innerHTML = `<div class="phone">
-        <div class="row" style="justify-content:space-between"><span class="muted">RumbaWin · Temporada ${esc(l.season)}</span><a href="#inbox" class="chip ${ib.unread ? 'brand' : ''}" aria-label="Bandeja: ${ib.unread} sin leer">🔔 ${ib.unread}</a></div>
+        <div class="row" style="justify-content:space-between"><span class="muted">RumbaWin · Temporada ${esc(l.season)}</span><button type="button" class="chip ${ib.unread ? 'brand' : ''}" onclick="document.getElementById('inbox').scrollIntoView({ behavior: 'smooth' })" aria-label="Bandeja: ${ib.unread} sin leer">🔔 ${ib.unread}</button></div>
         ${hb?.content ? `<div class="card" style="margin:8px 0;border-left:3px solid var(--brand)"><b>${esc(hb.content.title)}</b><div>${esc(hb.content.body)}</div>${hb.content.cta_label ? `<div class="muted">${esc(hb.content.cta_label)} →</div>` : ''}</div>` : ''}
         <h2 style="margin:6px 0">Nivel ${esc(l.level)}</h2>
         <div class="bar" role="progressbar" aria-valuenow="${l.percent_to_next}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso al siguiente nivel"><span style="width:${l.percent_to_next}%"></span></div>
-        <p>${l.next_level ? `${l.percent_to_next} % hacia <b>${esc(l.next_level)}</b> · faltan ${l.points_to_next} pts` : 'Nivel máximo'}</p>
+        <p>${l.next_level ? `${int(l.percent_to_next)} % hacia <b>${esc(l.next_level)}</b> · faltan ${int(l.points_to_next)} pts` : 'Nivel máximo'}</p>
         <h3 id="inbox">Bandeja ${ib.unread ? `<span class="chip brand">${ib.unread} sin leer</span>` : ''}</h3>
         ${ib.items.slice(0, 6).map((m) => `<div class="card" style="margin-bottom:6px;${m.read_at ? 'opacity:.7' : 'border-left:3px solid var(--brand)'}"><div class="row" style="justify-content:space-between;margin:0"><b>${esc(m.title || m.template)}</b><span class="chip">${m.category === 'transactional' ? 'Aviso' : 'Promoción'}</span></div>
-          <div>${esc(m.body)}</div><div class="muted">${new Date(m.created_at).toLocaleString('es-CO')} · vence ${new Date(m.expires_at).toLocaleDateString('es-CO')}</div>
+          <div>${esc(m.body)}</div><div class="muted">${new Date(m.created_at).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · disponible hasta el ${dateL(m.expires_at)}</div>
           ${can('player.preferences') ? `<div class="row" style="margin:4px 0 0">${m.read_at ? '' : `<button class="ghost" data-ibread="${esc(m.id)}">Marcar leído</button>`}<button class="ghost" data-ibarch="${esc(m.id)}">Archivar</button></div>` : ''}</div>`).join('') || '<p class="muted">Sin mensajes.</p>'}
         ${ib.items.length > 6 ? `<p class="muted">y ${ib.items.length - 6} más</p>` : ''}${ib.unread && can('player.preferences') ? '<button class="ghost" id="ibreadall">Marcar todo como leído</button>' : ''}
         <h3>Recompensas</h3>${(() => {
           const asOf = d.as_of ? Date.parse(d.as_of) : Date.now();
           const rs = [...d.profile.rewards].sort((a, b) => b.expires_at.localeCompare(a.expires_at));
           const active = rs.filter((r) => Date.parse(r.expires_at) > asOf), expired = rs.filter((r) => Date.parse(r.expires_at) <= asOf);
-          const card = (r, exp) => `<div class="card" style="margin-bottom:6px${exp ? ';opacity:.55' : ''}">${esc(r.reward_type)} · ${money(r.amount_minor, r.currency)}<br><span class="muted">${exp ? 'Venció' : 'Vence'} ${new Date(r.expires_at).toLocaleDateString('es-CO')}</span></div>`;
+          const card = (r, exp) => `<div class="card" style="margin-bottom:6px${exp ? ';opacity:.55' : ''}">${esc(rewardLabel(r.reward_type))} · ${money(r.amount_minor, r.currency)}<br><span class="muted">${exp ? 'Venció el' : 'Vigente hasta el'} ${dateL(r.expires_at)}</span></div>`;
           return (active.map((r) => card(r, false)).join('') || '<p class="muted">Sin recompensas vigentes</p>') + (expired.length ? `<details><summary>Vencidas (${expired.length})</summary>${expired.map((r) => card(r, true)).join('')}</details>` : '');
         })()}
-        <h3>Movimientos</h3>${l.movements.slice(-6).reverse().map((m) => `<div>${m.points > 0 ? '+' : ''}${m.points} pts <span class="muted">${esc(m.reason)}</span></div>`).join('') || '<p class="muted">—</p>'}
+        <h3>Movimientos</h3>${l.movements.slice(-6).reverse().map((m) => `<div>${m.points > 0 ? '+' : m.points < 0 ? '−' : ''}${int(Math.abs(m.points))} pts <span class="muted">${esc(moveLabel(m.reason))}</span></div>`).join('') || '<p class="muted">Aún sin movimientos.</p>'}
         <h3>Misiones</h3>${d.gamification.opt_out ? '<p class="muted">Gamificación desactivada por el jugador.</p>' : d.gamification.missions.length ? d.gamification.missions.map((m) => {
           const pctv = Math.min(100, Math.round(100 * m.value / m.target));
           return `<div style="margin-bottom:10px"><div><b>${esc(m.name)}</b> ${m.completed_at ? '<span class="chip brand">Completada</span>' : m.eligible ? '' : '<span class="chip">No disponible</span>'}</div><div class="muted">${esc(m.description)}</div>
             <div class="bar" role="progressbar" aria-valuenow="${pctv}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(m.name)}"><span style="width:${pctv}%"></span></div>
             <div class="muted">${m.kind === 'sum' ? `${moneyC(m.value)} de ${moneyC(m.target)}` : `${int(m.value)} de ${int(m.target)}${m.kind === 'streak' ? ' días seguidos' : ''}`} · ${m.reward.xp ? `${int(m.reward.xp)} XP` : 'bono'}</div></div>`; }).join('') : '<p class="muted">Sin misiones activas.</p>'}
         ${d.gamification.opt_out ? '' : `<h3>Torneos</h3>${d.gamification.tournaments.map((t) => `<div style="margin-bottom:6px"><b>${esc(t.name)}</b> ${t.status === 'finished' ? '<span class="chip">Cerrado</span>' : ''}<div class="muted">${t.rank ? `Puesto ${t.rank} de ${int(t.participants)} · ${int(t.score)} puntos` : 'Aún sin puntos'}</div></div>`).join('') || '<p class="muted">Sin torneos.</p>'}
-        <h3>Mini-juegos</h3>${d.gamification.minigames.map((g) => `<div class="row"><span>${esc(g.name)}</span><span class="chip">${int(g.spins_left)} tirada(s) hoy</span>${can('player.preferences') && g.spins_left > 0 ? `<button data-spin="${esc(g.id)}">Girar</button>` : ''}</div>`).join('') || '<p class="muted">Sin mini-juegos.</p>'}`}
+        <h3>Mini-juegos</h3>${d.gamification.minigames.map((g) => { const last = LAST_SPIN[`${$('#lp').value}|${g.id}`]; return `<div class="row"><span>${esc(g.name)}</span><span class="chip">${g.spins_left ? `${plural(g.spins_left, 'tirada', 'tiradas')} hoy` : 'Sin tiradas hoy'}</span>${can('player.preferences') && g.spins_left > 0 ? `<button data-spin="${esc(g.id)}">Girar</button>` : ''}</div>
+          <div role="status" aria-live="polite">${last ? `<div class="card spin-result ${last.win ? 'win' : ''}" style="margin:6px 0;border-left:3px solid ${last.win ? 'var(--brand)' : 'var(--border, #555)'}"><b>${esc(last.title)}</b><div>${esc(last.text)}</div><div class="muted" title="Compromiso publicado antes de girar: el resultado se puede verificar">Tirada n.º ${int(last.nonce)} · verificable</div></div>` : ''}</div>`; }).join('') || '<p class="muted">Sin mini-juegos.</p>'}`}
         ${d.gamification.opt_out ? '' : `<h3>Tienda</h3><div class="row"><span class="chip brand">${int(d.gamification.coins)} monedas</span></div>
           ${d.gamification.store.map((i) => `<div class="row"><span>${esc(i.name)}</span><span class="muted">${int(i.price_coins)} monedas · stock ${int(i.stock)}</span>${can('player.preferences') && i.stock > 0 && d.gamification.coins >= i.price_coins ? `<button class="ghost" data-redeem="${esc(i.id)}">Canjear</button>` : ''}</div>`).join('')}
-          ${d.gamification.redemptions.length ? `<div class="muted">Canjes: ${d.gamification.redemptions.map((r) => `${esc(r.item_id)} (${r.status === 'fulfilled' ? 'entregado' : 'reembolsado'})`).join(' · ')}</div>` : ''}
-          <h3>Predicciones</h3>${d.gamification.predictions.map((x) => `<div style="margin-bottom:8px"><b>${esc(x.question)}</b><div class="row" style="margin:4px 0 0">${x.my_pick ? `<span class="chip brand">Tu elección: ${esc(x.my_pick)}</span>` : x.status === 'open' && Date.parse(x.closes_at) > Date.now() && can('player.preferences') ? x.options.map((o) => `<button class="ghost" data-pick="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join('') : '<span class="muted">Sin elección</span>'}${x.status === 'resolved' ? `<span class="muted">Resultado: ${esc(x.resolved_option)}</span>` : ''}</div></div>`).join('') || '<p class="muted">Sin predicciones.</p>'}`}
+          ${d.gamification.redemptions.length ? `<div class="muted">Canjes: ${d.gamification.redemptions.map((r) => `${esc(d.gamification.store.find((i) => i.id === r.item_id)?.name ?? 'Artículo')} (${r.status === 'fulfilled' ? 'entregado' : 'reembolsado'})`).join(' · ')}</div>` : ''}
+          <h3>Predicciones</h3>${d.gamification.predictions.map((x) => `<div style="margin-bottom:8px"><b>${esc(x.question)}</b><div class="muted">${Date.parse(x.closes_at) > Date.now() ? 'Cierra' : 'Cerró'} el ${new Date(x.closes_at).toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</div><div class="row" style="margin:4px 0 0">${x.my_pick ? `<span class="chip brand">Tu elección: ${esc(x.my_pick)}</span>` : x.status === 'open' && Date.parse(x.closes_at) > Date.now() && can('player.preferences') ? x.options.map((o) => `<button class="ghost" data-pick="${esc(x.id)}" data-opt="${esc(o)}">${esc(o)}</button>`).join('') : '<span class="muted">Sin elección</span>'}${x.status === 'resolved' ? `<span class="muted">Resultado: ${esc(x.resolved_option)}</span>` : ''}</div></div>`).join('') || '<p class="muted">Sin predicciones.</p>'}`}
         <h3>Logros</h3><div class="row">${d.gamification.badge_catalog.map((b) => { const got = d.gamification.badges.find((x) => x.id === b.id); return `<span class="chip ${got ? 'brand' : ''}" style="${got ? '' : 'opacity:.45'}" title="${esc(b.description)}">${esc(b.name)}</span>`; }).join('')}</div>
         <h3>Preferencias</h3><label><input type="checkbox" id="optin" ${d.gamification.opt_out ? '' : 'checked'} ${can('player.preferences') ? '' : 'disabled'}> Recibir avisos de progreso y misiones</label>
         ${can('player.preferences') ? '' : '<p class="muted">Solo soporte o administración pueden cambiarla desde el backoffice.</p>'}</div>`;
@@ -1300,7 +1416,16 @@ const BIND = {
         catch (e) { flash(e.message, 'bad'); }
       });
       document.querySelectorAll('[data-spin]').forEach((b) => b.onclick = async () => {
-        try { const r = await api(`/gamification/minigames/${b.dataset.spin}/spin`, { method: 'POST', body: { player_id: $('#lp').value, request_id: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) } }); flash(`Resultado: ${r.label}${r.reward_status && r.reward_status !== 'sin_premio' ? ' · ' + r.reward_status : ''} (tirada ${r.nonce}, compromiso ${r.commit.slice(0, 10)}…)`, 'ok'); load(); }
+        try {
+          const r = await api(`/gamification/minigames/${b.dataset.spin}/spin`, { method: 'POST', body: { player_id: $('#lp').value, request_id: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) } });
+          // #4: el premio se muestra junto a la ruleta, en lenguaje del jugador
+          const win = r.reward_status !== 'sin_premio';
+          const blocked = String(r.reward_status).startsWith('suppressed') || r.reward_status === 'rejected' || r.reward_status === 'failed';
+          LAST_SPIN[`${$('#lp').value}|${b.dataset.spin}`] = { nonce: r.nonce, win: win && !blocked,
+            title: !win ? 'Esta vez no hubo premio' : blocked ? `Salió: ${r.label}` : `¡Ganaste ${r.label}!`,
+            text: !win ? 'Vuelve a intentarlo con tu próxima tirada.' : blocked ? 'No podemos entregar este premio ahora por las reglas de tu cuenta. Consulta con soporte si tienes dudas.' : r.reward_status === 'xp_awarded' ? 'Los puntos ya se sumaron a tu nivel.' : 'El premio ya está en tus recompensas.' };
+          load();
+        }
         catch (e) { flash(e.message, 'bad'); }
       });
       if ($('#optin')) $('#optin').onchange = async () => {
@@ -1308,7 +1433,9 @@ const BIND = {
         catch (e) { flash(e.message, 'bad'); }
       };
     };
-    $('#lp').onchange = load; load();
+    if (ROUTE.player && [...$('#lp').options].some((o) => o.value === ROUTE.player)) $('#lp').value = ROUTE.player;
+    $('#lp').onchange = () => { setRoute({ player: $('#lp').value }); load(); };
+    load();
   },
   gamification() {
     document.querySelectorAll('[data-mact]').forEach((b) => b.onclick = async () => {
@@ -1350,7 +1477,7 @@ const BIND = {
     $('#csvcheck').onclick = () => run(true); $('#csvload').onclick = () => run(false);
   },
   copilot() {
-    const samples = { query_metric: { metric: 'kyc_verified_rate' }, preview_segment: { rules: { field: 'kyc', op: 'eq', value: 'verified' }, exclusions: { field: 'rg', op: 'neq', value: 'none' } }, validate_policy: { journey: { id: 'j_demo', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] } } };
+    const samples = { query_metric: { metric: 'kyc_verified_rate' }, preview_segment: { rules: { field: 'kyc', op: 'eq', value: 'verified' }, exclusions: { field: 'rg', op: 'neq', value: 'none' } }, validate_policy: { journey: { id: 'j_demo', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] } } };
     samples.simulate_journey = { ...samples.validate_policy, synthetic_profile: { rg: 'self_excluded' } };
     samples.save_draft = samples.validate_policy;
     const fill = () => { $('#tin').value = JSON.stringify(samples[$('#tool').value] ?? {}, null, 2); };
@@ -1363,11 +1490,29 @@ const BIND = {
 async function boot() {
   flash('');
   try { await loadSession(); } catch (e) { flash(e.message, 'bad'); }
-  renderTabs(); show();
+  setRoute(); renderTabs(); show();
 }
 if (window.SS1_STATIC) $('#mode').hidden = false;
-$('#tenant').onchange = boot; $('#role').onchange = boot; $('#brand').onchange = () => show();
-if (!EMBED.active) boot();
+if (window.SS1_DEMO) {
+  $('#demoReset').hidden = false;
+  $('#demoReset').onclick = () => { if (confirm(`Se borrarán ${window.SS1_DEMO.actions()} cambios guardados en este navegador (borradores, aprobaciones, acciones). ¿Continuar?`)) window.SS1_DEMO.reset(); };
+}
+$('#tenant').onchange = () => { setRoute({ player: null }); boot(); };
+$('#role').onchange = () => { setRoute(); boot(); };
+$('#brand').onchange = () => { setRoute(); show(); };
+// atrás / adelante del navegador: vuelve a la pantalla (y al rol o tenant) de esa entrada
+window.addEventListener('popstate', () => {
+  const before = [$('#role').value, $('#tenant').value];
+  applyRoute(parseRoute());
+  if (before[0] !== $('#role').value || before[1] !== $('#tenant').value) boot(); else { renderTabs(); show(); }
+});
+if (!EMBED.active) {
+  let r = parseRoute();
+  const saved = store.get(ROUTE_KEY);
+  if (!r.tab && saved) { history.replaceState(null, '', saved); r = parseRoute(); }
+  applyRoute(r);
+  boot();
+}
 else {
   $('#view').innerHTML = '<p class="waiting">Esperando la sesión de admin.syssoft1.com…</p>';
   setTimeout(() => { if (!EMBED.session) $('#view').innerHTML = '<div class="card bad">No se recibió la sesión del admin. Abre el CRM desde admin.syssoft1.com con un usuario autorizado.</div>'; }, 8000);

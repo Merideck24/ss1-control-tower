@@ -60,8 +60,14 @@ export type AlertInputs = {
   tenant: string;
   now: Date;
   config: KpiAlertConfig;
-  budgets: { reward_id: string; budget_minor: number; committed_minor: number }[];
+  budgets: { reward_id: string; name?: string; budget_minor: number; committed_minor: number }[];
+  /** zona horaria del operador para contar días de calendario (por defecto Colombia) */
+  timezone?: string;
 };
+
+/** Fecha de calendario (YYYY-MM-DD) en una zona horaria. */
+export const localDay = (d: Date, timeZone = 'America/Bogota') => new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+const shortDate = (ymd: string) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 const pctChange = (cur: number, base: number) => (cur - base) / base;
 /** z de la diferencia de dos proporciones (aprox. normal, varianza combinada). */
@@ -115,7 +121,7 @@ export function evaluateKpiAlerts(i: AlertInputs): KpiAlert[] {
   for (const m of month.campaigns.filter(paid)) {
     if (m.cost_per_ftd_minor !== null && m.registrations >= c.min_registrations && m.cost_per_ftd_minor > c.cost_per_ftd_target_minor) {
       const over = m.cost_per_ftd_minor / c.cost_per_ftd_target_minor - 1;
-      push({ rule: 'cost_per_ftd_above_target', severity: over >= 0.5 ? 'serious' : 'warning', campaign_id: m.campaign_id, campaign_name: m.campaign_name, title: `Costo por FTD sobre objetivo: ${m.campaign_name}`, detail: `${fmtMoney(m.cost_per_ftd_minor)} por FTD en 30 días; objetivo ${fmtMoney(c.cost_per_ftd_target_minor)} (+${fmtPct(over)}).`, current: m.cost_per_ftd_minor, threshold: c.cost_per_ftd_target_minor, unit: 'money', window: '30 d (corte −2 d)', action: 'Reducir inversión o renegociar; la campaña trae registros que no depositan.' });
+      push({ rule: 'cost_per_ftd_above_target', severity: over >= 0.5 ? 'serious' : 'warning', campaign_id: m.campaign_id, campaign_name: m.campaign_name, title: `Costo por FTD sobre objetivo: ${m.campaign_name}`, detail: `${fmtMoney(m.cost_per_ftd_minor)} por FTD en los últimos 30 días (sin contar los 2 más recientes, cuyos FTD aún maduran); objetivo ${fmtMoney(c.cost_per_ftd_target_minor)} (+${fmtPct(over)}).`, current: m.cost_per_ftd_minor, threshold: c.cost_per_ftd_target_minor, unit: 'money', window: '30 d (corte −2 d)', action: 'Reducir inversión o renegociar; la campaña trae registros que no depositan.' });
     }
   }
   // Payback por cohorte, agrupado por campaña para no repetir una alerta por semana
@@ -138,18 +144,19 @@ export function evaluateKpiAlerts(i: AlertInputs): KpiAlert[] {
     ].filter(Boolean).join(' y ');
     push({ rule: g.overdue.length ? 'payback_overdue' : 'payback_at_risk', severity: g.overdue.length ? 'serious' : 'warning', campaign_id: campaign, campaign_name: g.name,
       title: `${g.overdue.length ? 'Payback vencido' : 'Payback en riesgo'}: ${g.name}`,
-      detail: `${parts}. Peor cohorte: semana del ${worst.week_start}, ${fmtPct(worst.recovered_to_date)} recuperado a ${worst.age_days} días.`,
+      detail: `${parts}. Peor cohorte: semana del ${shortDate(worst.week_start)}, ${fmtPct(worst.recovered_to_date)} recuperado a ${worst.age_days} días.`,
       current: all.length, threshold: c.payback_target_days, unit: 'days', window: 'cohortes semanales, 13 semanas',
       action: g.overdue.length ? 'Revisar la calidad del tráfico y el costo de bonos antes de reinvertir en esta campaña.' : 'Priorizar retención CRM para estas cohortes o ajustar la inversión de la campaña.' });
   }
   // Calidad de datos: inversión sin reportar
   const last = store.lastSpendDates(tenant);
   for (const [campaign, date] of last) {
-    const gap = Math.floor((Date.parse(day) - Date.parse(date)) / DAY);
+    // #5: días de calendario en la hora local del operador, no en UTC (de noche en Colombia ya es «mañana» en UTC)
+    const gap = Math.round((Date.parse(localDay(now, i.timezone)) - Date.parse(date)) / DAY);
     const active = base.campaigns.some((m) => m.campaign_id === campaign && m.spend_minor > 0);
     if (active && gap >= c.spend_missing_days) {
       const name = base.campaigns.find((m) => m.campaign_id === campaign)?.campaign_name ?? campaign;
-      push({ rule: 'spend_missing', severity: 'serious', campaign_id: campaign, campaign_name: name, title: `Sin reporte de inversión: ${name}`, detail: `Último reporte ${date} (hace ${gap} días). CPA, costo por FTD y ROI de esta campaña están subestimados.`, current: gap, threshold: c.spend_missing_days, unit: 'days', window: 'último reporte', action: 'Verificar la conexión con la plataforma o el envío del afiliado.' });
+      push({ rule: 'spend_missing', severity: 'serious', campaign_id: campaign, campaign_name: name, title: `Sin reporte de inversión: ${name}`, detail: `Último reporte del ${shortDate(date)} (hace ${gap} ${gap === 1 ? 'día' : 'días'}). CPA, costo por FTD y ROI de esta campaña están subestimados.`, current: gap, threshold: c.spend_missing_days, unit: 'days', window: 'último reporte', action: 'Verificar la conexión con la plataforma o el envío del afiliado.' });
     }
   }
   // Juego responsable: proporción de la cohorte con restricción
@@ -164,7 +171,7 @@ export function evaluateKpiAlerts(i: AlertInputs): KpiAlert[] {
   // Presupuesto de bonos CRM
   for (const b of i.budgets) {
     const u = b.budget_minor > 0 ? b.committed_minor / b.budget_minor : 0;
-    if (u >= c.budget_warn) push({ rule: 'bonus_budget', severity: u >= c.budget_serious ? 'serious' : 'warning', title: `Presupuesto de bonos al ${fmtPct(u)}: ${b.reward_id}`, detail: `${fmtMoney(b.committed_minor)} comprometidos de ${fmtMoney(b.budget_minor)}. Al agotarse, los recorridos dejan de otorgar este bono.`, current: u, threshold: c.budget_warn, unit: 'ratio', window: 'acumulado', action: 'Aprobar ampliación de presupuesto o pausar los recorridos que otorgan este bono.' });
+    if (u >= c.budget_warn) push({ rule: 'bonus_budget', severity: u >= c.budget_serious ? 'serious' : 'warning', title: `Presupuesto de bonos al ${fmtPct(u)}: ${b.name ?? b.reward_id}`, detail: `${fmtMoney(b.committed_minor)} comprometidos de ${fmtMoney(b.budget_minor)}. Al agotarse, los recorridos dejan de otorgar este bono.`, current: u, threshold: c.budget_warn, unit: 'ratio', window: 'acumulado', action: 'Aprobar ampliación de presupuesto o pausar los recorridos que otorgan este bono.' });
   }
   const rank: Record<Severity, number> = { critical: 0, serious: 1, warning: 2 };
   return out.sort((a, b) => rank[a.severity] - rank[b.severity] || a.title.localeCompare(b.title));

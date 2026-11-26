@@ -48,6 +48,10 @@ export class InboxAdapter implements ChannelAdapter {
     return i;
   }
   markRead(tenant: string, player: string, id: string) { const i = this.#own(tenant, player, id); i.read_at ??= this.#clock.now().toISOString(); return i; }
+  /** Todos los mensajes del tenant (incluye vencidos y archivados); para cargas históricas. */
+  all(tenant: string) { return [...this.#items.values()].filter((i) => i.tenant_id === tenant); }
+  /** Lectura con su fecha real (historial importado de SS1 o demo). No adelanta la fecha de lectura. */
+  markReadAt(tenant: string, player: string, id: string, at: string) { const i = this.#own(tenant, player, id); if (!i.read_at || at < i.read_at) i.read_at = at; return i; }
   markAllRead(tenant: string, player: string) { let n = 0; for (const i of this.list(tenant, player).items) if (!i.read_at) { i.read_at = this.#clock.now().toISOString(); n++; } return { marked: n }; }
   archive(tenant: string, player: string, id: string) { const i = this.#own(tenant, player, id); i.archived_at ??= this.#clock.now().toISOString(); i.read_at ??= i.archived_at; return i; }
   /** Métricas agregadas para la Control Tower: aperturas sobre entregados. */

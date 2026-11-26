@@ -157,6 +157,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
     app.runtime.runDue();
   }
   seedDemoOnsite(app, tenant);
+  seedDemoInboxReads(app, tenant, now);
   // demo: presupuesto de bonos calibrado para quedar cerca del umbral de alerta
   const b = app.rewards.budget(tenant, 'welcome_fs_10');
   const it = app.rewards.item(tenant, 'welcome_fs_10');
@@ -172,7 +173,7 @@ export function seedDemoMissions(app: App, tenant: string, now: number) {
   const ms = [
     { id: 'm_sports_5', brand_id: 'rumbawin', name: '5 apuestas deportivas', description: 'Liquida 5 apuestas de deportes', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'sports' as const, target: 5, reward: { xp: 200 }, ...window },
     { id: 'm_deposit_streak', brand_id: 'rumbawin', name: 'Racha de depósitos', description: 'Deposita 3 días seguidos', kind: 'streak' as const, event_type: 'deposit.settled' as const, target: 3, reward: { xp: 300 }, ...window },
-    { id: 'm_casino_20', brand_id: 'rumbawin', name: '20 rondas de casino', description: 'Liquida 20 apuestas de casino y gana free spins', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'casino' as const, target: 20, reward: { reward_id: 'welcome_fs_10' }, ...window },
+    { id: 'm_casino_20', brand_id: 'rumbawin', name: '20 rondas de casino', description: 'Liquida 20 apuestas de casino y gana giros gratis', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'casino' as const, target: 20, reward: { reward_id: 'welcome_fs_10' }, ...window },
   ];
   for (const m of ms) {
     if (app.gamification.get(tenant, m.id)) continue;
@@ -186,16 +187,36 @@ export function seedDemoMissions(app: App, tenant: string, now: number) {
     app.games.activateTournament({ ...analyst, canApprove: false }, 't_sports_week');
   }
   if (!app.store.items(tenant).length) {
-    app.store.saveItem(analyst, { id: 's_free_spins', name: 'Free spins de bienvenida', price_coins: 400, stock: 50, per_player_limit: 1, reward: { reward_id: 'welcome_fs_10' }, active: true });
+    app.store.saveItem(analyst, { id: 's_free_spins', name: 'Giros gratis de bienvenida', price_coins: 400, stock: 50, per_player_limit: 1, reward: { reward_id: 'welcome_fs_10' }, active: true });
     app.store.saveItem(analyst, { id: 's_xp_boost', name: 'Impulso de 200 XP', price_coins: 150, stock: 1000, per_player_limit: 5, reward: { xp: 200 }, active: true });
     app.store.saveItem(analyst, { id: 's_jersey', name: 'Camiseta oficial RumbaWin', price_coins: 2000, stock: 5, per_player_limit: 1, reward: { physical: 'camiseta' }, active: true });
   }
   if (!app.store.predictions(tenant).length) {
-    app.store.savePrediction(analyst, { id: 'p_final', brand_id: 'rumbawin', name: 'Final de la liga', question: '¿Quién gana la final del domingo?', options: ['Local', 'Empate', 'Visitante'], closes_at: new Date(now + 2 * DAY).toISOString(), reward: { coins: 100 } });
+    // #13: la predicción cierra al inicio de la final, el próximo domingo a las 3 p. m. de Colombia (20:00 UTC)
+    const kickoff = new Date(now); kickoff.setUTCHours(20, 0, 0, 0);
+    kickoff.setUTCDate(kickoff.getUTCDate() + ((7 - kickoff.getUTCDay()) % 7));
+    if (kickoff.getTime() - now < 12 * HOUR) kickoff.setUTCDate(kickoff.getUTCDate() + 7);
+    const finalAt = kickoff.toISOString();
+    const finalLabel = `domingo ${kickoff.toLocaleDateString('es-CO', { day: 'numeric', month: 'numeric', timeZone: 'America/Bogota' })}`;
+    app.store.savePrediction(analyst, { id: 'p_final', brand_id: 'rumbawin', name: 'Final de la liga', question: `¿Quién gana la final del ${finalLabel}?`, options: ['Local', 'Empate', 'Visitante'], closes_at: finalAt, reward: { coins: 100 } });
   }
   if (!app.games.game(tenant, 'g_daily_wheel')) {
     app.games.saveGame(analyst, { id: 'g_daily_wheel', brand_id: 'rumbawin', name: 'Ruleta diaria', kind: 'wheel', spins_per_day: 1,
-      prizes: [{ id: 'none', label: 'Sigue intentando', weight: 55, prize: {} }, { id: 'xp25', label: '25 XP', weight: 30, prize: { xp: 25 } }, { id: 'xp100', label: '100 XP', weight: 12, prize: { xp: 100 } }, { id: 'fs', label: 'Free spins', weight: 3, prize: { reward_id: 'welcome_fs_10' } }] });
+      prizes: [{ id: 'none', label: 'Sigue intentando', weight: 55, prize: {} }, { id: 'xp25', label: '25 XP', weight: 30, prize: { xp: 25 } }, { id: 'xp100', label: '100 XP', weight: 12, prize: { xp: 100 } }, { id: 'fs', label: 'Giros gratis', weight: 3, prize: { reward_id: 'welcome_fs_10' } }] });
+  }
+}
+
+/**
+ * #15: en la demo los jugadores también abren la bandeja. Sin esto todo queda «0 leídos» y el
+ * canal parece no funcionar. Apertura estable por mensaje: ~45 % de los avisos de servicio y
+ * ~30 % de los promocionales, entre 10 min y 2 días después de llegar (nunca en el futuro).
+ */
+export function seedDemoInboxReads(app: App, tenant: string, now: number) {
+  for (const m of app.adapters.inapp.all(tenant)) {
+    const u = stableBucket(`read:${m.id}`);
+    if (u >= (m.category === 'transactional' ? 0.45 : 0.3)) continue;
+    const at = Math.min(now, Date.parse(m.created_at) + 10 * 60_000 + Math.round(stableBucket(`delay:${m.id}`) * 2 * DAY));
+    app.adapters.inapp.markReadAt(tenant, m.player_id, m.id, new Date(at).toISOString());
   }
 }
 
@@ -212,8 +233,8 @@ export function seedDemoOverlap(app: App, tenant: string) {
       id: j.id, brand_id: 'rumbawin', name: j.name, purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'deposit.settled' },
       overlap: { group: 'promo', priority: j.priority }, entry: 'wait',
       nodes: j.condition
-        ? [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'big' }, { id: 'big', type: 'condition', rule: { field: 'stats.deposits_minor', op: 'gte', value: 500_000_00 }, on_true: 'msg', on_false: 'end' }, { id: 'msg', type: 'message', channel: 'sms', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }]
-        : [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'msg' }, { id: 'msg', type: 'message', channel: 'sms', template: 'loyalty_halfway', next: 'end' }, { id: 'end', type: 'exit' }],
+        ? [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'big' }, { id: 'big', type: 'condition', rule: { field: 'stats.deposits_minor', op: 'gte', value: 500_000_00 }, on_true: 'msg', on_false: 'end' }, { id: 'msg', type: 'message', channel: 'sms', template: 'vip_followup', next: 'end' }, { id: 'end', type: 'exit' }]
+        : [{ id: 'wait', type: 'wait', duration_ms: j.wait * HOUR, next: 'msg' }, { id: 'msg', type: 'message', channel: 'sms', template: 'deposit_progress', next: 'end' }, { id: 'end', type: 'exit' }],
     });
     app.registry.submit(author, j.id); app.registry.approve(approver, j.id); app.registry.publish(author, j.id);
   }
@@ -228,9 +249,9 @@ export function seedDemoSplit(app: App, tenant: string) {
     nodes: [
       { id: 'ab', type: 'split', mode: 'bandit', metric: { event: 'deposit.settled', window_hours: 72 }, min_explore_pct: 10, warmup_per_variant: 30,
         variants: [{ id: 'a', label: 'In-app', weight: 1, next: 'inapp' }, { id: 'b', label: 'Email', weight: 1, next: 'email' }, { id: 'c', label: 'Sin mensaje', weight: 1, next: 'end' }, { id: 'd', label: 'WhatsApp', weight: 1, next: 'wa' }] },
-      { id: 'wa', type: 'message', channel: 'whatsapp', template: 'loyalty_halfway', next: 'end' },
-      { id: 'inapp', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' },
-      { id: 'email', type: 'message', channel: 'email', template: 'loyalty_halfway', next: 'end' },
+      { id: 'wa', type: 'message', channel: 'whatsapp', template: 'welcome_message', next: 'end' },
+      { id: 'inapp', type: 'message', channel: 'inapp', template: 'welcome_message', next: 'end' },
+      { id: 'email', type: 'message', channel: 'email', template: 'welcome_message', next: 'end' },
       { id: 'end', type: 'exit' }],
   });
   app.registry.submit(author, 'jab_welcome_message'); app.registry.approve(approver, 'jab_welcome_message'); app.registry.publish(author, 'jab_welcome_message');

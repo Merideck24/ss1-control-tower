@@ -16,7 +16,7 @@ function publish(app: ReturnType<typeof setup>['app'], d: Draft) {
 const waitMsg = (id: string, priority: number | undefined, group = 'promo', extra: Partial<Draft> = {}): Draft => ({
   id, brand_id: 'rumbawin', name: id, purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'w',
   ...(priority !== undefined ? { overlap: { group, priority } } : {}),
-  nodes: [{ id: 'w', type: 'wait', duration_ms: 6 * HOUR, next: 'm' }, { id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }], ...extra,
+  nodes: [{ id: 'w', type: 'wait', duration_ms: 6 * HOUR, next: 'm' }, { id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }], ...extra,
 });
 
 test('D3: en el mismo grupo gana la prioridad mayor; el empate lo conserva quien ya está en curso', () => {
@@ -38,7 +38,7 @@ test('D3: en el mismo grupo gana la prioridad mayor; el empate lo conserva quien
 
 test('D3: enfriamiento del grupo, recorridos de servicio exentos y validación de prioridad', () => {
   const { app, clock } = setup();
-  publish(app, { ...waitMsg('first', 50), overlap: { group: 'promo', priority: 50, cooldown_hours: 48 }, nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }], entry: 'm' });
+  publish(app, { ...waitMsg('first', 50), overlap: { group: 'promo', priority: 50, cooldown_hours: 48 }, nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }], entry: 'm' });
   publish(app, { ...waitMsg('second', 90), trigger: { event_type: 'bet.settled' }, overlap: { group: 'promo', priority: 90, cooldown_hours: 48 } });
   onboard(app, clock, 'p');
   app.ingestor.ingest(ev(T, 'p', 'deposit.settled', { deposit_id: 'd1', amount_minor: 100_00, currency: 'COP' }, clock.now().toISOString()));

@@ -7,6 +7,8 @@ export type RewardItem = {
   tenant_id: string;
   brand_id: string;
   reward_type: 'free_bet' | 'free_spins' | 'bonus';
+  /** nombre para personas (catálogo, alertas, constructor) */
+  name?: string;
   value: Money;
   validity_days: number;
   budget_minor: number; // presupuesto total

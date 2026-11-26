@@ -76,13 +76,13 @@ export function validateJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | '
 }
 
 /** Vista accesible en lista (alternativa al lienzo). */
-export function journeyAsList(j: JourneyDefinition): string[] {
+export function journeyAsList(j: JourneyDefinition, names: { reward?: (id: string) => string | undefined } = {}): string[] {
   return j.nodes.map((n) => {
     switch (n.type) {
       case 'condition': return `${n.id}: si ${JSON.stringify(n.rule)} → ${n.on_true}, si no → ${n.on_false}`;
       case 'wait': return `${n.id}: esperar ${Math.round(n.duration_ms / 3_600_000)} h → ${n.next}`;
       case 'message': return `${n.id}: enviar «${n.template}» por ${n.channel} → ${n.next}`;
-      case 'grant_reward': return `${n.id}: otorgar ${n.reward_id} → ${n.next}`;
+      case 'grant_reward': return `${n.id}: otorgar «${names.reward?.(n.reward_id) ?? n.reward_id}» → ${n.next}`;
       case 'exit': return `${n.id}: salida`;
       case 'split': return `${n.id}: ${n.mode === 'bandit' ? 'A/B/n optimizado' : 'A/B/n'} por ${n.metric.event} en ${n.metric.window_hours} h → ${n.variants.map((v) => `${v.label} (${v.next})`).join(' | ')}`;
     }

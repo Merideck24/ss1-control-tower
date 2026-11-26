@@ -1,4 +1,5 @@
 import type { AuditLog } from '../audit/audit.ts';
+import { buildVars } from './vars.ts';
 import type { ChannelHub, Locale } from '../channels/channels.ts';
 import type { EventEnvelope } from '../domain/events.ts';
 import { assignArm } from '../experiments/experiments.ts';
@@ -256,16 +257,7 @@ export class JourneyRuntime {
   runDue(): number { return this.tickDeferred() + this.tick(); }
 
   #vars(profile: PlayerProfile, e?: EventEnvelope): Record<string, string | number> {
-    const v: Record<string, string | number> = { player_id: profile.player_id };
-    if (e?.event_type === 'reward.granted') {
-      const p = (e as EventEnvelope<'reward.granted'>).payload;
-      v.reward_type = p.reward_type; v.amount = (p.value.amount_minor / 100).toFixed(2); v.currency = p.value.currency; v.expires_at = p.expires_at.slice(0, 10);
-    }
-    if (e?.event_type === 'loyalty.threshold_crossed') {
-      const p = (e as EventEnvelope<'loyalty.threshold_crossed'>).payload;
-      v.level = p.level; v.percent = p.percent;
-    }
-    return v;
+    return buildVars(profile.player_id, e, (profile.locale?.value ?? 'es') as 'es' | 'en' | 'pt');
   }
 
   instances(tenant: string, filter?: { player_id?: string; journey_id?: string }) {

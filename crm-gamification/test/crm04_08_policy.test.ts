@@ -61,7 +61,7 @@ test('CRM-08: estado JR ausente o feed desactualizado ⇒ suprime marketing y al
 test('Recorrido 5: cambio JR cancela acciones de marketing pendientes', () => {
   const { app, clock } = setup();
   const analyst = { id: 'ana', tenant_id: T, roles: ['crm_analyst' as const] };
-  app.registry.saveDraft(analyst, { id: 'jw', brand_id: 'rumbawin', name: 'winback', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'w', nodes: [{ id: 'w', type: 'wait', duration_ms: HOUR, next: 'm' }, { id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] });
+  app.registry.saveDraft(analyst, { id: 'jw', brand_id: 'rumbawin', name: 'winback', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'w', nodes: [{ id: 'w', type: 'wait', duration_ms: HOUR, next: 'm' }, { id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] });
   app.registry.submit(analyst, 'jw'); app.registry.approve({ id: 'boss', tenant_id: T, roles: ['approver'] }, 'jw'); app.registry.publish(analyst, 'jw');
   onboard(app, clock, 'p');
   app.ingestor.ingest(ev(T, 'p', 'deposit.settled', { deposit_id: 'd', amount_minor: 1000, currency: 'COP' }, clock.now().toISOString()));
@@ -69,7 +69,7 @@ test('Recorrido 5: cambio JR cancela acciones de marketing pendientes', () => {
   clock.advance(2 * HOUR); app.policy.markRgFeedSynced(T); app.runtime.runDue();
   const inst = app.runtime.instances(T, { player_id: 'p', journey_id: 'jw' })[0];
   assert.equal(inst.status, 'cancelled');
-  assert.equal(app.channels.receipts(T, 'p').filter((r) => r.template === 'loyalty_halfway').length, 0);
+  assert.equal(app.channels.receipts(T, 'p').filter((r) => r.template === 'deposit_progress').length, 0);
 });
 
 test('CRM-08: pausa de recorrido y pausa general impiden nuevos efectos; auditoría encadenada', () => {

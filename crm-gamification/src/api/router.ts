@@ -2,6 +2,7 @@ import { ev, type App } from '../app.ts';
 import type { CopilotSession, CopilotTools } from '../copilot/tools.ts';
 import { report } from '../experiments/experiments.ts';
 import { journeyAsList, validateJourney } from '../journeys/model.ts';
+import { eventLabel } from '../journeys/vars.ts';
 import { autoLayout, reviewJourney } from '../journeys/builder.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
 import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
@@ -101,7 +102,7 @@ export function controlTower(app: App, tenant: string, brand?: string) {
     suppression_reasons: count(receipts.filter((r) => r.status === 'suppressed').flatMap((r) => (r.reason ?? '').split(',')), (x) => x),
     deferred: receipts.filter((r) => r.status === 'deferred').length,
     failures: receipts.filter((r) => r.status === 'failed').slice(-10),
-    budgets: app.rewards.catalog(tenant).map((i) => ({ reward_id: i.id, ...app.rewards.budget(tenant, i.id) })),
+    budgets: app.rewards.catalog(tenant).map((i) => ({ reward_id: i.id, name: i.name, ...app.rewards.budget(tenant, i.id) })),
     alerts: app.policy.alerts().filter((a) => a.tenant_id === tenant).slice(-10),
     dead_letters: app.ingestor.deadLetters().length,
     source_metrics: app.ingestor.sourceMetrics(),
@@ -500,7 +501,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const j = req.body as never as Parameters<typeof reviewJourney>[0];
       if (!Array.isArray(j?.nodes)) return { status: 422, body: { error: 'invalid_journey', message: 'Falta la lista de pasos.' } };
       const issues = reviewJourney(j, { template: (k) => app.channels.template(T, k), reward: (id) => { const it = app.rewards.item(T, id); return it && { approved: Boolean(it.approved_by) }; } });
-      return ok({ issues, valid: !issues.some((i) => i.severity === 'error'), layout: autoLayout(j), as_list: journeyAsList(j as never) });
+      return ok({ issues, valid: !issues.some((i) => i.severity === 'error'), layout: autoLayout(j), as_list: journeyAsList(j as never, { reward: (id) => app.rewards.item(T, id)?.name }) });
     }
     if (r0 === 'GET /experiments/splits') {
       if (!can(actor, 'analytics.read')) return forbid('analytics.read');
@@ -529,14 +530,14 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
         const x = live[a], y = live[b];
         if (x.trigger.event_type !== y.trigger.event_type) continue;
         if (x.overlap && y.overlap && x.overlap.group === y.overlap.group) continue;
-        risks.push({ journeys: [x.id, y.id], trigger: x.trigger.event_type, message: `«${x.name}» y «${y.name}» se disparan con ${x.trigger.event_type} sin compartir grupo: un jugador puede recibir ambos.` });
+        risks.push({ journeys: [x.id, y.id], trigger: x.trigger.event_type, message: `«${x.name}» y «${y.name}» se disparan con «${eventLabel(x.trigger.event_type)}» sin compartir grupo: un jugador puede recibir ambos.` });
       }
       const groups = [...new Set(live.filter((j) => j.overlap).map((j) => j.overlap!.group))].map((g) => ({ group: g, journeys: live.filter((j) => j.overlap?.group === g).sort((a, b) => b.overlap!.priority - a.overlap!.priority).map((j) => ({ id: j.id, name: j.name, priority: j.overlap!.priority, cooldown_hours: j.overlap!.cooldown_hours ?? 0, ...stats(j.id) })) }));
       return ok({ groups, ungrouped: live.filter((j) => !j.overlap).map((j) => ({ id: j.id, name: j.name, trigger: j.trigger.event_type })), risks,
         frequency: (() => { const p = app.policy.policyFor({ tenant_id: T, brand_id: 'rumbawin', country: { value: 'CO' } } as never); return p ? { per_day: p.max_marketing_per_day, per_week: p.max_marketing_per_week ?? null, per_channel_day: p.max_marketing_per_day_by_channel ?? {} } : null; })(),
         note: 'Mismo grupo ⇒ un solo recorrido de marketing activo por jugador. Gana la prioridad mayor; en empate se queda el que ya está en curso. Los recorridos de servicio nunca se bloquean.' });
     }
-    if (r0 === 'GET /journeys') return ok(app.registry.list(T).filter((j) => !brand || j.brand_id === brand).map((j) => ({ ...j, as_list: journeyAsList(j), validation: validateJourney(j) })));
+    if (r0 === 'GET /journeys') return ok(app.registry.list(T).filter((j) => !brand || j.brand_id === brand).map((j) => ({ ...j, as_list: journeyAsList(j, { reward: (id) => app.rewards.item(T, id)?.name }), validation: validateJourney(j) })));
     if (r0 === 'POST /journeys') {
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
       return ok(app.registry.saveDraft(actor, req.body as never), 201);

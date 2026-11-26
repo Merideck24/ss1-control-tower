@@ -13,7 +13,8 @@ export type CampaignReport = {
   treatment: ArmStats & { rate: number };
   control: ArmStats & { rate: number };
   observed_conversion: number; // conversión observada en tratamiento
-  estimated_lift: { absolute: number; ci95: [number, number]; reliable: boolean; note?: string };
+  /** null sin grupo de control (o sin tratados): no hay contra qué comparar, no se estima. */
+  estimated_lift: { absolute: number | null; ci95: [number, number] | null; reliable: boolean; note?: string };
   cost_minor: number;
   currency: string;
 };
@@ -30,7 +31,9 @@ export function report(input: { campaign: string; window: { from: string; to: st
     campaign: input.campaign, window: input.window, primary_metric: input.primary_metric,
     treatment: { ...input.treatment, rate: rt }, control: { ...input.control, rate: rc },
     observed_conversion: rt,
-    estimated_lift: { absolute: diff, ci95: [diff - 1.96 * se, diff + 1.96 * se], reliable, note: reliable ? undefined : `muestra insuficiente (<${minN} por brazo)` },
+    estimated_lift: !input.control.n || !input.treatment.n
+      ? { absolute: null, ci95: null, reliable: false, note: !input.control.n ? 'sin grupo de control: no se puede estimar el incremento' : 'sin jugadores tratados' }
+      : { absolute: diff, ci95: [diff - 1.96 * se, diff + 1.96 * se], reliable, note: reliable ? undefined : `muestra insuficiente (<${minN} por brazo)` },
     cost_minor: input.cost_minor, currency: input.currency,
   };
 }

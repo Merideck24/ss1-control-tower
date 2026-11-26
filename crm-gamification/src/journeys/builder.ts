@@ -1,4 +1,6 @@
 import type { JourneyDefinition, JourneyNode } from './model.ts';
+import type { Template } from '../channels/channels.ts';
+import { varsForTrigger } from './vars.ts';
 import { validateJourney } from './model.ts';
 import { validateRules } from '../segments/segmentEngine.ts';
 
@@ -45,7 +47,7 @@ export function autoLayout(j: Pick<JourneyDefinition, 'entry' | 'nodes'>): Recor
 
 export type BuilderIssue = { node?: string; code: string; message: string; severity: 'error' | 'warning' };
 export type BuilderContext = {
-  template: (key: string) => { purpose: 'service' | 'marketing' } | undefined;
+  template: (key: string) => (Pick<Template, 'purpose'> & Partial<Pick<Template, 'content' | 'channels'>>) | undefined;
   reward: (id: string) => { approved: boolean } | undefined;
 };
 
@@ -89,6 +91,13 @@ export function reviewJourney(j: Pick<JourneyDefinition, 'entry' | 'nodes' | 'pu
       const t = ctx.template(n.template);
       if (!t) issues.push({ node: n.id, code: 'unknown_template', message: `La plantilla «${n.template}» no existe.`, severity: 'error' });
       else if (j.purpose === 'service' && t.purpose === 'marketing') issues.push({ node: n.id, code: 'marketing_template_in_service', message: `«${n.template}» es promocional y este recorrido es de servicio.`, severity: 'error' });
+      if (t?.content) {
+        // #2: una plantilla que pide variables que el disparador no trae sale con huecos
+        const have = varsForTrigger(j.trigger?.event_type);
+        const need = [...new Set(Object.values(t.content).flatMap((c) => [...`${c?.subject ?? ''} ${c?.body ?? ''}`.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])))];
+        const lacking = need.filter((k) => !have.includes(k));
+        if (lacking.length) issues.push({ node: n.id, code: 'template_vars_unavailable', message: `«${n.template}» usa ${lacking.map((k) => `{{${k}}}`).join(', ')}, que el disparador «${j.trigger?.event_type ?? '—'}» no aporta. Elige una plantilla pensada para este recorrido.`, severity: 'error' });
+      }
     }
     if (n.type === 'grant_reward') {
       const r = ctx.reward(n.reward_id);

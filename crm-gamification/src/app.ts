@@ -92,7 +92,7 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   }
 
   function kpiAlerts(tenant: string) {
-    const budgets = rewards.catalog(tenant).map((it) => ({ reward_id: it.id, ...rewards.budget(tenant, it.id)! }));
+    const budgets = rewards.catalog(tenant).map((it) => ({ reward_id: it.id, name: it.name, ...rewards.budget(tenant, it.id)! }));
     return alertCenter.withAcks(tenant, evaluateKpiAlerts({ store: performance, tenant, now: clock.now(), config: alertCenter.config(tenant), budgets }));
   }
 
@@ -159,20 +159,26 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
   app.policy.markRgFeedSynced(tenant_id);
   // variantes por canal (F2): SMS corto y plantilla de WhatsApp aprobada (nombre registrado en Meta)
   const CH: Record<string, NonNullable<import('./channels/channels.ts').Template['channels']>> = {
-    reward_granted: { sms: { es: 'RumbaWin: tienes {{reward_type}} por {{amount}} {{currency}} hasta {{expires_at}}. Juega con responsabilidad.' }, whatsapp: { name: 'reward_granted_v1', lang: 'es', params: ['reward_type', 'amount', 'currency', 'expires_at'] } },
+    reward_granted: { sms: { es: 'RumbaWin: tienes {{reward_type}} por {{amount}} hasta el {{expires_at}}. Juega con responsabilidad.' }, whatsapp: { name: 'reward_granted_v1', lang: 'es', params: ['reward_type', 'amount', 'currency', 'expires_at'] } },
     loyalty_halfway: { sms: { es: 'RumbaWin: vas al {{percent}}% del nivel {{level}}.' }, whatsapp: { name: 'loyalty_progress_v1', lang: 'es', params: ['percent', 'level'] } },
+    deposit_progress: { sms: { es: 'RumbaWin: recibimos tu deposito de {{amount}}. Revisa tus misiones en la app. Juega con responsabilidad.' } },
+    vip_followup: { sms: { es: 'RumbaWin VIP: tu gestor te contactara para contarte los beneficios de tu nivel. Juega con responsabilidad.' } },
+    welcome_message: { sms: { es: 'RumbaWin: tu cuenta ya esta verificada. Bienvenido.' }, whatsapp: { name: 'welcome_v1', lang: 'es', params: [] } },
     rg_limits_reminder: { sms: { es: 'RumbaWin: puedes fijar limites o tomar una pausa desde tu perfil. Ayuda: soporte JR.' } },
   };
   const t = (key: string, category: 'transactional' | 'promotional', purpose: 'service' | 'marketing', es: [string, string], en: [string, string], pt: [string, string]) =>
     app.channels.addTemplate(tenant_id, { key, category, purpose, content: { es: { subject: es[0], body: es[1] }, en: { subject: en[0], body: en[1] }, pt: { subject: pt[0], body: pt[1] } }, ...(CH[key] ? { channels: CH[key] } : {}) });
   t('verify_reminder', 'transactional', 'service', ['Completa tu verificación', 'Tu cuenta está casi lista: completa la verificación desde tu perfil.'], ['Complete your verification', 'Your account is almost ready: finish verification from your profile.'], ['Conclua sua verificação', 'Sua conta está quase pronta: conclua a verificação no seu perfil.']);
   t('security_confirmation', 'transactional', 'service', ['Tu cuenta fue recuperada', 'Confirmamos el cambio de acceso. Si no fuiste tú, contacta a soporte.'], ['Your account was recovered', 'We confirm the access change. If this was not you, contact support.'], ['Sua conta foi recuperada', 'Confirmamos a alteração de acesso. Se não foi você, fale com o suporte.']);
-  t('reward_granted', 'promotional', 'marketing', ['Tienes una recompensa', 'Recibiste {{reward_type}} por {{amount}} {{currency}}. Vigente hasta {{expires_at}}.'], ['You have a reward', 'You received {{reward_type}} worth {{amount}} {{currency}}. Valid until {{expires_at}}.'], ['Você tem uma recompensa', 'Você recebeu {{reward_type}} de {{amount}} {{currency}}. Válido até {{expires_at}}.']);
+  t('reward_granted', 'promotional', 'marketing', ['Tienes una recompensa', 'Recibiste {{reward_type}} por {{amount}}. Puedes usarlos hasta el {{expires_at}}.'], ['You have a reward', 'You received {{reward_type}} worth {{amount}}. Use them by {{expires_at}}.'], ['Você tem uma recompensa', 'Você recebeu {{reward_type}} de {{amount}}. Use até {{expires_at}}.']);
   t('rg_check_in', 'transactional', 'service', ['¿Cómo vas con tu juego?', 'Queremos que jugar siga siendo diversión. Revisa tu actividad y, si lo necesitas, fija límites de depósito o tiempo desde tu perfil.'], ['How is your play going?', 'We want play to stay fun. Review your activity and, if needed, set deposit or time limits from your profile.'], ['Como está seu jogo?', 'Queremos que jogar continue sendo diversão. Revise sua atividade e, se precisar, defina limites no seu perfil.']);
   t('rg_limits_reminder', 'transactional', 'service', ['Herramientas para jugar con control', 'Notamos mucha actividad en poco tiempo. Puedes fijar límites, tomar una pausa o hablar con nuestro equipo de juego responsable.'], ['Tools to stay in control', 'We noticed a lot of activity in a short time. You can set limits, take a break or talk to our responsible gaming team.'], ['Ferramentas para jogar com controle', 'Notamos muita atividade em pouco tempo. Você pode definir limites, fazer uma pausa ou falar com nossa equipe.']);
+  t('deposit_progress', 'promotional', 'marketing', ['Tu depósito ya está acreditado', 'Recibimos tu depósito de {{amount}}. Revisa tus misiones: quizá ya estés más cerca del próximo premio.'], ['Your deposit is in', 'We received your deposit of {{amount}}. Check your missions: you may be closer to the next prize.'], ['Seu depósito foi creditado', 'Recebemos seu depósito de {{amount}}. Confira suas missões: talvez você já esteja mais perto do próximo prêmio.']);
+  t('vip_followup', 'promotional', 'marketing', ['Gracias por tu confianza', 'Tu gestor VIP te contactará para contarte los beneficios de tu nivel. Juega con responsabilidad.'], ['Thanks for your trust', 'Your VIP manager will contact you about the benefits of your level. Play responsibly.'], ['Obrigado pela confiança', 'Seu gerente VIP vai entrar em contato para contar os benefícios do seu nível. Jogue com responsabilidade.']);
+  t('welcome_message', 'promotional', 'marketing', ['¡Bienvenido a RumbaWin!', 'Tu cuenta ya está verificada. Explora el lobby, revisa tus misiones y fija tus límites cuando quieras.'], ['Welcome to RumbaWin!', 'Your account is verified. Explore the lobby, check your missions and set your limits whenever you like.'], ['Bem-vindo à RumbaWin!', 'Sua conta está verificada. Explore o lobby, confira suas missões e defina seus limites quando quiser.']);
   t('loyalty_halfway', 'promotional', 'marketing', ['¡Vas a mitad de camino!', 'Llevas el {{percent}} % del camino al nivel {{level}}.'], ['Halfway there!', 'You are {{percent}}% of the way to {{level}}.'], ['Metade do caminho!', 'Você está a {{percent}}% do nível {{level}}.']);
 
-  app.rewards.addItem({ id: 'welcome_fs_10', tenant_id, brand_id, reward_type: 'free_spins', value: { amount_minor: 1000_00, currency: 'COP' }, validity_days: 7, budget_minor: 50 * 1000_00, approved_by: 'compliance@ss1' });
+  app.rewards.addItem({ id: 'welcome_fs_10', name: 'Giros gratis de bienvenida', tenant_id, brand_id, reward_type: 'free_spins', value: { amount_minor: 1000_00, currency: 'COP' }, validity_days: 7, budget_minor: 50 * 1000_00, approved_by: 'compliance@ss1' });
   app.loyalty.setProgram({ tenant_id, brand_id, season: '2026-Q4', points_per_major_unit: 0.001, halfway_notice: true, levels: [{ name: 'Bronce', threshold: 0 }, { name: 'Plata', threshold: 1000 }, { name: 'Oro', threshold: 5000 }, { name: 'Platino', threshold: 20000 }] });
 
   const author: Actor = { id: 'analyst@ss1', tenant_id, roles: ['crm_analyst'] };

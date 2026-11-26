@@ -55,6 +55,16 @@ export function render(t: Template, locale: Locale, vars: Record<string, string 
   return { subject: c.subject ? fill(c.subject) : undefined, body: fill(c.body) };
 }
 
+/** Variables de la plantilla (cuerpo, asunto, SMS y parámetros de WhatsApp) que no tienen valor. */
+export function missingVars(t: Template, locale: Locale, channel: Channel, vars: Record<string, string | number>): string[] {
+  const c = t.content[locale] ?? t.content.es;
+  const texts = [c?.subject ?? '', c?.body ?? ''];
+  if (channel === 'sms' && t.channels?.sms) texts.push(t.channels.sms[locale] ?? t.channels.sms.es ?? '');
+  const keys = new Set(texts.flatMap((s) => [...s.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1])));
+  if (channel === 'whatsapp') for (const k of t.channels?.whatsapp?.params ?? []) keys.add(k);
+  return [...keys].filter((k) => vars[k] === undefined || vars[k] === null || String(vars[k]).trim() === '');
+}
+
 /**
  * Hub de canales: persiste la intención antes del efecto externo y usa la clave de
  * idempotencia del proveedor; un reintento con la misma clave no duplica el envío.
@@ -89,6 +99,9 @@ export class ChannelHub {
     const t = this.template(req.tenant_id, req.template);
     const base = { idempotency_key: req.idempotency_key, tenant_id: req.tenant_id, player_id: req.player_id, channel: req.channel, template: req.template, locale: req.locale };
     if (!t) return this.recordNonDelivery({ ...base, status: 'failed', reason: 'template_not_found' });
+    // nunca se envía un mensaje con huecos («Llevas el % del camino al nivel .»)
+    const missing = missingVars(t, req.locale, req.channel, req.vars);
+    if (missing.length) return this.recordNonDelivery({ ...base, status: 'failed', reason: `template_vars_missing:${missing.join(',')}` });
     const adapter = this.#adapters.get(req.channel);
     if (!adapter) return this.recordNonDelivery({ ...base, status: 'failed', reason: 'channel_not_configured' });
     let address = req.address;

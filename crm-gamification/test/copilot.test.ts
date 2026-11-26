@@ -4,7 +4,7 @@ import { setup, onboard, T } from './helpers.ts';
 import type { CopilotSession } from '../src/copilot/tools.ts';
 
 const S: CopilotSession = { tenant_id: T, operator_id: 'ana', roles: ['crm_analyst'] };
-const draft = { id: 'cp_draft', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] };
+const draft = { id: 'cp_draft', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] };
 
 test('Copiloto: sin herramientas para enviar/publicar/otorgar; solo escribe borradores', () => {
   const { app } = setup();

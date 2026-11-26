@@ -45,7 +45,7 @@ test('F2: recorrido por SMS respeta consentimiento del canal, contacto resuelto 
   seedTenant(app, T);
   const author = { id: 'ana@ss1', tenant_id: T, roles: ['crm_analyst' as const] };
   const approver = { id: 'apr@ss1', tenant_id: T, roles: ['approver' as const] };
-  app.registry.saveDraft(author, { id: 'j_sms', brand_id: 'rumbawin', name: 'Depósito → SMS', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'sms', template: 'loyalty_halfway', next: 'e' }, { id: 'e', type: 'exit' }] });
+  app.registry.saveDraft(author, { id: 'j_sms', brand_id: 'rumbawin', name: 'Depósito → SMS', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'sms', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] });
   app.registry.submit(author, 'j_sms'); app.registry.approve(approver, 'j_sms'); app.registry.publish(author, 'j_sms');
   const players = Array.from({ length: 30 }, (_, i) => `s${i}`);
   for (const p of players) {
