@@ -711,6 +711,7 @@ function addCsvButtons(root) {
 async function show() {
   const v = $('#view');
   document.body.classList.remove('pdetail-open', 'ctx-open'); // al cambiar de vista no queda nada superpuesto
+  try { clearTimeout(B.timer); } catch { /* B aún no existe en el primer render */ } // ni trabajo pendiente de la vista anterior
   v.innerHTML = '<p class="muted">Cargando…</p>';
   try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); }
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
@@ -883,10 +884,14 @@ function bDraw() {
 const draftKey = () => `ss1-crm-builder-draft-v1:${EMBED.session?.tenantId ?? $('#tenant').value}`;
 function bChanged() { bDraw(); clearTimeout(B.timer); B.timer = setTimeout(bReview, 250); store.set(draftKey(), JSON.stringify(B.def)); }
 async function bReview() {
-  try { const r = await api('/journeys/review', { method: 'POST', body: B.def }); B.issues = r.issues;
+  // una revisión agendada desde el Constructor no corre (ni avisa) si el usuario ya cambió de pantalla o de rol
+  if (current !== 'builder' || !$('#bcanvas-wrap')) return;
+  try { const r = await api('/journeys/review', { method: 'POST', body: B.def });
+    if (current !== 'builder' || !$('#bcanvas-wrap')) return;
+    B.issues = r.issues;
     // mientras nadie mueva pasos a mano, el lienzo se ordena solo tras cada cambio de estructura
     if (!B.manual) B.def.layout = r.layout; else for (const n of B.def.nodes) B.def.layout[n.id] ??= r.layout[n.id];
-    bDraw(); } catch (e) { flash(e.message, 'bad'); }
+    bDraw(); } catch (e) { if (current === 'builder') flash(e.message, 'bad'); }
 }
 function bBindCanvas() {
   document.querySelectorAll('[data-port]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); B.connecting = B.connecting?.id === b.dataset.port && B.connecting.key === b.dataset.key ? null : { id: b.dataset.port, key: b.dataset.key }; bDraw(); });

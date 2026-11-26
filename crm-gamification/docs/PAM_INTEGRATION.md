@@ -72,3 +72,20 @@ Quien entra al 10 % sigue dentro al 50 % (hash estable): no hay jugadores que en
 3. Campos de jugador: email, idioma, zona horaria, afiliado y consentimiento de marketing.
 4. Fuente de casos de soporte, para que la etapa «Soporte» del recorrido deje de mostrarse «sin fuente».
 5. Filas reales anonimizadas, para correr la suite de contrato en la fase sandbox.
+
+## 8. Prueba de contrato (Fase 2)
+
+Primero la identidad, después los datos (`src/integration/pamContract.ts`):
+
+1. **`GET /admin/auth/me`** con la credencial. La prueba se detiene, sin leer ningún dato, si responde 401, 403 o 404, si no hay conexión, si la credencial tiene permisos de escritura o si su cliente no es el tenant esperado. Si la forma de la respuesta difiere de la supuesta (`userData`, `userAbilities`, `clientId`), se registra la diferencia (`drift`) y el adaptador la acepta.
+2. **Validación de filas** contra el esquema que el CRM espera de cada recurso: obligatorios, nulos, enumeraciones, fechas, ids, montos, tenant y jugadores desconocidos. Cada tipo de discrepancia sale con la decisión que toma el CRM (omitir con motivo, mapear un valor nuevo, descartar la fila).
+3. **Sincronización** con los conectores reales, de jugadores a juego.
+
+```bash
+npm run pam:contract                                   # fixtures sintéticos (test/fixtures/pam), sin red
+SS1_API_BASE=https://… SS1_API_TOKEN=… npm run pam:contract -- --live --out /ruta/fuera/del/repo/informe.json
+```
+
+El token se lee solo del entorno y no aparece en la salida. El informe está redactado: ids, campos, códigos y conteos, sin usernames, correos ni la credencial (lo comprueba `test/pam_validation.test.ts`).
+
+**Evidencia hoy.** Contrato validado con fixtures sintéticos que cubren los mapeos y errores pedidos a SS1, incluidas las respuestas 401 y 403 simuladas. **No se ha ejecutado contra SS1:** faltan el entorno, la credencial, las filas anonimizadas y `GET /admin/auth/me` (`docs/SS1_SOLICITUD_FASE2.md`). Al recibirlos, se corre `--live`, se guarda el informe fuera del repositorio y cada discrepancia se resuelve o se asigna. Las filas reales no se versionan salvo autorización expresa.

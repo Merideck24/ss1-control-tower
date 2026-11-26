@@ -1,13 +1,17 @@
 # Continuidad · SS1 Control Tower
 
-Estado para retomar el trabajo sin contexto previo. Última actualización: 2026-11-26.
+Estado para retomar el trabajo sin contexto previo. Última actualización: 2026-11-26 (cierre de la Fase 2, `074a1c7`).
 
 ## Dónde está cada cosa
 
 | Necesito… | Está en |
 |---|---|
 | Ver la demo | https://merideck24.github.io/ss1-control-tower/ (build estático de `main`, datos sintéticos) |
-| Correr el backend | `npm start` → http://localhost:3000 (auth de desarrollo) |
+| Correr el backend | `npm start` → http://localhost:3000 (auth de desarrollo). Con PostgreSQL: `npm run db:migrate`, luego `CRM_ROLE=web npm start` y `npm run worker` |
+| Saber qué está cerrado y qué falta | [docs/CIERRE_FASES_1_2.md](docs/CIERRE_FASES_1_2.md): matriz de cierre de las fases 1 y 2 |
+| Reprocesar fallas | Pantalla «Cola de fallas»; reglas en `src/channels/failures.ts` |
+| Pedir accesos a SS1 | [docs/SS1_SOLICITUD_FASE2.md](docs/SS1_SOLICITUD_FASE2.md) (pendiente de envío) |
+| Sesiones con operadores | [docs/usabilidad/GUION.md](docs/usabilidad/GUION.md) (0 de 5 realizadas) |
 | Saber qué se probó y qué falló | [docs/QA_REPORT.md](docs/QA_REPORT.md): matriz por módulo, defectos y evidencia |
 | Integrar con el PAM de SS1 | [docs/PAM_INTEGRATION.md](docs/PAM_INTEGRATION.md) y [docs/SS1_DATA_CONTRACT.md](docs/SS1_DATA_CONTRACT.md) |
 | Ver la hoja de ruta y las decisiones | [docs/ROADMAP.md](docs/ROADMAP.md) |
@@ -18,13 +22,15 @@ Estado para retomar el trabajo sin contexto previo. Última actualización: 2026
 ## Cómo verificar antes de publicar
 
 ```bash
-npm test            # 171 pruebas (+4 con PostgreSQL: npm run test:db)
 npm run typecheck
-npm run openapi && npm run admin:client   # si cambian rutas del catálogo
+DATABASE_URL=postgres://…/descartable npm test   # 196 pruebas; sin DATABASE_URL se omiten las 11 de PostgreSQL
+npm run pam:contract                             # contrato PAM con fixtures sintéticos
+npm run openapi && npm run admin:client          # si cambian rutas del catálogo
 npm run build:static
+E2E_DATABASE_URL=postgres://…/postgres npm run e2e   # 27 pruebas de navegador (demo + web + worker + PostgreSQL)
 ```
 
-Las pruebas de navegador (Playwright y axe-core) viven fuera del repositorio, en el directorio de trabajo de la sesión: `findings.cjs`, `a11y.cjs`, `formtest.cjs`, `jstate.cjs` y `closeui.cjs`. Moverlas a `test/e2e/` es una tarea pendiente.
+Las pruebas de navegador están en `test/e2e/`: qué se trasladó y qué se recreó está en [test/e2e/README.md](test/e2e/README.md). CI corre las dos suites en cada push y pull request.
 
 ## Matriz por módulo: defectos corregidos y su evidencia
 
@@ -43,20 +49,31 @@ Las pruebas de navegador (Playwright y axe-core) viven fuera del repositorio, en
 
 Los defectos de incrementos anteriores (16 hallazgos de UX, revisión externa y barrido de fallas) están en el historial de git y en `test/ux_findings.test.ts`, `test/api_robustness.test.ts` y `test/e2e_player_lifecycle.test.ts`.
 
+## Fase 2: defectos corregidos y su evidencia
+
+| Módulo | Defecto | Estado | Evidencia |
+|---|---|---|---|
+| Constructor / Registro | Un recorrido aprobado antes de un reinicio no se podía publicar: jsonb reordena claves y la firma no coincidía | Corregido (firma sobre JSON canónico; se acepta la anterior) | `test/db_runtime.test.ts` prueba 7 (falla sin la corrección) |
+| Registro | Aprobar una versión llegada por sincronización daba 500 (versión congelada) | Corregido | Misma prueba |
+| Runtime | El backend no tenía planificador: las esperas solo avanzaban con `POST /runtime/tick` | Corregido (worker y, sin base, intervalo en el proceso) | `stack/persistence.spec.ts` |
+| Integración PAM | Un jugador de otro cliente del admin se ingería en el tenant | Corregido | `test/pam_validation.test.ts` |
+| Auditoría | Web y worker numeraban la misma cadena: se habrían perdido registros | Corregido (una cadena por escritor) | `db_runtime.test.ts` prueba 3 |
+| Demo / arranque | Reiniciar con base creaba versiones nuevas de los recorridos sembrados | Corregido | `db_runtime.test.ts` prueba 2 |
+| Cola de fallas | El detalle de una falla resuelta perdía el motivo original | Corregido | `test/failure_queue.test.ts` |
+
 ## Bloqueos que dependen de SS1
 
-1. Credencial de servicio de solo lectura (sandbox o piloto). Sin ella no se puede correr la prueba de contrato con datos reales.
-2. `GET /admin/auth/me`, para resolver tenant y rol desde la sesión del operador.
-3. Campos de jugador: email, idioma, zona horaria, afiliado y consentimiento de marketing.
-4. Fuente de casos de soporte.
+1. **Prueba de contrato real.** Necesita, en una sola entrega: URL del entorno autorizado, credencial de solo lectura (por el gestor de secretos), filas reales anonimizadas y acceso a `GET /admin/auth/me`. La solicitud está en `docs/SS1_SOLICITUD_FASE2.md`, **pendiente de envío** por el canal del equipo. Con eso: `SS1_API_BASE=… SS1_API_TOKEN=… npm run pam:contract -- --live --out <ruta fuera del repo>`.
+2. **Cinco operadores** para las sesiones de usabilidad (0 de 5).
+3. Campos de jugador (email, idioma, zona horaria, afiliado y consentimiento) y la fuente de casos de soporte.
 
 ## Siguiente incremento (en orden)
 
-1. Prueba de contrato `pam_contract` con filas reales anonimizadas de SS1: puerta Sandbox → Piloto.
-2. Pantalla de cola de fallas con reproceso manual.
-3. Instancias del runtime y recibos en PostgreSQL.
-4. Pruebas con 5 operadores de SS1 para validar la autoevaluación de UX.
-5. Mover las pruebas de navegador a `test/e2e/` y correrlas en CI.
+1. Correr el contrato contra SS1 apenas lleguen los accesos y resolver o asignar cada discrepancia del informe.
+2. Hacer las cinco sesiones, corregir los problemas de interfaz prioritarios y repetir esas tareas.
+3. Persistir bonos con la reserva de presupuesto en la misma transacción, la bandeja in-app y los libros de fidelidad y monedas (`docs/DATABASE.md`).
+4. Escritura condicional por versión en `journey_instances`, para cerrar la carrera web/worker documentada.
+5. Configurar un linter.
 
 ## Reglas que no cambian
 

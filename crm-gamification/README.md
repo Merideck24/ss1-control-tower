@@ -13,7 +13,9 @@ Módulo integrado al PAM, al servicio de bonos y al Control Tower de SS1. Implem
 | Segmentos | Reglas AND/OR/NOT sobre catálogo de campos y eventos, exclusiones, resultado determinista por snapshot |
 | Recorridos | Disparador, condición, espera, mensaje, recompensa y salida. Borrador → simulación → revisión → aprobación separada (autor ≠ aprobador) → publicación firmada e inmutable → ejecución con versión fijada → seguimiento (estados, versiones, supresiones con motivo, fallas) → pausa, reanudación o cierre con motivo. Pausa general |
 | Políticas | Consentimiento por propósito y canal, juego responsable, KYC para incentivos, frecuencia, horario silencioso por zona horaria. Fail-closed si el estado JR falta o está desactualizado |
-| Canales | In-app, email y web push (adaptadores simulados), plantillas ES/EN/PT, recibos con estado y razón, reintentos acotados e idempotentes |
+| Canales | In-app, email, web push, SMS, WhatsApp y Telegram (adaptadores simulados en la demo), plantillas ES/EN/PT, recibos con estado (solicitado, aceptado, entregado, fallido, incierto, suprimido, diferido) y razón, reintentos acotados e idempotentes |
+| Cola de fallas | Fallas de entrega por tenant, marca, recorrido, versión, paso, canal, motivo e intentos, con instrucciones. Reproceso individual con motivo y confirmación: concilia los inciertos antes de reenviar, revalida política y recorrido, conserva clave y versión, bloquea solicitudes simultáneas y deja historial |
+| Persistencia | PostgreSQL con RLS: eventos, auditoría (una cadena por proceso), versiones de recorridos, instancias, recibos e historial de reprocesos. Web y worker separados; sobreviven a reinicios sin efectos duplicados ([docs/DATABASE.md](docs/DATABASE.md)) |
 | Recompensas | Catálogo aprobado, presupuesto con reserva, clave de idempotencia, resultado incierto conciliado antes de reenviar, conciliación con el servicio de bonos |
 | Fidelidad | Niveles por temporada, aviso único al cruzar el 50 % entre umbrales, libro append-only con reversos compensatorios, widget móvil |
 | Adquisición y valor | En Control Tower: inversión, CTR, FTD %, CPA, costo por FTD, depósitos, GGR, NGR, retención D7/D30 y ROI por campaña, con embudo y enlace Marketing → CRM → Loyalty. Definiciones versionadas y visibles en el dashboard |
@@ -44,9 +46,12 @@ Requiere Node.js ≥ 22.18 (ejecuta TypeScript de forma nativa).
 ```bash
 cd crm-gamification
 npm install
-npm test          # 171 pruebas (+4 con PostgreSQL: npm run test:db) mapeadas a criterios de aceptación
+npm test          # 196 pruebas con PostgreSQL (DATABASE_URL); sin base se omiten las 11 de persistencia
 npm run typecheck
 npm start         # http://localhost:3000 — demo con datos sintéticos (auth de desarrollo)
+npm run worker    # con DATABASE_URL: despierta esperas y diferidos (la web con CRM_ROLE=web)
+npm run e2e       # pruebas de navegador (test/e2e); ver test/e2e/README.md
+npm run pam:contract  # contrato con el PAM de SS1 (fixtures, o --live con el entorno autorizado)
 npm run start:prod  # exige token del admin de SS1 (ver docs/INTEGRATION.md)
 ```
 
@@ -87,6 +92,6 @@ docs/                     plan, arquitectura, API y trazabilidad
 test/                     pruebas por requisito
 ```
 
-Estado, QA y cómo retomar: [CONTINUIDAD.md](CONTINUIDAD.md) y [docs/QA_REPORT.md](docs/QA_REPORT.md).
+Estado, QA y cómo retomar: [CONTINUIDAD.md](CONTINUIDAD.md), [docs/CIERRE_FASES_1_2.md](docs/CIERRE_FASES_1_2.md) y [docs/QA_REPORT.md](docs/QA_REPORT.md).
 
 Ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md), [docs/TRACEABILITY.md](docs/TRACEABILITY.md), [docs/ROADMAP.md](docs/ROADMAP.md) y el [contrato de datos con SS1](docs/SS1_DATA_CONTRACT.md).
