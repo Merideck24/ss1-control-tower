@@ -56,3 +56,22 @@ test('Recorrido: una misión con incentivo que se pausó se puede reanudar sin o
   assert.equal(save.status, 422);
   assert.match((save.body as { message: string }).message, /ya está activa: solo se editan borradores\. Para una misión nueva usa otro id\./);
 });
+
+test('Formularios: catálogo de campos con tipos y valores, y reglas como frases', async () => {
+  const { app } = setup();
+  const r = await route(app, { method: 'GET', path: '/segments/fields', query: new URLSearchParams('detail=1'), headers: { 'x-tenant-id': T, 'x-roles': 'crm_analyst', 'x-actor': 'ana@ss1' }, body: {} });
+  const meta = r.body as { field: string; label: string; type: string; values?: [string, string][] }[];
+  const by = Object.fromEntries(meta.map((m) => [m.field, m]));
+  assert.deepEqual([by.kyc.type, by.kyc.label, by.kyc.values?.map(([v]) => v)], ['enum', 'KYC', ['pending', 'verified', 'rejected']]);
+  assert.equal(by['stats.deposits_minor'].type, 'money');
+  assert.equal(by['pred.churn'].type, 'prob');
+  assert.equal(by['consent.marketing.email'].type, 'bool');
+  assert.ok(meta.every((m) => m.label && m.type), 'todos los campos tienen nombre y tipo');
+  // sin detail sigue respondiendo la lista de siempre
+  const plain = await route(app, { method: 'GET', path: '/segments/fields', query: new URLSearchParams(), headers: { 'x-tenant-id': T, 'x-roles': 'crm_analyst', 'x-actor': 'ana@ss1' }, body: {} });
+  assert.ok(Array.isArray(plain.body) && typeof (plain.body as unknown[])[0] === 'string');
+  const { ruleText } = await import('../src/segments/ruleText.ts');
+  // es-CO separa «$» de la cifra con un espacio duro: se acepta cualquier espacio
+  assert.match(ruleText({ and: [{ field: 'lifecycle', op: 'eq', value: 'en_riesgo' }, { field: 'stats.deposits_minor', op: 'gte', value: 50_000_000 }, { field: 'pred.churn', op: 'gte', value: 0.6 }] }),
+    /^Etapa del ciclo de vida es En riesgo y Depósitos acumulados al menos \$\s500\.000 y Probabilidad de abandono al menos 60 %$/);
+});

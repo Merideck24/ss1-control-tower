@@ -22,6 +22,10 @@ const OP: Record<string, string> = { eq: 'es', neq: 'no es', gt: 'mayor que', gt
 const money = (minor: number) => (minor / 100).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 const val = (field: string, v: unknown): string => {
   if (Array.isArray(v)) return v.map((x) => val(field, x)).join(', ');
+  const t = TYPES[field];
+  const named = t?.values?.find(([k]) => k === String(v))?.[1];
+  if (named) return named;
+  if (t?.type === 'prob' && typeof v === 'number') return `${Math.round(v * 100)} %`;
   if (typeof v === 'number' && /_minor$/.test(field)) return money(v);
   if (typeof v === 'number') return v.toLocaleString('es-CO');
   return VALUE[String(v)] ?? String(v);
@@ -37,4 +41,26 @@ export function ruleText(r: Rule | undefined | null): string {
   const name = FIELD[f] ?? f;
   if (/^consent\./.test(f) && r.op === 'eq' && typeof r.value === 'boolean') return r.value ? name : `No ${name.charAt(0).toLowerCase()}${name.slice(1)}`;
   return `${name} ${OP[String(r.op)] ?? String(r.op)} ${val(f, r.value)}`;
+}
+
+/** Tipo de cada campo para el constructor de reglas (formularios): qué operadores y qué valores ofrecer. */
+export type FieldMeta = { field: string; label: string; type: 'enum' | 'number' | 'money' | 'bool' | 'prob' | 'text'; values?: [string, string][] };
+const E = (...vs: string[]): [string, string][] => vs.map((v) => [v, VALUE[v] ?? v.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())]);
+const TYPES: Record<string, Omit<FieldMeta, 'field' | 'label'>> = {
+  kyc: { type: 'enum', values: E('pending', 'verified', 'rejected') },
+  rg: { type: 'enum', values: E('none', 'self_excluded', 'cooling_off', 'limited') },
+  'risk.level': { type: 'enum', values: E('none', 'medium', 'high') },
+  lifecycle: { type: 'enum', values: [['nuevo', 'Nuevo'], ['sin_deposito', 'Sin depósito'], ['activo', 'Activo'], ['en_riesgo', 'En riesgo'], ['inactivo', 'Inactivo'], ['reactivado', 'Reactivado']] },
+  'rfm.segment': { type: 'enum', values: [['campeones', 'Campeones'], ['leales', 'Leales'], ['no_podemos_perderlos', 'No podemos perderlos'], ['en_riesgo', 'En riesgo'], ['potenciales_leales', 'Potenciales leales'], ['nuevos', 'Nuevos'], ['necesitan_atencion', 'Necesitan atención'], ['hibernando', 'Hibernando']] },
+  'abuse.tier': { type: 'enum', values: [['ok', 'Sin señales'], ['watch', 'Vigilar'], ['high', 'Alto']] },
+  'nba.action': { type: 'enum', values: [['no_contact', 'No contactar'], ['retention_offer', 'Oferta de retención'], ['deposit_nudge', 'Empujón al depósito'], ['reactivation', 'Reactivación'], ['loyalty_progress', 'Progreso de fidelidad'], ['vip_handover', 'Pasar a VIP']] },
+  'pred.product': { type: 'enum', values: [['casino', 'Casino'], ['sports', 'Deportes']] },
+  'stats.deposit_count': { type: 'number' }, 'stats.bets_count': { type: 'number' }, 'rewards.active_count': { type: 'number' },
+  'rfm.r': { type: 'number' }, 'rfm.f': { type: 'number' }, 'rfm.m': { type: 'number' }, 'abuse.score': { type: 'number' },
+  'stats.deposits_minor': { type: 'money' }, 'stats.stake_minor': { type: 'money' }, 'pred.value_30d': { type: 'money' },
+  'pred.churn': { type: 'prob' }, 'pred.deposit': { type: 'prob' }, 'pred.vip': { type: 'bool' },
+};
+Object.assign(FIELD, { 'rfm.segment': 'Segmento RFM', 'pred.churn': 'Probabilidad de abandono', 'pred.deposit': 'Probabilidad de depositar (30 d)', 'pred.value_30d': 'Valor previsto (30 d)', 'pred.vip': 'VIP temprano', 'pred.product': 'Producto preferido', persona: 'Persona', 'nba.action': 'Mejor acción siguiente', 'abuse.score': 'Puntaje de abuso de bonos' });
+export function fieldMeta(fields: readonly string[]): FieldMeta[] {
+  return fields.map((field) => ({ field, label: FIELD[field] ?? field, ...(TYPES[field] ?? (/^consent\./.test(field) ? { type: 'bool' as const } : { type: 'text' as const })) }));
 }

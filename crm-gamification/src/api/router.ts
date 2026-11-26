@@ -3,7 +3,7 @@ import type { CopilotSession, CopilotTools } from '../copilot/tools.ts';
 import { report } from '../experiments/experiments.ts';
 import { journeyAsList, validateJourney } from '../journeys/model.ts';
 import { eventLabel } from '../journeys/vars.ts';
-import { ruleText } from '../segments/ruleText.ts';
+import { fieldMeta, ruleText } from '../segments/ruleText.ts';
 import { autoLayout, reviewJourney } from '../journeys/builder.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
 import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
@@ -269,7 +269,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
         inbox: app.adapters.inapp.stats(T),
         transport: app.demoProviders ? 'simulado (demo)' : 'sin configurar', note: 'SMS, WhatsApp y Telegram usan transporte simulado y contactos sintéticos en la demo. En producción, el gateway de SS1 resuelve teléfono y chat al enviar e inyecta las credenciales; el CRM no los almacena.' });
     }
-    if (r0 === 'GET /segments/fields') return ok(SEGMENT_FIELDS);
+    if (r0 === 'GET /segments/fields') return ok(req.query.get('detail') === '1' ? fieldMeta(SEGMENT_FIELDS) : SEGMENT_FIELDS); // detail=1: tipos y valores para el constructor de reglas
     if (r0 === 'GET /models') {
       if (!can(actor, 'analytics.read')) return forbid('analytics.read');
       const m = app.models(T);

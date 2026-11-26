@@ -62,6 +62,14 @@
   header.topbar .ctx { margin-left: auto; display: flex; gap: 10px; align-items: center; color: var(--muted); flex-wrap: wrap; font-size: 13px; }
   header.topbar label { display: flex; gap: 6px; align-items: center; }
   .ctx-panel { display: contents; }
+  .rb { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin: 0; } .rb legend { padding: 0 6px; color: var(--ink); font-weight: 500; }
+  .rbrows { list-style: decimal; margin: 6px 0; padding-left: 22px; } .rbrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; } .rbrow select, .rbrow input { max-width: 100%; }
+  .rbmode { display: block; margin: 4px 0 8px; } .rbunit { display: inline-flex; gap: 6px; align-items: center; } .rbunit input { width: 120px; }
+  .mform { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 14px; margin: 6px 0 10px; }
+  .mform > label, .mform fieldset label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .mform [hidden] { display: none !important; }
+  .mform .wide { grid-column: 1 / -1; } .mform input, .mform select { width: 100%; min-width: 0; } .mform .chk { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); } .mform .chk input { width: auto; }
+  .mform fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
   details.tech { margin-top: 6px; font-size: 12px; } details.tech summary { cursor: pointer; color: var(--muted); } details.tech pre, details.tech code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; }
   /* selectores de contexto con el mismo tamaño y color */
   header.topbar label, header.topbar .brandsel { font-size: 13px; color: var(--muted); gap: 6px; }
@@ -502,6 +510,9 @@ let SERVER_OFFSET = 0;
 const serverNow = () => Date.now() + SERVER_OFFSET;
 const syncClock = (iso) => { const t = Date.parse(iso ?? ''); if (!Number.isNaN(t)) SERVER_OFFSET = t - Date.now(); };
 const PROFILE = { list: [], page: 0, open: null };
+let SEG_READY = Promise.resolve();
+let MISSION_REWARDS = [];
+const COPILOT = { tools: [], journeys: [] };
 /** fecha y hora sin segundos; la exacta queda en el title de quien la use */
 const when = (iso) => new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 const ago = (iso) => {
@@ -983,11 +994,14 @@ const VIEWS = {
     return `<div class="grid">${distTable('Ciclo de vida', dist.lifecycle, 'lifecycle', dist.total)}${distTable('Segmentos RFM (solo jugadores con depósito)', dist.rfm, 'rfm.segment', dist.depositors)}</div>
       ${pers.k ? `<br><div class="card"><h2>Personas dinámicas</h2><div class="kpis">${pers.personas.map((x) => `<div class="kpi-card"><div class="lbl">${esc(x.id)} · ${int(x.size)} jugadores</div><div class="val" style="font-size:17px">${esc(x.name)}</div><div class="sub">${x.traits.map(esc).join(' · ')}</div><div style="margin-top:8px"><button class="ghost" data-use='${esc(JSON.stringify({ field: 'persona', op: 'eq', value: x.id }))}'>Usar</button></div></div>`).join('')}</div><p class="muted">${esc(pers.method)}</p></div>` : ''}
       <p class="muted">${esc(dist.method)} RFM se usa en segmentos; en condiciones de recorridos usa <code>lifecycle</code>, que se calcula por jugador.</p><br>
-      <div class="card"><h2>Definición (AND/OR/NOT)</h2>
-      <p class="muted">Campos: ${fields.map((f) => `<span class="chip">${esc(f)}</span>`).join('')}</p>
+      <div class="card"><h2>Definición del segmento</h2>
+      <div id="rbRules"></div><div id="rbExcl" style="margin-top:10px"></div>
+      <details class="tech" style="margin-top:10px"><summary>Editar como JSON (avanzado: Y, O y NOT combinados)</summary>
+      <p class="muted">Campos: ${fields.map((f) => `<code>${esc(f)}</code>`).join(' ')}</p>
       <textarea id="rules" rows="8" aria-label="Reglas del segmento (JSON)">${esc(JSON.stringify({ and: [{ field: 'kyc', op: 'eq', value: 'verified' }, { field: 'stats.deposit_count', op: 'gte', value: 1 }] }, null, 2))}</textarea>
-      <h2 style="margin-top:10px">Exclusiones</h2>
+      <label for="excl" class="muted">Exclusiones</label>
       <textarea id="excl" rows="3" aria-label="Exclusiones del segmento (JSON)">${esc(JSON.stringify({ field: 'rg', op: 'neq', value: 'none' }))}</textarea>
+      <div class="row"><button type="button" class="ghost" id="rbapply">Aplicar el JSON al formulario</button></div></details>
       <div class="row" style="margin-top:10px"><button id="prev">Vista previa</button></div><div id="segout"></div></div>`;
   },
   async builder() {
@@ -1046,11 +1060,15 @@ const VIEWS = {
       if (m.status === 'active' && can('journeys.pause')) return `<button class="ghost" data-mact="pause" data-mid="${esc(m.id)}">Pausar</button>`;
       return '';
     };
-    const sample = { id: 'm_weekend', brand_id: 'rumbawin', name: 'Fin de semana deportivo', description: 'Liquida 3 apuestas de deportes', kind: 'count', event_type: 'bet.settled', product: 'sports', target: 3, reward: { xp: 150 }, starts_at: new Date().toISOString(), ends_at: new Date(serverNow() + 14 * 864e5).toISOString() };
+    MISSION_REWARDS = can('journeys.draft') ? await api('/rewards').then((r) => r.catalog).catch(() => []) : [];
+    const sample = { id: `m_nueva_${new Date(serverNow()).toISOString().slice(5, 10).replace('-', '')}`, brand_id: 'rumbawin', name: 'Fin de semana deportivo', description: 'Liquida 3 apuestas de deportes', kind: 'count', event_type: 'bet.settled', product: 'sports', target: 3, reward: { xp: 150 }, starts_at: new Date().toISOString(), ends_at: new Date(serverNow() + 14 * 864e5).toISOString() };
     return `<div class="card scroll"><h2>Misiones</h2><table><tr><th>Misión</th><th>Meta</th><th>Recompensa</th><th>Estado</th><th class="num">Participan</th><th class="num">Completan</th><th class="num">Tasa</th><th class="num">XP</th><th class="num">Costo bonos</th><th><span class="sr-only">Acciones</span></th></tr>
       ${g.missions.map((m) => `<tr><td>${esc(m.name)}<br><span class="muted">${esc(m.description)}</span>${m.disputed ? `<br><span class="warn">${m.disputed} en revisión por reverso</span>` : ''}</td><td>${target(m)}</td><td>${reward(m)}</td><td><span class="chip ${m.status === 'active' ? 'brand' : ''}">${ST[m.status] ?? esc(m.status)}</span></td><td class="num">${int(m.participants)}</td><td class="num">${int(m.completions)}</td><td class="num">${pct(m.completion_rate, 0)}</td><td class="num">${int(m.xp_awarded)}</td><td class="num">${moneyC(m.reward_cost_minor)}</td><td class="num">${act(m)}</td></tr>`).join('') || '<tr><td colspan="10" class="muted">Sin misiones.</td></tr>'}</table>
       <p class="muted">No participan jugadores con la gamificación desactivada ni con restricción de juego responsable. Las misiones con bono requieren aprobación de otra persona y el bono pasa por política y presupuesto. Un reverso de depósito corrige el progreso; si la misión ya estaba completada queda en revisión.</p></div><br>
-      ${can('journeys.draft') ? `<div class="card"><h2>Nueva misión (JSON)</h2><textarea id="mdraft" rows="10" aria-label="Definición de la misión (JSON)">${esc(JSON.stringify(sample, null, 2))}</textarea><div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
+      ${can('journeys.draft') ? `<div class="card"><h2>Nueva misión</h2>${missionFormHtml(sample, MISSION_REWARDS)}
+        <details class="tech"><summary>Editar como JSON (avanzado)</summary><textarea id="mdraft" rows="10" aria-label="Definición de la misión (JSON)">${esc(JSON.stringify(sample, null, 2))}</textarea>
+        <div class="row"><button type="button" class="ghost" id="mapply">Aplicar el JSON al formulario</button></div></details>
+        <div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
       <div class="card scroll"><h2>Torneos</h2><table><tr><th>Torneo</th><th>Puntúa</th><th>Ventana</th><th>Estado</th><th class="num">Participan</th><th>Podio</th><th><span class="sr-only">Acciones</span></th></tr>
         ${tours.map((t) => `<tr><td>${esc(t.name)}</td><td>${t.metric === 'bet_count' ? 'apuestas' : `monto apostado (tope ${moneyC(t.stake_cap_minor)} por apuesta)`}${t.product ? ' · ' + esc(t.product) : ''}<br><span class="muted">mínimo ${int(t.min_score)}</span></td>
           <td class="muted">${new Date(t.starts_at).toLocaleDateString('es-CO')} – ${new Date(t.ends_at).toLocaleDateString('es-CO')}</td><td><span class="chip ${t.status === 'active' ? 'brand' : ''}">${({ draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activo', finished: 'Cerrado' })[t.status]}</span>${t.final ? `<br><span class="muted" title="${esc(t.final.hash)}">hash ${esc(t.final.hash.slice(0, 10))}…</span>` : ''}</td>
@@ -1138,13 +1156,17 @@ const VIEWS = {
   },
   async copilot() {
     const tools = await api('/copilot/tools');
-    return `<div class="card"><h2>Herramientas disponibles para tu rol</h2>${tools.map((t) => `<span class="chip">${esc(t.name)}</span>`).join('') || '<span class="muted">Ninguna</span>'}
+    COPILOT.tools = tools;
+    COPILOT.journeys = await api('/journeys').catch(() => []);
+    return `<div class="card"><h2>Herramientas disponibles para tu rol</h2>${tools.map((t) => `<span class="chip" title="${esc(t.name)}">${esc(COPILOT_TOOL[t.name] ?? t.name)}</span>`).join('') || '<span class="muted">Ninguna</span>'}
       <p class="muted">Solo lectura de agregados y borradores. Sin permisos para enviar, publicar, otorgar premios ni cambiar restricciones.</p>
-      ${SESSION.copilot_ask ? '<div class="row"><input id="q" style="flex:1; min-width:0" placeholder="Pregunta en lenguaje natural"><button id="ask">Preguntar</button></div>' : '<p class="muted">Las preguntas en lenguaje natural (Claude) se habilitan en el servidor con credenciales de Anthropic. Aquí puedes ejecutar las herramientas directamente.</p>'}
-      <h2>Llamada directa a herramienta</h2>
-      <div class="row"><label>Herramienta <select id="tool">${tools.map((t) => `<option>${esc(t.name)}</option>`).join('')}</select></label></div>
-      <textarea id="tin" rows="5" aria-label="Parámetros de la herramienta (JSON)">{"metric": "kyc_verified_rate"}</textarea>
-      <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><pre id="cout"></pre></div>`;
+      ${SESSION.copilot_ask ? '<div class="row"><input id="q" style="flex:1; min-width:0" placeholder="Pregunta en lenguaje natural"><button id="ask">Preguntar</button></div>' : '<p class="muted">Las preguntas en lenguaje natural están desactivadas: IA no configurada en esta demo. Aquí puedes ejecutar las herramientas directamente.</p>'}
+      <h2>Usar una herramienta</h2>
+      <div class="row"><label>Herramienta <select id="tool">${tools.map((t) => `<option value="${esc(t.name)}">${esc(COPILOT_TOOL[t.name] ?? t.name)}</option>`).join('')}</select></label></div>
+      <p id="tdesc" class="muted"></p>
+      <form id="tform" class="mform" novalidate></form>
+      <details class="tech"><summary>Ver o editar los parámetros como JSON (avanzado)</summary><textarea id="tin" rows="5" aria-label="Parámetros de la herramienta (JSON)">{"metric": "kyc_verified_rate"}</textarea></details>
+      <div class="row" style="margin-top:8px"><button id="call">Ejecutar</button></div><div id="cres" role="status" aria-live="polite"></div><details class="tech"><summary>Respuesta completa (JSON)</summary><pre id="cout"></pre></details></div>`;
   },
   async policies() {
     const d = await api('/policies');
@@ -1272,8 +1294,114 @@ const VIEWS = {
   },
 };
 
+// ── Formularios en lugar de JSON: constructor de reglas, misión y herramientas del copiloto ──
+// El JSON sigue disponible como opción avanzada; cada formulario escribe su JSON en el campo de siempre.
+let FIELD_META = null;
+const fieldMetaList = async () => (FIELD_META ??= await api('/segments/fields?detail=1'));
+const NUM_OPS = [['gte', 'al menos'], ['lte', 'como máximo'], ['gt', 'mayor que'], ['lt', 'menor que'], ['eq', 'igual a']];
+const OPS_BY = { enum: [['eq', 'es'], ['neq', 'no es']], text: [['eq', 'es'], ['neq', 'no es']], bool: [['eq', 'es']], number: NUM_OPS, money: NUM_OPS, prob: NUM_OPS };
+const RB = {};
+const rbMeta = (st, f) => st.meta.find((m) => m.field === f) ?? { field: f, label: f, type: 'text' };
+const rbDefault = (m) => ({ field: m.field, op: OPS_BY[m.type][0][0], value: m.type === 'enum' ? m.values[0][0] : m.type === 'bool' ? true : m.type === 'text' ? '' : m.type === 'prob' ? 0.5 : m.type === 'money' ? 100_000_00 : 1 });
+/** regla → filas del formulario; null si la regla combina grupos anidados (se edita como JSON) */
+function rbFromRule(rule) {
+  if (!rule) return { mode: 'and', rows: [] };
+  if (rule.field) return { mode: 'and', rows: [{ ...rule }] };
+  for (const mode of ['and', 'or']) if (Array.isArray(rule[mode]) && rule[mode].every((x) => x && x.field && x.op !== 'in' && x.op !== 'exists')) return { mode, rows: rule[mode].map((x) => ({ ...x })) };
+  return null;
+}
+const rbToRule = (st) => { const rows = st.rows.filter((r) => r.field); return !rows.length ? null : rows.length === 1 ? rows[0] : { [st.mode]: rows }; };
+/** monta el constructor dentro de `el`; onchange recibe la regla (o null si no hay condiciones) */
+function mountRuleBuilder(el, id, meta, rule, onchange, { legend = 'Condiciones', empty = 'Sin condiciones: incluye a todos los jugadores.' } = {}) {
+  const parsed = rbFromRule(rule);
+  RB[id] = { el, meta, mode: parsed?.mode ?? 'and', rows: parsed?.rows ?? [], raw: parsed ? null : rule, onchange, legend, empty };
+  rbRender(id);
+}
+function rbSetRule(id, rule) { const st = RB[id]; if (!st) return; const parsed = rbFromRule(rule); st.mode = parsed?.mode ?? 'and'; st.rows = parsed?.rows ?? []; st.raw = parsed ? null : rule; rbRender(id); }
+function rbRender(id) {
+  const st = RB[id];
+  const opt = (v, cur, l) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(l)}</option>`;
+  const widget = (m, r, i) => {
+    const a = `data-rbv="${i}" aria-label="Valor de la condición ${i + 1}"`;
+    if (m.type === 'enum') return `<select ${a}>${m.values.map(([v, l]) => opt(v, r.value, l)).join('')}</select>`;
+    if (m.type === 'bool') return `<select ${a}>${opt('true', String(r.value), 'Sí')}${opt('false', String(r.value), 'No')}</select>`;
+    if (m.type === 'money') return `<span class="rbunit"><input type="number" min="0" step="1000" ${a} value="${esc(Math.round(Number(r.value) / 100))}"> COP</span>`;
+    if (m.type === 'prob') return `<span class="rbunit"><input type="number" min="0" max="100" step="5" ${a} value="${esc(Math.round(Number(r.value) * 100))}"> %</span>`;
+    if (m.type === 'number') return `<input type="number" step="1" ${a} value="${esc(r.value)}">`;
+    return `<input type="text" ${a} value="${esc(r.value ?? '')}">`;
+  };
+  st.el.innerHTML = `<fieldset class="rb"><legend>${esc(st.legend)}</legend>
+    ${st.raw ? `<p class="warn">Esta regla combina grupos (Y dentro de O, o NOT) y no cabe en el formulario. Edítala en «Editar como JSON».</p>` : `
+    ${st.rows.length > 1 ? `<label class="rbmode">Incluir jugadores que cumplan <select data-rbmode>${opt('and', st.mode, 'todas')}${opt('or', st.mode, 'alguna')}</select> de estas condiciones</label>` : ''}
+    ${st.rows.length ? `<ol class="rbrows">${st.rows.map((r, i) => { const m = rbMeta(st, r.field); return `<li class="rbrow">
+      <select data-rbf="${i}" aria-label="Campo de la condición ${i + 1}">${st.meta.map((x) => opt(x.field, r.field, x.label)).join('')}</select>
+      <select data-rbo="${i}" aria-label="Operador de la condición ${i + 1}">${OPS_BY[m.type].map(([o, l]) => opt(o, r.op, l)).join('')}</select>
+      ${widget(m, r, i)}
+      <button type="button" class="ghost rbdel" data-rbdel="${i}" aria-label="Quitar la condición ${i + 1}">Quitar</button></li>`; }).join('')}</ol>` : `<p class="muted">${esc(st.empty)}</p>`}
+    <button type="button" class="ghost" data-rbadd>+ Agregar condición</button>`}</fieldset>`;
+  const q = (s) => st.el.querySelectorAll(s);
+  const changed = () => st.onchange(rbToRule(st));
+  q('[data-rbmode]').forEach((s) => s.onchange = () => { st.mode = s.value; changed(); });
+  q('[data-rbf]').forEach((s) => s.onchange = () => { st.rows[+s.dataset.rbf] = rbDefault(rbMeta(st, s.value)); rbRender(id); changed(); st.el.querySelector(`[data-rbf="${s.dataset.rbf}"]`)?.focus(); });
+  q('[data-rbo]').forEach((s) => s.onchange = () => { st.rows[+s.dataset.rbo].op = s.value; changed(); });
+  q('[data-rbv]').forEach((s) => s.oninput = s.onchange = () => {
+    const r = st.rows[+s.dataset.rbv], m = rbMeta(st, r.field), v = s.value;
+    r.value = m.type === 'bool' ? v === 'true' : m.type === 'money' ? Math.round(Number(v) * 100) : m.type === 'prob' ? Number(v) / 100 : m.type === 'number' ? Number(v) : v;
+    changed();
+  });
+  q('[data-rbdel]').forEach((b) => b.onclick = () => { st.rows.splice(+b.dataset.rbdel, 1); rbRender(id); changed(); st.el.querySelector('[data-rbadd]')?.focus(); });
+  q('[data-rbadd]').forEach((b) => b.onclick = () => { st.rows.push(rbDefault(st.meta[0])); rbRender(id); changed(); st.el.querySelector(`[data-rbf="${st.rows.length - 1}"]`)?.focus(); });
+}
+
+/** formulario de misión ↔ JSON de siempre (#mdraft) */
+const MISSION_KIND = [['count', 'Cantidad de veces'], ['sum', 'Monto acumulado'], ['streak', 'Días seguidos']];
+const MISSION_EVENT = [['bet.settled', 'Apuestas liquidadas'], ['deposit.settled', 'Depósitos']];
+function missionFormHtml(m, rewards) {
+  const opt = (v, cur, l) => `<option value="${esc(v)}"${String(v) === String(cur ?? '') ? ' selected' : ''}>${esc(l)}</option>`;
+  const day = (iso) => (iso ?? '').slice(0, 10);
+  return `<form id="mform" class="mform" novalidate>
+    <label>Nombre<input name="name" required value="${esc(m.name)}"></label>
+    <label>Identificador<input name="id" required pattern="[\\w-]{3,48}" value="${esc(m.id)}" aria-describedby="mid-h"><span id="mid-h" class="muted">Letras, números, - y _ (3 a 48). Debe ser nuevo.</span></label>
+    <label class="wide">Descripción para el jugador<input name="description" value="${esc(m.description)}"></label>
+    <label>Qué cuenta<select name="event_type">${MISSION_EVENT.map(([v, l]) => opt(v, m.event_type, l)).join('')}</select></label>
+    <label>Producto<select name="product">${opt('', m.product, 'Cualquiera')}${opt('casino', m.product, 'Casino')}${opt('sports', m.product, 'Deportes')}</select></label>
+    <label>Tipo de reto<select name="kind">${MISSION_KIND.map(([v, l]) => opt(v, m.kind, l)).join('')}</select></label>
+    <label>Meta<span class="rbunit"><input name="target" type="number" min="1" step="1" required value="${esc(m.kind === 'sum' ? Math.round(m.target / 100) : m.target)}"><span id="munit">${m.kind === 'sum' ? 'COP' : m.kind === 'streak' ? 'días' : 'veces'}</span></span></label>
+    <label>Recompensa<select name="reward_kind">${opt('xp', m.reward.reward_id ? 'item' : 'xp', 'Puntos de fidelidad (XP)')}${rewards.length ? opt('item', m.reward.reward_id ? 'item' : 'xp', 'Recompensa del catálogo (requiere aprobación)') : ''}</select></label>
+    <label id="mxp"${m.reward.reward_id ? ' hidden' : ''}>XP<input name="xp" type="number" min="1" step="10" value="${esc(m.reward.xp ?? 150)}"></label>
+    <label id="mitem"${m.reward.reward_id ? '' : ' hidden'}>Recompensa<select name="reward_id">${rewards.map((r) => opt(r.id, m.reward.reward_id, r.name ?? label(r.id))).join('')}</select></label>
+    <label>Desde<input name="starts_at" type="date" required value="${day(m.starts_at)}"></label>
+    <label>Hasta<input name="ends_at" type="date" required value="${day(m.ends_at)}"></label>
+    <p id="merr" class="bad wide" role="alert" hidden></p>
+  </form>`;
+}
+function missionFromForm(f, brand) {
+  const v = (n) => f.elements[n].value.trim();
+  const kind = v('kind');
+  const m = { id: v('id'), brand_id: brand, name: v('name'), description: v('description'), kind, event_type: v('event_type'), target: kind === 'sum' ? Math.round(Number(v('target')) * 100) : Number(v('target')),
+    reward: v('reward_kind') === 'item' ? { reward_id: v('reward_id') } : { xp: Number(v('xp')) },
+    starts_at: v('starts_at') ? new Date(`${v('starts_at')}T05:00:00Z`).toISOString() : '', ends_at: '' }; // días en hora de Bogotá
+  if (v('event_type') === 'bet.settled' && v('product')) m.product = v('product');
+  if (v('ends_at')) m.ends_at = new Date(Date.parse(`${v('ends_at')}T05:00:00Z`) + 86_400_000 - 1000).toISOString(); // hasta el final del día en Bogotá
+  return m;
+}
+function missionErrors(m) {
+  const e = [];
+  if (!m.name) e.push('Ponle un nombre.');
+  if (!/^[\w-]{3,48}$/.test(m.id)) e.push('El identificador usa 3 a 48 letras, números, - o _.');
+  if (!(m.target >= 1)) e.push('La meta debe ser 1 o más.');
+  if (m.reward.xp !== undefined && !(m.reward.xp >= 1)) e.push('Los XP deben ser 1 o más.');
+  if (!m.starts_at || !m.ends_at || m.ends_at <= m.starts_at) e.push('«Hasta» debe ser posterior a «Desde».');
+  return e;
+}
+
+/** formularios del copiloto a partir del esquema de cada herramienta */
+const COPILOT_LABEL = { definition: 'Definición', value: 'Valor', population: 'Población', estimated_size: 'Tamaño estimado', excluded: 'Excluidos', universe: 'Universo', snapshot_hash: 'Huella de la consulta', valid: 'Válido', issues: 'Observaciones', trace: 'Pasos', status: 'Resultado', incentive: 'Incluye incentivo', saved: 'Guardado', id: 'Identificador', version: 'Versión', period_days: 'Período (días)', reasons: 'Motivos', metric: 'Métrica', days: 'Período (días)', rules: 'Reglas del segmento', exclusions: 'Exclusiones', journey: 'Recorrido', synthetic_profile: 'Perfil sintético', kyc: 'KYC', rg: 'Juego responsable', country: 'País', marketing_email: 'Acepta marketing por email', marketing_inapp: 'Acepta marketing in-app' };
+const COPILOT_VALUE = { players_total: 'Total de jugadores', kyc_verified_rate: '% con KYC verificado', deposits_total: 'Depósitos totales', rg_restricted_count: 'Jugadores con restricción de juego responsable', marketing_email_optin_rate: '% que acepta marketing por email', suppressions_by_reason: 'Supresiones por motivo', campaign_performance: 'Rendimiento por campaña' };
+const COPILOT_TOOL = { query_metric: 'Consultar una métrica', preview_segment: 'Vista previa de un segmento', validate_policy: 'Validar un recorrido contra la política', simulate_journey: 'Simular un recorrido con un perfil sintético', save_draft: 'Guardar un recorrido como borrador' };
+
 function openSegmentWith(rule) {
-  current = 'segments'; renderTabs(); show().then(() => { $('#rules').value = JSON.stringify(rule, null, 2); $('#excl').value = ''; $('#prev').click(); });
+  current = 'segments'; setRoute({}, true); renderTabs(); show().then(async () => { await SEG_READY; $('#rules').value = JSON.stringify(rule, null, 2); $('#excl').value = ''; rbSetRule('rules', rule); rbSetRule('excl', null); $('#prev').click(); });
 }
 const BIND = {
   tower() {
@@ -1396,14 +1524,28 @@ const BIND = {
     if (ROUTE.player) open(ROUTE.player);
   },
   segments() {
+    // formulario de reglas ↔ JSON: el formulario escribe en #rules y #excl, que siguen siendo la fuente de la vista previa
+    SEG_READY = (async () => {
+      const meta = await fieldMetaList();
+      const parse = (el) => { try { return el.value.trim() ? JSON.parse(el.value) : null; } catch { return null; } };
+      mountRuleBuilder($('#rbRules'), 'rules', meta, parse($('#rules')), (r) => { $('#rules').value = JSON.stringify(r ?? { and: [] }, null, 2); }, { legend: 'Incluir jugadores que cumplan', empty: 'Sin condiciones: incluye a todos los jugadores.' });
+      mountRuleBuilder($('#rbExcl'), 'excl', meta, parse($('#excl')), (r) => { $('#excl').value = r ? JSON.stringify(r) : ''; }, { legend: 'Excluir a quienes cumplan', empty: 'Sin exclusiones.' });
+    })();
+    $('#rbapply').onclick = () => {
+      try { rbSetRule('rules', $('#rules').value.trim() ? JSON.parse($('#rules').value) : null); rbSetRule('excl', $('#excl').value.trim() ? JSON.parse($('#excl').value) : null); flash('JSON aplicado al formulario.', 'ok'); }
+      catch { flash('El JSON no es válido: revisa comillas, comas y llaves.', 'bad'); }
+    };
     document.querySelectorAll('[data-use]').forEach((b) => b.onclick = () => {
-      $('#rules').value = JSON.stringify(JSON.parse(b.dataset.use), null, 2);
+      $('#rules').value = JSON.stringify(JSON.parse(b.dataset.use), null, 2); rbSetRule('rules', JSON.parse(b.dataset.use));
       $('#rules').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('#prev').click();
     });
     $('#prev').onclick = async () => {
       try {
         const excl = $('#excl').value.trim();
-        const r = await api('/segments/preview', { method: 'POST', body: { rules: JSON.parse($('#rules').value), exclusions: excl ? JSON.parse(excl) : undefined } });
+        let rules, exclusions;
+        try { rules = JSON.parse($('#rules').value || '{"and":[]}'); exclusions = excl ? JSON.parse(excl) : undefined; }
+        catch { $('#segout').innerHTML = '<p class="bad">El JSON de las reglas no es válido. Usa el formulario o revisa comillas, comas y llaves.</p>'; return; }
+        const r = await api('/segments/preview', { method: 'POST', body: { rules, exclusions } });
         $('#segout').innerHTML = `<div class="grid" style="margin-top:10px"><div class="card"><h2>Tamaño</h2><div class="kpi">${r.size}</div></div><div class="card"><h2>Excluidos</h2><div class="kpi">${r.excluded}</div></div><div class="card"><h2>Universo</h2><div class="kpi">${r.universe}</div></div></div><p class="muted">Snapshot ${esc(r.snapshot_hash.slice(0, 12))}. La elegibilidad se revalida al ejecutar.</p>`;
       } catch (e) { $('#segout').innerHTML = `<p class="bad">${esc(e.message)} ${esc(JSON.stringify(e.data?.errors ?? ''))}</p>`; }
     };
@@ -1637,8 +1779,33 @@ const BIND = {
     document.querySelectorAll('[data-rot]').forEach((b) => b.onclick = async () => {
       try { await api(`/gamification/minigames/${b.dataset.rot}/rotate-seed`, { method: 'POST' }); flash('Semilla rotada: la anterior ya es pública para verificar resultados.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
     });
+    if ($('#mform')) {
+      const f = $('#mform'), brand = $('#brand').value || 'rumbawin';
+      const sync = () => {
+        const kind = f.elements.kind.value;
+        $('#munit').textContent = kind === 'sum' ? 'COP' : kind === 'streak' ? 'días' : 'veces';
+        f.elements.product.disabled = f.elements.event_type.value !== 'bet.settled';
+        $('#mxp').hidden = f.elements.reward_kind.value !== 'xp'; $('#mitem').hidden = f.elements.reward_kind.value !== 'item';
+        const m = missionFromForm(f, brand); $('#mdraft').value = JSON.stringify(m, null, 2);
+        const errs = missionErrors(m); $('#merr').hidden = !errs.length; $('#merr').textContent = errs.join(' ');
+        return { m, errs };
+      };
+      f.oninput = f.onchange = sync; sync();
+      // el identificador se propone a partir del nombre mientras no se edite a mano
+      let idTouched = false; f.elements.id.oninput = () => { idTouched = true; sync(); };
+      f.elements.name.addEventListener('input', () => { if (!idTouched) { f.elements.id.value = `m_${f.elements.name.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'nueva'}`; sync(); } });
+      $('#mapply').onclick = () => {
+        let m; try { m = JSON.parse($('#mdraft').value); } catch { flash('El JSON no es válido: revisa comillas, comas y llaves.', 'bad'); return; }
+        const tmp = document.createElement('div'); tmp.innerHTML = missionFormHtml({ reward: {}, ...m }, MISSION_REWARDS);
+        f.replaceWith(tmp.firstElementChild); BIND.gamification(); flash('JSON aplicado al formulario.', 'ok');
+      };
+    }
     if ($('#msave')) $('#msave').onclick = async () => {
-      try { const m = await api('/gamification/missions', { method: 'POST', body: JSON.parse($('#mdraft').value) }); flash(`Borrador «${m.name}» guardado.`, 'ok'); show(); }
+      // si el formulario está a la vista, valida antes de enviar; el JSON avanzado se envía tal cual
+      const advanced = $('#mdraft').closest('details')?.open;
+      if ($('#mform') && !advanced) { const errs = missionErrors(missionFromForm($('#mform'), $('#brand').value || 'rumbawin')); if (errs.length) { $('#merr').hidden = false; $('#merr').textContent = errs.join(' '); $('#mform').elements.name.focus(); return; } }
+      let body; try { body = JSON.parse($('#mdraft').value); } catch { flash('El JSON de la misión no es válido.', 'bad'); return; }
+      try { const m = await api('/gamification/missions', { method: 'POST', body }); flash(`Borrador «${m.name}» guardado.`, 'ok'); show(); }
       catch (e) { flash(e.message, 'bad'); }
     };
   },
@@ -1666,13 +1833,65 @@ const BIND = {
     const samples = { query_metric: { metric: 'kyc_verified_rate' }, preview_segment: { rules: { field: 'kyc', op: 'eq', value: 'verified' }, exclusions: { field: 'rg', op: 'neq', value: 'none' } }, validate_policy: { journey: { id: 'j_demo', purpose: 'marketing', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'inapp', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] } } };
     samples.simulate_journey = { ...samples.validate_policy, synthetic_profile: { rg: 'self_excluded' } };
     samples.save_draft = samples.validate_policy;
-    const fill = () => { $('#tin').value = JSON.stringify(samples[$('#tool').value] ?? {}, null, 2); };
-    if ($('#tool')) { $('#tool').onchange = fill; fill(); }
+    // formulario generado desde el esquema de la herramienta; escribe el JSON en #tin
+    const latest = Object.values(COPILOT.journeys.reduce((m, j) => ((m[j.id] = j), m), {}));
+    const fill = async () => {
+      const t = COPILOT.tools.find((x) => x.name === $('#tool').value); if (!t) return;
+      $('#tdesc').textContent = t.description;
+      const meta = await fieldMetaList();
+      const props = t.input_schema?.properties ?? {}, req = new Set(t.input_schema?.required ?? []);
+      const init = samples[t.name] ?? {};
+      const opt = (v, cur, l) => `<option value="${esc(v)}"${String(v) === String(cur ?? '') ? ' selected' : ''}>${esc(l)}</option>`;
+      const metaOf = (k) => meta.find((m) => m.field === k);
+      const field = (k, sc, val, path) => {
+        const name = COPILOT_LABEL[k] ?? k, id = `tf_${path.replace(/\./g, '_')}`, r = req.has(k) ? ' required' : '';
+        if (k === 'rules' || k === 'exclusions') return `<div class="wide" data-trb="${esc(path)}"></div>`;
+        if (k === 'journey') return `<label class="wide">${name}<select id="${id}" data-tp="${esc(path)}" data-tk="journey">${CAN_DRAFT_OPT()}${latest.map((j) => opt(j.id, val?.id, `${j.name} (v${j.version})`)).join('')}</select></label>`;
+        if (sc.type === 'object' && sc.properties) return `<fieldset class="wide"><legend>${name}</legend><div class="mform">${Object.entries(sc.properties).map(([kk, ss]) => field(kk, ss, val?.[kk], `${path}.${kk}`)).join('')}</div></fieldset>`;
+        if (sc.enum) return `<label>${name}<select id="${id}" data-tp="${esc(path)}"${r}>${sc.enum.map((v) => opt(v, val, COPILOT_VALUE[v] ?? label(v))).join('')}</select></label>`;
+        const fm = metaOf(k);
+        if (fm?.type === 'enum') return `<label>${name}<select id="${id}" data-tp="${esc(path)}">${opt('', val, '— sin indicar —')}${fm.values.map(([v, l]) => opt(v, val, l)).join('')}</select></label>`;
+        if (sc.type === 'boolean') return `<label class="chk"><input type="checkbox" id="${id}" data-tp="${esc(path)}" data-tt="bool"${val ? ' checked' : ''}> ${name}</label>`;
+        if (sc.type === 'integer' || sc.type === 'number') return `<label>${name}<input type="number" id="${id}" data-tp="${esc(path)}" data-tt="num"${sc.minimum !== undefined ? ` min="${sc.minimum}"` : ''}${sc.maximum !== undefined ? ` max="${sc.maximum}"` : ''} value="${esc(val ?? '')}" placeholder="opcional"></label>`;
+        return `<label>${name}<input id="${id}" data-tp="${esc(path)}" value="${esc(val ?? '')}"${r}></label>`;
+      };
+      $('#tform').innerHTML = Object.entries(props).map(([k, sc]) => field(k, sc, init[k], k)).join('') || '<p class="muted">Esta herramienta no necesita parámetros.</p>';
+      const state = structuredClone(init);
+      const set = (path, v) => { const ks = path.split('.'); let o = state; ks.slice(0, -1).forEach((k) => (o = o[k] ??= {})); if (v === undefined || v === '' || v === null) delete o[ks.at(-1)]; else o[ks.at(-1)] = v; };
+      const write = () => { $('#tin').value = JSON.stringify(state, null, 2); };
+      $('#tform').querySelectorAll('[data-tp]').forEach((el) => el.onchange = el.oninput = () => {
+        const p = el.dataset.tp;
+        if (el.dataset.tk === 'journey') set(p, el.value === '__draft' ? (B.def ? (({ layout, ...rest }) => rest)(B.def) : undefined) : latest.find((j) => j.id === el.value));
+        else set(p, el.dataset.tt === 'bool' ? el.checked : el.dataset.tt === 'num' ? (el.value === '' ? undefined : Number(el.value)) : el.value);
+        write();
+      });
+      $('#tform').querySelectorAll('[data-trb]').forEach((el) => mountRuleBuilder(el, `cp_${el.dataset.trb}`, meta, init[el.dataset.trb] ?? null, (r) => { set(el.dataset.trb, r ?? undefined); write(); }, { legend: COPILOT_LABEL[el.dataset.trb] ?? el.dataset.trb, empty: el.dataset.trb === 'rules' ? 'Agrega al menos una condición.' : 'Sin exclusiones.' }));
+      // el recorrido de ejemplo arranca con el primero de la lista (o el borrador del Constructor)
+      const js = $('#tform').querySelector('[data-tk="journey"]'); if (js) js.onchange();
+      write();
+    };
+    const CAN_DRAFT_OPT = () => (B.def ? `<option value="__draft">Borrador actual del Constructor («${esc(B.def.name || B.def.id)}»)</option>` : '');
+    if ($('#tool')) { $('#tool').onchange = () => { $('#cres').innerHTML = ''; $('#cout').textContent = ''; fill(); }; fill(); }
     $('#call').onclick = async () => {
+      $('#cres').innerHTML = '<p class="muted">Ejecutando…</p>'; $('#cout').textContent = '';
       let body;
       try { body = JSON.parse($('#tin').value || '{}'); }
       catch { $('#cout').textContent = 'Los parámetros no son JSON válido. Usa comillas dobles en los nombres y valores de texto, por ejemplo {"metric": "kyc_verified_rate"}. Puedes volver al ejemplo eligiendo de nuevo la herramienta.'; $('#tin').focus(); return; }
-      try { $('#cout').textContent = JSON.stringify(await api('/copilot/tools/' + $('#tool').value, { method: 'POST', body }), null, 2); } catch (e) { $('#cout').textContent = `No se pudo ejecutar: ${e.message}`; }
+      try {
+        const r = await api('/copilot/tools/' + $('#tool').value, { method: 'POST', body });
+        $('#cout').textContent = JSON.stringify(r, null, 2);
+        const d = r.data;
+        const STEP = { enter: 'Entra', wait: 'Espera', condition: 'Condición', message: 'Mensaje', grant_reward: 'Recompensa', split: 'Prueba A/B/n', exit: 'Fin' };
+        // pasos de una simulación como lista legible; listas simples unidas; el resto, JSON corto
+        const showVal = (v) => Array.isArray(v) && v.every((x) => x && typeof x === 'object' && 'type' in x && 'outcome' in x)
+          ? `<ol>${v.map((t) => `<li>${esc(STEP[t.type] ?? t.type)}: ${lbl(t.outcome)}${t.decision?.reasons?.length ? ` <span class="muted">· ${t.decision.reasons.map(lbl).join(', ')}</span>` : ''}</li>`).join('')}</ol>`
+          : Array.isArray(v) && v.every((x) => typeof x !== 'object') ? (v.map((x) => show1(x)).join(', ') || '—')
+          : v && typeof v === 'object' ? `<code>${esc(JSON.stringify(v).slice(0, 160))}</code>` : show1(v);
+        const show1 = (x) => typeof x === 'number' ? (x > 0 && x < 1 ? pct(x) : int(x)) : typeof x === 'boolean' ? (x ? 'Sí' : 'No') : typeof x === 'string' ? esc(COPILOT_VALUE[x] ?? label(x)) : esc(JSON.stringify(x));
+        $('#cres').innerHTML = !r.ok ? `<p class="bad">No se pudo ejecutar: ${esc(label(r.error))}</p>`
+          : d && typeof d === 'object' && !Array.isArray(d) ? `<table class="psheet" aria-label="Resultado"><tbody>${Object.entries(d).slice(0, 14).map(([k, v]) => `<tr><th scope="row">${esc(COPILOT_LABEL[k] ?? label(k))}</th><td>${showVal(v)}</td></tr>`).join('')}</tbody></table>`
+          : `<p class="kpi">${show1(d)}</p>`;
+      } catch (e) { $('#cres').innerHTML = `<p class="bad">No se pudo ejecutar: ${esc(e.message)}</p>`; }
     };
     if ($('#ask')) $('#ask').onclick = async () => { $('#cout').textContent = 'Consultando…'; try { $('#cout').textContent = JSON.stringify(await api('/copilot/ask', { method: 'POST', body: { question: $('#q').value } }), null, 2); } catch (e) { $('#cout').textContent = e.message; } };
   },
