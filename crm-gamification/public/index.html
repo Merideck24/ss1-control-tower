@@ -177,6 +177,10 @@
   .jnode.sel { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
   .jnode.err { border-color: var(--status-critical); }
   .jnode.target { outline: 2px dashed var(--brand); outline-offset: 2px; cursor: crosshair; }
+  .jnode .jbody { all: unset; box-sizing: border-box; position: absolute; inset: 0; padding: 8px 10px; border-radius: inherit; display: flex; flex-direction: column; justify-content: flex-start; cursor: inherit; color: inherit; font: inherit; text-align: left; }
+  .jnode .jbody:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .jnode .port { z-index: 1; }
+  .simlabel { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
   .jnode .t { font-weight: 500; display: flex; gap: 6px; align-items: center; }
   .jnode .s { color: rgba(231, 227, 216, .66); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .jnode .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); }
@@ -618,7 +622,7 @@ const LABELS = {
   // jugador
   verified: 'Verificado', pending: 'Pendiente', unverified: 'Sin verificar', none: 'Sin restricción', self_excluded: 'Autoexcluido', cooling_off: 'Pausa temporal', limited: 'Con límites',
   // decisiones y entregas
-  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', accepted: 'Entregado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
+  allow: 'Permitido', deny: 'Bloqueado', defer: 'Diferido', accepted: 'Aceptado', suppressed: 'Suprimido', deferred: 'Diferido', granted: 'Otorgada', confirmed: 'Confirmada', budget_exhausted: 'Sin presupuesto',
   inapp: 'In-app', email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', webpush: 'Push web', telegram: 'Telegram',
   frequency_cap: 'Tope diario de mensajes', frequency_cap_week: 'Tope semanal de mensajes', frequency_cap_channel: 'Tope del canal', quiet_hours: 'Horario silencioso', quiet_hours_until: 'Horario silencioso hasta',
   marketing_consent_revoked: 'Retiró el consentimiento de marketing', no_marketing_consent: 'Sin consentimiento de marketing', channel_disabled: 'Canal desactivado en el mercado',
@@ -722,9 +726,11 @@ function bCanvas() {
   return `<div class="canvas" id="bcanvas" style="width:${w}px;height:${h}px">
     <svg width="${w}" height="${h}"><defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="rgba(255,255,255,.5)" stroke="none"/></marker></defs>${bEdges()}</svg>
     ${B.def.nodes.map((n) => { const p = L[n.id] ?? { x: 24, y: 24 }; const os = outs(n);
-      return `<div class="jnode${B.sel === n.id ? ' sel' : ''}${bad.has(n.id) ? ' err' : ''}${B.connecting && B.connecting.id !== n.id ? ' target' : ''}" data-jn="${esc(n.id)}" style="left:${p.x}px;top:${p.y}px" role="button" tabindex="0" aria-label="${esc(NODE_LABEL[n.type])} ${esc(n.id)}">
-        <div class="t"><span class="tag">${B.def.entry === n.id ? 'Inicio · ' : ''}${esc(NODE_LABEL[n.type])}</span></div><div class="t">${esc(n.id)}</div><div class="s">${esc(nodeSummary(n))}</div>
-        ${os.map(([k, lab], i) => `<button class="port${B.connecting?.id === n.id && B.connecting.key === k ? ' on' : ''}" style="left:${portX(os, i) - 9}px" data-port="${esc(n.id)}" data-key="${k}" title="Conectar ${esc(lab || 'siguiente')}" aria-label="Conectar salida ${esc(lab || 'siguiente')} de ${esc(n.id)}">${lab ? esc(lab[0]) : '↓'}</button>`).join('')}</div>`; }).join('')}</div>`;
+      const target = B.connecting && B.connecting.id !== n.id;
+      return `<div class="jnode${B.sel === n.id ? ' sel' : ''}${bad.has(n.id) ? ' err' : ''}${target ? ' target' : ''}" data-jn="${esc(n.id)}" style="left:${p.x}px;top:${p.y}px">
+        <button type="button" class="jbody" data-jsel="${esc(n.id)}" aria-pressed="${B.sel === n.id}" aria-label="${target ? 'Conectar aquí: ' : ''}${B.def.entry === n.id ? 'Inicio, ' : ''}${esc(NODE_LABEL[n.type])} ${esc(n.id)}: ${esc(nodeSummary(n))}${bad.has(n.id) ? ' (con errores)' : ''}">
+        <span class="t"><span class="tag">${B.def.entry === n.id ? 'Inicio · ' : ''}${esc(NODE_LABEL[n.type])}</span></span><span class="t">${esc(n.id)}</span><span class="s">${esc(nodeSummary(n))}</span></button>
+        ${os.map(([k, lab], i) => `<button class="port${B.connecting?.id === n.id && B.connecting.key === k ? ' on' : ''}" style="left:${portX(os, i) - 9}px" data-port="${esc(n.id)}" data-key="${k}" title="Conectar ${esc(lab || 'siguiente')}" aria-pressed="${B.connecting?.id === n.id && B.connecting.key === k}" aria-label="Conectar salida ${esc(lab || 'siguiente')} de ${esc(n.id)}">${lab ? esc(lab[0]) : '↓'}</button>`).join('')}</div>`; }).join('')}</div>`;
 }
 function bInspector() {
   const n = B.sel && bNode(B.sel); const c = B.catalog;
@@ -755,9 +761,12 @@ function bIssues() {
 }
 function bDraw() {
   if (!$('#bcanvas-wrap')) return;
+  const a = document.activeElement;
+  const keep = a && $('#bcanvas-wrap').contains(a) ? (a.dataset.jsel !== undefined ? `[data-jsel="${CSS.escape(a.dataset.jsel)}"]` : a.dataset.port !== undefined ? `[data-port="${CSS.escape(a.dataset.port)}"][data-key="${CSS.escape(a.dataset.key)}"]` : null) : null;
   $('#bcanvas-wrap').innerHTML = bCanvas(); $('#binspector').innerHTML = bInspector(); $('#bissues').innerHTML = bIssues();
   $('#bjson').value = JSON.stringify(B.def, null, 2);
   bBindCanvas();
+  if (keep) document.querySelector(`#bcanvas-wrap ${keep}`)?.focus();
 }
 const draftKey = () => `ss1-crm-builder-draft-v1:${EMBED.session?.tenantId ?? $('#tenant').value}`;
 function bChanged() { bDraw(); clearTimeout(B.timer); B.timer = setTimeout(bReview, 250); store.set(draftKey(), JSON.stringify(B.def)); }
@@ -769,26 +778,30 @@ async function bReview() {
 }
 function bBindCanvas() {
   document.querySelectorAll('[data-port]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); B.connecting = B.connecting?.id === b.dataset.port && B.connecting.key === b.dataset.key ? null : { id: b.dataset.port, key: b.dataset.key }; bDraw(); });
+  // Escape cancela una conexión en curso
+  if ($('#bcanvas')) $('#bcanvas').onkeydown = (ev) => { if (ev.key === 'Escape' && B.connecting) { const from = B.connecting; B.connecting = null; bDraw(); document.querySelector(`[data-port="${CSS.escape(from.id)}"][data-key="${CSS.escape(from.key)}"]`)?.focus(); } };
+  document.querySelectorAll('[data-jsel]').forEach((b) => b.onclick = () => {
+    if (B.dragged) { B.dragged = false; return; } // el arrastre terminó sobre el paso: no es un clic
+    const id = b.dataset.jsel;
+    if (B.connecting) { if (B.connecting.id !== id) { setOut(bNode(B.connecting.id), B.connecting.key, id); } B.connecting = null; B.sel = id; bChanged(); return; }
+    B.sel = id; bDraw();
+  });
   document.querySelectorAll('[data-jn]').forEach((el) => {
     const id = el.dataset.jn;
-    el.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); el.onclick(); } };
-    el.onclick = () => {
-      if (B.connecting) { if (B.connecting.id !== id) { setOut(bNode(B.connecting.id), B.connecting.key, id); } B.connecting = null; B.sel = id; bChanged(); return; }
-      B.sel = id; bDraw();
-    };
     el.onpointerdown = (ev) => {
       if (ev.target.closest('[data-port]') || B.connecting) return;
       const start = { x: ev.clientX, y: ev.clientY, p: { ...(B.def.layout[id] ?? { x: 0, y: 0 }) } }; let moved = false;
-      el.setPointerCapture(ev.pointerId);
+      // la captura empieza solo al arrastrar: con captura desde el inicio, el clic iría al contenedor y no al botón del paso
       el.onpointermove = (m) => {
         const dx = m.clientX - start.x, dy = m.clientY - start.y;
         if (!moved && Math.hypot(dx, dy) < 4) return;
+        if (!moved) el.setPointerCapture(ev.pointerId);
         moved = true; B.manual = true;
         const p = { x: Math.max(0, Math.round((start.p.x + dx) / 10) * 10), y: Math.max(0, Math.round((start.p.y + dy) / 10) * 10) };
         B.def.layout[id] = p; el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
         $('#bcanvas svg').innerHTML = $('#bcanvas svg defs').outerHTML + bEdges();
       };
-      el.onpointerup = () => { el.onpointermove = null; el.onpointerup = null; if (moved) { el.onclick = null; setTimeout(bDraw, 0); } };
+      el.onpointerup = () => { el.onpointermove = null; el.onpointerup = null; if (moved) { B.dragged = true; setTimeout(() => { B.dragged = false; bDraw(); }, 0); } };
     };
   });
   document.querySelectorAll('[data-goto]').forEach((li) => li.onclick = () => { B.sel = li.dataset.goto; bDraw(); });
@@ -828,7 +841,7 @@ const VIEWS = {
       ${can('runtime.global_pause') ? `<button class="ghost" id="gpause">${t.global_pause ? 'Reanudar envíos' : 'Pausa general'}</button>` : ''}
       <span class="muted">Datos al ${new Date(t.as_of).toLocaleString('es-CO')}</span></div>
     <div class="grid">
-      <div class="card"><h3>Entregas aceptadas</h3><div class="kpi">${delivered}</div></div>
+      <div class="card"><h3 title="Mensajes que el canal o el proveedor aceptó; la llegada al dispositivo la confirma cada proveedor">Envíos aceptados</h3><div class="kpi">${delivered}</div></div>
       <div class="card"><h3>Supresiones</h3><div class="kpi">${suppressed}</div></div>
       <div class="card"><h3>Diferidos (horario silencioso)</h3><div class="kpi">${t.deferred}</div></div>
       <div class="card"><h3>Cola de errores</h3><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
@@ -893,7 +906,7 @@ const VIEWS = {
       <div class="card"><h3>${esc(j.name)}</h3><div class="row">${statusChip(j.status)}<span class="chip">v${j.version}</span><span class="chip" title="${esc(j.trigger.event_type)}">disparador: ${esc(label(j.trigger.event_type))}</span>${j.overlap ? `<span class="chip brand">${esc(j.overlap.group)} · prioridad ${j.overlap.priority}</span>` : ''}</div>
         <ol>${j.as_list.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
         ${j.validation.length ? `<p class="bad">${j.validation.map(esc).join(', ')}</p>` : '<p class="ok">Grafo válido</p>'}
-        <div class="row"><select data-simp="${esc(j.id)}">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select>
+        <div class="row"><label class="simlabel">Jugador para simular <select data-simp="${esc(j.id)}" aria-label="Jugador para simular «${esc(j.name)}»">${players.slice(0, 40).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label>
           ${can('journeys.simulate') ? `<button class="ghost" data-sim="${esc(j.id)}">Simular</button>` : ''}
           ${can('journeys.draft') ? `<button class="ghost" data-edit="${esc(j.id)}">Editar en el lienzo</button>` : ''}
           ${!can('journeys.pause') ? '' : j.status === 'published' ? `<button class="ghost" data-pause="${esc(j.id)}">Pausar</button>` : j.status === 'paused' ? `<button class="ghost" data-resume="${esc(j.id)}">Reanudar</button>` : ''}</div>
@@ -994,9 +1007,9 @@ const VIEWS = {
         <td class="num">${v.rate === null ? '—' : `${pct(v.rate, 1)} <span class="muted">[${pct(v.ci95[0], 1)}; ${pct(v.ci95[1], 1)}]</span>`}</td><td class="num">${v.p_best === null ? '—' : pct(v.p_best, 0)}</td><td class="num">${pct(v.allocation, 0)}</td></tr>`).join('')}</table>
       <p>${esc(x.decision)}</p>`).join('')}<p class="muted">${esc(sp.note)}</p></div><br>`;
     const CHN = { inapp: 'In-app (bandeja)', email: 'Email', webpush: 'Push web', sms: 'SMS', whatsapp: 'WhatsApp', telegram: 'Telegram' };
-    const chCard = `<div class="card scroll"><h3>Canales de entrega</h3><table><tr><th>Canal</th><th class="num">Entregados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
+    const chCard = `<div class="card scroll"><h3>Canales de entrega</h3><table><tr><th>Canal</th><th class="num" title="Aceptados por el canal o el proveedor">Aceptados</th><th class="num">Fallidos</th><th class="num">Suprimidos</th><th class="num">Diferidos</th><th>Motivos principales</th></tr>
       ${chs.channels.map((c) => `<tr><td>${esc(CHN[c.channel] ?? c.channel)}</td><td class="num">${int(c.accepted)}</td><td class="num">${int(c.failed)}</td><td class="num">${int(c.suppressed)}</td><td class="num">${int(c.deferred)}</td><td class="muted">${c.top_reasons.map((r) => `${lbl(r.reason)} (${int(r.n)})`).join(' · ')}</td></tr>`).join('')}</table>
-      <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} entregados, ${int(chs.inbox.read)} abiertos por el jugador (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Una apertura se cuenta cuando el jugador abre o archiva el mensaje en su bandeja. Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
+      <p class="muted">Bandeja in-app: ${int(chs.inbox.delivered)} mensajes en la bandeja, ${int(chs.inbox.read)} abiertos por el jugador (${chs.inbox.delivered ? pct(chs.inbox.read / chs.inbox.delivered, 0) : '—'}). Una apertura se cuenta cuando el jugador abre o archiva el mensaje en su bandeja. Transporte SMS/WhatsApp/Telegram: ${esc(chs.transport)}. ${esc(chs.note)}</p></div><br>`;
     const JN = (n) => n === null || n === undefined ? '—' : `${n >= 0 ? '+' : '−'}${moneyC(Math.abs(n))}`;
     const impactCard = `<div class="card scroll"><h3>Ranking de recorridos por impacto</h3><table><tr><th>#</th><th>Recorrido</th><th class="num">Tratados / control</th><th class="num">Depósito tras entrar</th><th class="num">NGR por jugador (trat. / ctrl.)</th><th class="num">Incremento por jugador (IC 95 %)</th><th class="num">Costo</th><th class="num">ROI</th></tr>
       ${ji.journeys.map((r, i) => `<tr><td>${r.rank_score === null ? '—' : i + 1}</td><td>${esc(r.name)}${r.lift.note ? `<br><span class="warn">${esc(r.lift.note)}</span>` : ''}</td><td class="num">${int(r.treatment.n)} / ${int(r.control.n)}${r.maturing ? `<br><span class="muted">${int(r.maturing)} madurando</span>` : ''}</td>

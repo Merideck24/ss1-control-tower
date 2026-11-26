@@ -9,7 +9,7 @@ const sum = (suffix: string) => computed(() => Object.entries(props.tower.delive
 const delivered = sum(':accepted')
 const suppressed = sum(':suppressed')
 const kpis = computed(() => [
-  { label: 'Entregas aceptadas', value: int(delivered.value), icon: 'tabler-send', color: 'primary' },
+  { label: 'Envíos aceptados', value: int(delivered.value), icon: 'tabler-send', color: 'primary' },
   { label: 'Supresiones', value: int(suppressed.value), icon: 'tabler-shield-check', color: 'secondary' },
   { label: 'Diferidos', value: int(props.tower.deferred), icon: 'tabler-clock-pause', color: 'info' },
   { label: 'Cola de errores', value: int(props.tower.dead_letters), icon: 'tabler-alert-octagon', color: props.tower.dead_letters ? 'error' : 'success' },
