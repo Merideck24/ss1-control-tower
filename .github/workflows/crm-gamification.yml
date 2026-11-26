@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # PostgreSQL real para las pruebas de persistencia (test/db_postgres.test.ts)
+    # PostgreSQL real para las pruebas de persistencia (test/db_postgres.test.ts, test/db_runtime.test.ts)
     services:
       postgres:
         image: postgres:16
@@ -33,3 +33,46 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run pam:contract
+  # Pruebas de navegador: demo publicada (build estático) y web + worker reales sobre PostgreSQL de
+  # prueba, con datos sintéticos. No usan credenciales ni datos reales de SS1.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: crm
+          POSTGRES_PASSWORD: crm
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U crm" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgres://crm:crm@localhost:5432/postgres
+      CI: '1'
+    defaults:
+      run:
+        working-directory: crm-gamification
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crm-gamification/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:static
+      - run: npm run e2e
+      - name: Trazas, capturas y registros de los servicios
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ github.sha }}
+          path: |
+            crm-gamification/test-results/
+            crm-gamification/playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore

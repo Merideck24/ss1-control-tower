@@ -17,5 +17,8 @@
     "src",
     "test",
     "integrations/ss1-admin/*.ts"
+  ],
+  "exclude": [
+    "test/e2e"
   ]
 }

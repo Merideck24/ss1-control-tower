@@ -2,6 +2,15 @@ import type { AuditLog } from '../audit/audit.ts';
 import { DomainError, sha256, type Clock } from '../shared/util.ts';
 import { hasIncentive, validateJourney, type JourneyDefinition } from './model.ts';
 
+/** JSON con claves ordenadas: la firma no depende del orden en que la base (jsonb) devuelve las claves. */
+export function canonical(v: unknown): string {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';
+  if (Array.isArray(v)) return `[${v.map((x) => (x === undefined ? 'null' : canonical(x))).join(',')}]`;
+  const o = v as Record<string, unknown>;
+  return `{${Object.keys(o).filter((k) => o[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`).join(',')}}`;
+}
+const signed = (j: JourneyDefinition, approver: string | undefined) => ({ id: j.id, version: j.version, nodes: j.nodes, trigger: j.trigger, purpose: j.purpose, approver });
+
 export type Role = 'crm_analyst' | 'approver' | 'support' | 'rg_officer' | 'tenant_admin' | 'auditor' | 'copilot';
 /** `scopes`: solo en llaves de servicio (máquina a máquina); las personas usan roles. */
 export type Actor = { id: string; tenant_id: string; roles: Role[]; scopes?: string[] };
@@ -51,7 +60,7 @@ export class JourneyRegistry {
     if (j.created_by === actor.id) throw new DomainError('segregation_of_duties', 'author cannot approve own journey');
     j.status = 'approved';
     j.approved_by = actor.id;
-    j.approval_signature = sha256(JSON.stringify({ id: j.id, version: j.version, nodes: j.nodes, trigger: j.trigger, purpose: j.purpose, approver: actor.id }));
+    j.approval_signature = sha256(canonical(signed(j, actor.id)));
     this.#audit.record(actor.tenant_id, actor.id, 'journey.approved', `${id}@v${j.version}`, { signature: j.approval_signature });
     return j;
   }
@@ -61,8 +70,9 @@ export class JourneyRegistry {
     const versions = this.#versions.get(this.#key(actor.tenant_id, id)) ?? [];
     const j = versions.at(-1);
     if (!j || j.status !== 'approved') throw new DomainError('not_approved', 'journey must be approved before publish');
-    const expected = sha256(JSON.stringify({ id: j.id, version: j.version, nodes: j.nodes, trigger: j.trigger, purpose: j.purpose, approver: j.approved_by }));
-    if (expected !== j.approval_signature) throw new DomainError('signature_mismatch', 'content changed after approval');
+    // firma canónica; se acepta también la de antes de la Fase 2 (JSON.stringify) para lo ya aprobado
+    const ok = [sha256(canonical(signed(j, j.approved_by))), sha256(JSON.stringify(signed(j, j.approved_by)))].includes(j.approval_signature ?? '');
+    if (!ok) throw new DomainError('signature_mismatch', 'content changed after approval');
     // las versiones publicadas están congeladas: se reemplazan (no se mutan) por su copia archivada
     for (let i = 0; i < versions.length; i++) if (versions[i].status === 'published' || versions[i].status === 'paused') versions[i] = deepFreeze({ ...structuredClone(versions[i]), status: 'archived' as const });
     const published = deepFreeze({ ...structuredClone(j), status: 'published' as const, updated_at: this.#clock.now().toISOString() });
@@ -110,7 +120,8 @@ export class JourneyRegistry {
     for (const d of defs) {
       const k = this.#key(d.tenant_id, d.id);
       const vs = this.#versions.get(k) ?? [];
-      const v = d.status === 'draft' ? structuredClone(d) : deepFreeze(structuredClone(d));
+      // solo lo publicado (o posterior) es inmutable; borrador, pendiente y aprobado siguen su ciclo
+      const v = ['published', 'paused', 'archived', 'closed'].includes(d.status) ? deepFreeze(structuredClone(d)) : structuredClone(d);
       const i = vs.findIndex((x) => x.version === d.version);
       if (i >= 0) vs[i] = v; else vs.push(v);
       vs.sort((a, b) => a.version - b.version);

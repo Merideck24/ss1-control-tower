@@ -18,13 +18,17 @@
     "test:db": "node --test test/db_postgres.test.ts test/db_runtime.test.ts",
     "start:prod": "node src/api/server.ts",
     "pam:contract": "node scripts/pam-contract.ts",
-    "worker": "node src/worker.ts"
+    "worker": "node src/worker.ts",
+    "e2e": "playwright test",
+    "e2e:demo": "playwright test --project=demo"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.23.1",
     "@vue/compiler-sfc": "^3.5.46",
     "@vue/server-renderer": "^3.5.46",
+    "axe-core": "^4.10.2",
     "esbuild": "^0.28.2",
     "typescript": "^5.8.3",
     "vue": "^3.5.46",

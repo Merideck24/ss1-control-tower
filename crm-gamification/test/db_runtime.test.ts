@@ -219,3 +219,22 @@ test('DB fase 2: RLS en recibos y reprocesos; un solo worker activo', { skip }, 
   await l3.release();
   await app.end();
 });
+
+test('DB fase 2: el ciclo de aprobación sobrevive a la sincronización y al reinicio (firma estable con jsonb)', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  const a = await proc('web', clock);
+  a.app.registry.saveDraft(actor('ana@ss1', 'crm_analyst'), { id: 'j_sig', brand_id: 'rumbawin', name: 'Firma', purpose: 'service', trigger: { event_type: 'deposit.settled' }, entry: 'm', nodes: [{ id: 'm', type: 'message', channel: 'email', template: 'deposit_progress', next: 'e' }, { id: 'e', type: 'exit' }] } as never);
+  a.app.registry.submit(actor('ana@ss1', 'crm_analyst'), 'j_sig');
+  await a.boot.flush();
+  // otra réplica aprueba lo que llegó por la base (antes: la versión restaurada estaba congelada → 500)
+  const b = await proc('web', clock);
+  b.app.registry.approve(actor('beto@ss1', 'approver'), 'j_sig');
+  await b.boot.flush();
+  await a.boot.stop(); await b.boot.stop();
+  // tras reiniciar, la firma se verifica sobre la copia que devolvió jsonb (antes: «content changed after approval»)
+  const c = await proc('web', clock);
+  const pub = c.app.registry.publish(actor('beto@ss1', 'approver'), 'j_sig');
+  assert.equal(pub.status, 'published');
+  await c.boot.stop();
+});
