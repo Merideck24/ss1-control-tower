@@ -74,6 +74,7 @@ Cada migración agrega su prueba de renderizado.
 
 1. Gateway de SS1 con las credenciales de email, WhatsApp (con plantillas aprobadas por Meta), SMS y push. El CRM no guarda teléfonos ni secretos.
 2. Cumplimiento y el equipo de juego responsable fijan por mercado: topes de envío, horario silencioso, umbrales de riesgo y de abuso, e impuesto sobre GGR (hoy el 15 % es un valor de ejemplo).
+   - Decidido: la felicitación por subir de nivel es marketing y cuenta para los topes (2 al día y 5 a la semana por defecto). Si ya se alcanzó el tope, se suprime con su motivo y no se reenvía.
 3. Reentrenar y validar los modelos con datos reales.
 4. Grupo de control en todos los recorridos de marketing (j4 no lo tiene).
 5. Probar la redacción de plantillas con IA usando credenciales reales.

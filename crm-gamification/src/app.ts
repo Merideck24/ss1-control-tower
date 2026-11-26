@@ -200,6 +200,8 @@ export function seedTenant(app: App, tenant_id: string, brand_id = 'rumbawin') {
     { ...base, id: 'j4_loyalty_halfway', name: 'Nivel → cruce del 50 %', purpose: 'marketing', trigger: { event_type: 'loyalty.threshold_crossed' }, entry: 'notify', nodes: [
       { id: 'notify', type: 'message', channel: 'inapp', template: 'loyalty_halfway', next: 'end' },
       { id: 'end', type: 'exit' }] },
+    // Decisión de producto (2026-11-26): la felicitación es marketing y respeta los topes del mercado
+    // (2 al día y 5 a la semana por defecto). Si el tope ya se alcanzó, queda suprimida con su motivo y no se reenvía.
     { ...base, id: 'j5_level_up', name: 'Subida de nivel → felicitación', purpose: 'marketing', control_group_pct: 10, trigger: { event_type: 'loyalty.level_up' }, entry: 'notify', nodes: [
       { id: 'notify', type: 'message', channel: 'inapp', template: 'loyalty_level_up', next: 'end' },
       { id: 'end', type: 'exit' }] },
