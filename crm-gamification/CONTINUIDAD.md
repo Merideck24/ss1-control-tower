@@ -10,7 +10,7 @@ Estado para retomar el trabajo sin contexto previo. Última actualización: 2026
 | Correr el backend | `npm start` → http://localhost:3000 (auth de desarrollo). Con PostgreSQL: `npm run db:migrate`, luego `CRM_ROLE=web npm start` y `npm run worker` |
 | Saber qué está cerrado y qué falta | [docs/CIERRE_FASES_1_2.md](docs/CIERRE_FASES_1_2.md): matriz de cierre de las fases 1 y 2 |
 | Reprocesar fallas | Pantalla «Cola de fallas»; reglas en `src/channels/failures.ts` |
-| Pedir accesos a SS1 | [docs/SS1_SOLICITUD_FASE2.md](docs/SS1_SOLICITUD_FASE2.md) (pendiente de envío) |
+| Pedir accesos a SS1 | [docs/SS1_SOLICITUD_INTEGRACION.html](docs/SS1_SOLICITUD_INTEGRACION.html) (solicitud formal SS1-CRM-INT-01, pendiente de envío) y el detalle en [docs/SS1_SOLICITUD_FASE2.md](docs/SS1_SOLICITUD_FASE2.md) |
 | Sesiones con operadores | [docs/usabilidad/GUION.md](docs/usabilidad/GUION.md) (0 de 5 realizadas) |
 | Saber qué se probó y qué falló | [docs/QA_REPORT.md](docs/QA_REPORT.md): matriz por módulo, defectos y evidencia |
 | Integrar con el PAM de SS1 | [docs/PAM_INTEGRATION.md](docs/PAM_INTEGRATION.md) y [docs/SS1_DATA_CONTRACT.md](docs/SS1_DATA_CONTRACT.md) |

@@ -1,0 +1,232 @@
+<title>Solicitud de integración SS1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Archivo:wght@600;700&display=swap">
+<style>
+/* Layout: memorando técnico de una columna, con tablas de entregables que se desplazan dentro de su caja */
+:root {
+  --bg: #fbfaf7; --surface: #ffffff; --fg: #1d2129; --muted: #5d6573; --line: #e2dfd6;
+  --accent: #9a6a00; --accent-soft: #f6ecd3; --code: #f2f0ea;
+  --must: #b3261e; --must-soft: #fbe9e7; --next: #8a5a00; --next-soft: #fbf1dc; --have: #1f6f43; --have-soft: #e3f2e8;
+  --f-display: 'Archivo', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15171b; --surface: #1c1f25; --fg: #e8e6e1; --muted: #a3a8b2; --line: #2f333b;
+  --accent: #e0b04a; --accent-soft: #3a2f17; --code: #24272e;
+  --must: #f2867c; --must-soft: #3b1e1c; --next: #e8b55a; --next-soft: #362a14; --have: #74c99a; --have-soft: #183026; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #15171b; --surface: #1c1f25; --fg: #e8e6e1; --muted: #a3a8b2; --line: #2f333b;
+  --accent: #e0b04a; --accent-soft: #3a2f17; --code: #24272e;
+  --must: #f2867c; --must-soft: #3b1e1c; --next: #e8b55a; --next-soft: #362a14; --have: #74c99a; --have-soft: #183026; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--f-body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+header { display: grid; gap: 14px; border-bottom: 2px solid var(--fg); padding-bottom: 20px; }
+.eyebrow { font: 600 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(26px, 4vw, 36px)/1.15 var(--f-display); margin: 0; text-wrap: balance; }
+h2 { font: 700 21px/1.25 var(--f-display); margin: 0; text-wrap: balance; }
+h3 { font: 600 16px/1.3 var(--f-body); margin: 0; }
+p { margin: 0; max-width: 72ch; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 24px; font-size: 13.5px; }
+.meta div { display: grid; gap: 2px; min-width: 0; }
+.meta b { font: 500 11px/1.2 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 14px; }
+.lead { font-size: 16px; }
+.note { font-size: 13.5px; color: var(--muted); }
+.callout { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; font-size: 14px; display: grid; gap: 4px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font: 600 11.5px/1.3 var(--f-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.id { font: 500 12.5px var(--f-mono); color: var(--accent); white-space: nowrap; }
+code, .path { font: 12.5px var(--f-mono); background: var(--code); padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
+.m { font: 600 11px var(--f-mono); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); white-space: nowrap; }
+.tag { display: inline-block; font: 600 11px/1.6 var(--f-mono); padding: 0 7px; border-radius: 999px; white-space: nowrap; }
+.must { background: var(--must-soft); color: var(--must); }
+.next { background: var(--next-soft); color: var(--next); }
+.have { background: var(--have-soft); color: var(--have); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 13px; color: var(--muted); }
+ol, ul { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 76ch; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button { font: 600 13px var(--f-body); background: var(--fg); color: var(--bg); border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+#copied { font-size: 13px; color: var(--have); }
+footer { border-top: 1px solid var(--line); padding-top: 16px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+</style>
+
+<div class="wrap" id="doc">
+  <header>
+    <span class="eyebrow">Solicitud técnica · SS1-CRM-INT-01</span>
+    <h1>Solicitud de integración del CRM y Fidelidad con la plataforma SS1</h1>
+    <div class="meta">
+      <div><b>Para</b>Responsable técnico de SS1 (admin.syssoft1.com)</div>
+      <div><b>De</b>Equipo SS1 Control Tower (CRM, Gamificación y Fidelidad)</div>
+      <div><b>Fecha</b>26 de noviembre de 2026</div>
+      <div><b>Respuesta solicitada</b>Parte A en 10 días hábiles; partes B a D antes del piloto con mensajes</div>
+    </div>
+    <div class="toolbar"><button type="button" id="copy">Copiar como texto</button><span id="copied" role="status"></span></div>
+  </header>
+
+  <section aria-labelledby="h-obj">
+    <h2 id="h-obj">Objetivo</h2>
+    <p class="lead">Conectar el CRM con la plataforma SS1 para <strong>leer</strong> jugadores, transacciones, apuestas y estado de juego responsable, y para <strong>actuar</strong> desde el CRM: otorgar bonos, enviar mensajes y mostrar al jugador leaderboard, medallas y barra de progreso.</p>
+    <p>El CRM ya tiene los conectores, el receptor de eventos firmados y la prueba de contrato. Hoy corren contra datos sintéticos. Lo que sigue es lo que solo SS1 puede entregar.</p>
+    <div class="callout"><strong>Credenciales y secretos</strong><span>Ninguna credencial debe viajar por correo, chat ni tickets. Pedimos entregarlas solo por el gestor de secretos del equipo. El CRM las guarda como secretos del entorno: nunca en el repositorio, CI, logs ni herramientas de IA.</span></div>
+    <div class="legend"><span><span class="tag must">Parte A</span> bloquea la prueba de contrato y el piloto de solo lectura</span><span><span class="tag next">B · C · D</span> antes de activar mensajes, incentivos y gamificación</span><span><span class="tag have">Ya existe</span> confirmar con datos reales</span></div>
+  </section>
+
+  <section aria-labelledby="h-env">
+    <h2 id="h-env">1. Entornos</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Id</th><th>Pedido</th><th>Detalle</th><th>Parte</th></tr></thead>
+      <tbody>
+        <tr><td class="id">E1</td><td>URL base del entorno sandbox o de preproducción</td><td>Por ejemplo <span class="path">https://api-sandbox.syssoft1.com</span>, con un cliente (tenant) y una marca de prueba</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">E2</td><td>URL base de producción</td><td>Solo para la fase de piloto; no se usa hasta aprobar la parte A</td><td><span class="tag next">D</span></td></tr>
+        <tr><td class="id">E3</td><td>Límites de tasa y ventana horaria</td><td>Peticiones por minuto permitidas y horarios en que no debemos leer en volumen</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">E4</td><td>Red</td><td>Si el admin filtra por IP, a qué IP o dominio dar acceso; dominio del CRM propuesto: <span class="path">crm.syssoft1.com</span></td><td><span class="tag next">D</span></td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section aria-labelledby="h-cred">
+    <h2 id="h-cred">2. Credenciales</h2>
+    <p>Una credencial por uso, con el alcance mínimo, para poder revocar cada una sin afectar a las demás.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Id</th><th>Credencial</th><th>Alcances</th><th>Quién la usa</th><th>Caducidad y rotación</th><th>Parte</th></tr></thead>
+      <tbody>
+        <tr><td class="id">C1</td><td>Servicio de <strong>solo lectura</strong> (token Bearer)</td><td><code>players:read</code>, <code>transactions:read</code>, <code>withdrawals:read</code> o su equivalente. Ninguno de escritura</td><td>Conectores y prueba de contrato del CRM</td><td>14 días para la prueba; después 90 días con rotación</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">C2</td><td>Servicio de <strong>escritura acotada</strong>, distinta de C1</td><td>Solo otorgar y consultar bonos y giros gratis; consultar el contacto del jugador por canal</td><td>Recompensas y envíos del CRM</td><td>90 días con rotación; revocable sin tocar C1</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">C3</td><td>Secreto de firma SS1 → CRM, uno por tenant</td><td>HMAC-SHA256 de los eventos enviados a <span class="path">POST /api/ingest/ss1</span></td><td>Backend del admin (firma) y CRM (verifica)</td><td>Rotación agregando el nuevo antes de retirar el anterior</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">C4</td><td>Secreto de firma CRM → SS1</td><td>Avisos del CRM a SS1 (entregas, recompensas, casos de juego responsable)</td><td>CRM (firma) y receptor de SS1 (verifica)</td><td>Igual que C3</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">C5</td><td>Credenciales de proveedores de mensajería</td><td>Email, SMS y WhatsApp: la cuenta que ya usa SS1 o subcuentas para el CRM</td><td>Adaptadores de canal del CRM</td><td>Según el proveedor</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">C6</td><td>Llave de servicio del CRM para el sitio o la app</td><td><code>onsite:serve</code>, <code>players:read</code> (la emite el CRM y se entrega a SS1)</td><td>Backend del sitio, para leaderboard, medallas y barra</td><td>90 días; se ve una sola vez al crearla</td><td><span class="tag next">C</span></td></tr>
+      </tbody></table></div>
+    <p class="note">Para cada credencial pedimos además un contacto que pueda revocarla de inmediato y el canal del gestor de secretos donde se entregará.</p>
+  </section>
+
+  <section aria-labelledby="h-new">
+    <h2 id="h-new">3. Endpoints que SS1 debe crear</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Id</th><th>Método y ruta propuesta</th><th>Para qué</th><th>Respuesta que necesitamos</th><th>Parte</th></tr></thead>
+      <tbody>
+        <tr><td class="id">N1</td><td><span class="m">GET</span> <span class="path">/admin/auth/me</span></td><td>Identidad del operador o del servicio autenticado; el CRM lo llama antes de leer cualquier dato</td><td>La misma forma del login: <code>userData { id, clientId, role, timezone }</code> y <code>userAbilities [{ action, subject }]</code>. <code>401</code> si la credencial es inválida, <code>403</code> si no tiene permiso</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">N2</td><td><span class="m">GET</span> <span class="path">/admin/players/{id}/consents</span></td><td>Consentimiento de marketing por canal; sin esto no se envía marketing</td><td><code>[{ channel, purpose, granted, updated_at }]</code>; o indicar en qué recurso existente vive</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">N3</td><td><span class="m">GET</span> <span class="path">/admin/players/{id}/contact?channel=</span></td><td>Teléfono o chat al momento de enviar por SMS, WhatsApp o Telegram (el CRM no los guarda)</td><td><code>{ channel, address }</code> o <code>404</code> si no tiene; con C2</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">N4</td><td><span class="m">POST</span> <span class="path">/admin/bonuses/grants</span></td><td>Otorgar bono, giros o apuestas gratis desde un recorrido o una misión</td><td>Recibe <code>idempotency_key</code>, <code>player_id</code>, <code>type</code>, <code>amount</code>, <code>currency</code>, <code>expires_at</code>. La misma clave dos veces <strong>no</strong> otorga dos veces. Devuelve <code>{ bonus_ref, status }</code></td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">N5</td><td><span class="m">GET</span> <span class="path">/admin/bonuses/grants/{idempotency_key}</span></td><td>Conciliar un otorgamiento cuya respuesta no llegó, antes de reintentarlo</td><td><code>{ bonus_ref, status }</code> o <code>404</code></td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">N6</td><td><span class="m">GET</span> <span class="path">/admin/players/{id}/support-cases</span></td><td>Etapa «Soporte» del recorrido del jugador en Perfil 360</td><td><code>[{ id, status, opened_at, category }]</code>, sin el texto del caso</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">N7</td><td>Alias público del jugador (campo o ruta)</td><td>Nombre visible en el leaderboard, nunca el username ni el nombre real</td><td><code>{ public_alias, leaderboard_opt_out }</code></td><td><span class="tag next">C</span></td></tr>
+      </tbody></table></div>
+    <p class="note">Las rutas son una propuesta. Si SS1 ya tiene algo equivalente, basta con indicarlo y el CRM adapta su conector.</p>
+  </section>
+
+  <section aria-labelledby="h-have">
+    <h2 id="h-have">4. Endpoints existentes que necesitamos confirmar</h2>
+    <p>Las rutas y los campos de esta tabla salen del código del admin. Los confirmamos con la credencial C1 y filas reales (sección 6).</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Id</th><th>Método y ruta</th><th>Uso en el CRM</th><th>Qué confirmar</th></tr></thead>
+      <tbody>
+        <tr><td class="id">X1</td><td><span class="m">GET</span> <span class="path">/admin/players</span></td><td>Registro, KYC, juego responsable</td><td>Dónde vienen <strong>email, idioma, zona horaria y afiliado</strong>; valores posibles de <code>kyc_status</code> y de <code>responsible_gaming</code>; filtro por fecha de actualización</td></tr>
+        <tr><td class="id">X2</td><td><span class="m">GET</span> <span class="path">/admin/transactions/financial</span></td><td>Depósitos y retiros confirmados</td><td>Códigos <code>transaction_type</code> 1–4 y <code>status</code> 0–2; formato del monto</td></tr>
+        <tr><td class="id">X3</td><td><span class="m">GET</span> <span class="path">/admin/withdrawal-requests</span></td><td>Retiros</td><td>Estados posibles</td></tr>
+        <tr><td class="id">X4</td><td><span class="m">GET</span> <span class="path">/admin/transactions/report/all</span></td><td>Apuestas, premios, reversiones y giros gratis</td><td>Que <code>player</code> sea siempre el username; significado de <code>status</code></td></tr>
+        <tr><td class="id">X5</td><td><span class="m">GET</span> <span class="path">/admin/transactions/report/daily/brands</span> y <span class="path">/report/players</span></td><td>Conciliación diaria (criterio de salida del piloto: ±0,5 %)</td><td>Zona horaria de los cortes diarios</td></tr>
+        <tr><td class="id">X6</td><td><span class="m">GET</span> <span class="path">/admin/games</span>, <span class="path">/admin/providers</span></td><td>Juegos que cuentan para cada torneo</td><td>Campos de juego y proveedor; cómo marcar juegos excluidos</td></tr>
+        <tr><td class="id">X7</td><td><span class="m">GET</span> <span class="path">/admin/clients</span>, <span class="path">/admin/brands</span></td><td>Mapeo cliente → tenant y marca</td><td>Ids estables de cliente y marca</td></tr>
+        <tr><td class="id">X8</td><td><span class="path">/admin/phoenix/free-bets</span>, <span class="path">/admin/digitain/free-games</span></td><td>Alternativa a N4 si ya sirven para integraciones</td><td>Si admiten clave de idempotencia y consulta por ella</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section aria-labelledby="h-crm">
+    <h2 id="h-crm">5. Endpoints que el CRM expone a SS1</h2>
+    <p>Ya están hechos y documentados en OpenAPI 3.1 (<span class="path">/api/v1/openapi.json</span>). SS1 solo tiene que decidir si los usa y entregar o recibir el secreto correspondiente.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Método y ruta</th><th>Para qué</th><th>Autenticación</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m">POST</span> <span class="path">/api/ingest/ss1</span></td><td>Eventos en tiempo real: registro, KYC, depósito, retiro, apuesta liquidada, cambio de juego responsable y de consentimiento. Lotes de hasta 500; reenvíos seguros por <code>event_id</code></td><td>Firma C3 (<code>X-SS1-Signature</code>, ±300 s)</td><td><span class="tag have">Listo</span></td></tr>
+        <tr><td><span class="m">GET</span> <span class="path">/api/v1/players/{id}/inbox</span></td><td>Bandeja in-app del jugador para el sitio o la app</td><td>Llave C6</td><td><span class="tag have">Listo</span></td></tr>
+        <tr><td><span class="m">GET</span> <span class="path">/api/v1/onsite/serve/{player_id}</span></td><td>Contenido personalizado por ubicación del sitio</td><td>Llave C6</td><td><span class="tag have">Listo</span></td></tr>
+        <tr><td><span class="m">GET</span> <span class="path">/api/v1/players/{id}/gamification</span></td><td>Leaderboard con alias, medallas ganadas y bloqueadas, barra de nivel y de misiones, en un solo pedido para el sitio</td><td>Llave C6</td><td><span class="tag next">El CRM lo construye al recibir N7</span></td></tr>
+        <tr><td>Avisos salientes firmados</td><td>Entregas, recompensas, casos de juego responsable y aprobaciones hacia una URL de SS1</td><td>Firma C4</td><td><span class="tag have">Listo; falta la URL de SS1</span></td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section aria-labelledby="h-rows">
+    <h2 id="h-rows">6. Filas reales anonimizadas para la prueba de contrato</h2>
+    <p>Entre 20 y 50 filas por recurso. Los ids deben estar reemplazados de forma consistente, sin email, teléfono, documento ni dirección reales, y con permiso escrito para usarlas en pruebas. No se versionan en el repositorio salvo autorización expresa.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Recurso</th><th>Casos que deben aparecer</th></tr></thead>
+      <tbody>
+        <tr><td>Jugadores</td><td>KYC aprobado, pendiente y rechazado; autoexclusión vigente y vencida; límites de depósito; país como objeto y como texto; sin username; campos opcionales nulos</td></tr>
+        <tr><td>Financieras</td><td>Depósito confirmado, pendiente y fallido; retiro; bono; ajuste; montos con coma decimal; moneda como texto y como objeto</td></tr>
+        <tr><td>Retiros</td><td>Aprobado, rechazado y pendiente</td></tr>
+        <tr><td>Juego</td><td>DEBIT, CREDIT, ROLLBACK y FREE_SPIN; movimiento rechazado por la wallet; jugador sin mapeo</td></tr>
+        <tr><td>Errores</td><td>Una respuesta real con credencial inválida (<code>401</code>) y otra sin permiso (<code>403</code>), con su cuerpo</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section aria-labelledby="h-game">
+    <h2 id="h-game">7. Leaderboard, medallas y barra de progreso</h2>
+    <ul>
+      <li><strong>Integración en el sitio y la app:</strong> componente del CRM incrustado o API pintada con el diseño de SS1. Pedimos el stack del sitio y de las apps (web, Android, iOS).</li>
+      <li><strong>Ubicaciones:</strong> inicio, perfil, lobby y cajero. Indicar si la barra muestra puntos, porcentaje o ambos.</li>
+      <li><strong>Íconos de medallas</strong> con la marca de cada operador, en versión obtenida y bloqueada (SVG o PNG), o la aprobación de que los diseñe el equipo del CRM. También los textos aprobados por idioma.</li>
+      <li><strong>Leaderboard en vivo:</strong> si debe actualizarse durante el torneo, depende de los eventos de apuesta enviados a <span class="path">/api/ingest/ss1</span>.</li>
+      <li><strong>Términos y condiciones</strong> de torneos y premios aprobados por Legal para cada mercado, y si el regulador prohíbe mostrar montos apostados en el ranking.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-ops">
+    <h2 id="h-ops">8. Operación y cumplimiento</h2>
+    <ul>
+      <li>Crear en el admin los permisos del CRM y asignarlos a los roles de operador.</li>
+      <li>Reglas por mercado: topes de mensajes de marketing, horario silencioso, consentimiento exigido, incentivos permitidos y KYC requerido para bonos.</li>
+      <li>Aprobación de Compliance para el piloto: RumbaWin Colombia, primero solo in-app y sin incentivos.</li>
+      <li>Despliegue del CRM en un dominio de SS1, con PostgreSQL gestionado.</li>
+      <li>Cinco operadores (CRM, soporte, aprobación y cumplimiento) para validar la interfaz: 45 minutos cada uno, con datos sintéticos.</li>
+      <li>Contactos: responsable técnico, Compliance y el custodio del gestor de secretos.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-next">
+    <h2 id="h-next">Qué haremos al recibir la parte A</h2>
+    <ol>
+      <li>Llamar a <span class="path">GET /admin/auth/me</span> con C1. Comprobaremos identidad, tenant y que no haya permisos de escritura. Si algo no cuadra, la prueba se detiene sin leer datos.</li>
+      <li>Correr la prueba de contrato contra el sandbox, con la credencial solo en memoria.</li>
+      <li>Entregar un informe redactado: conteos, discrepancias y la decisión sobre cada una, sin datos de jugadores ni la credencial.</li>
+      <li>Revocar C1 o dejarla caducar al terminar, y acordar el piloto de solo lectura.</li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="h-reply">
+    <h2 id="h-reply">Lista de respuesta</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Id</th><th>Entregable</th><th>Canal</th><th>Parte</th></tr></thead>
+      <tbody>
+        <tr><td class="id">E1, E3</td><td>URL del sandbox, tenant y marca de prueba, límites de tasa</td><td>Correo o ticket</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">C1</td><td>Credencial de solo lectura y contacto para revocarla</td><td>Gestor de secretos</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">N1</td><td><span class="path">GET /admin/auth/me</span> disponible en el sandbox</td><td>Correo o ticket</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">N2, X1</td><td>Dónde están consentimiento, email, idioma, zona horaria y afiliado</td><td>Correo o ticket</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">§6</td><td>Filas anonimizadas y autorización de uso</td><td>Almacenamiento seguro del equipo</td><td><span class="tag must">A</span></td></tr>
+        <tr><td class="id">C2–C5, N3–N6</td><td>Escritura acotada, firmas, mensajería, bonos, contacto y soporte</td><td>Gestor de secretos y correo</td><td><span class="tag next">B</span></td></tr>
+        <tr><td class="id">N7, §7</td><td>Alias público, íconos, ubicaciones y términos de torneos</td><td>Correo o ticket</td><td><span class="tag next">C</span></td></tr>
+        <tr><td class="id">E2, E4, §8</td><td>Producción, red, permisos, reglas por mercado, Compliance y operadores</td><td>Reunión de arranque</td><td><span class="tag next">D</span></td></tr>
+      </tbody></table></div>
+  </section>
+
+  <footer>
+    <span>Documentación de respaldo en el repositorio del CRM: <span class="path">docs/SS1_DATA_CONTRACT.md</span>, <span class="path">docs/INTEGRATION.md</span>, <span class="path">docs/PAM_INTEGRATION.md</span>, <span class="path">contracts/openapi.json</span> y <span class="path">contracts/events.asyncapi.yaml</span>.</span>
+    <span>Referencia SS1-CRM-INT-01 · versión del 26 de noviembre de 2026.</span>
+  </footer>
+</div>
+
+<script>
+  document.getElementById('copy').addEventListener('click', async () => {
+    const out = document.getElementById('copied');
+    const text = document.getElementById('doc').innerText.replace(/Copiar como texto\s*/, '');
+    try { await navigator.clipboard.writeText(text); out.textContent = 'Copiado. Pégalo en el correo o el ticket.'; }
+    catch { const r = document.createRange(); r.selectNodeContents(document.getElementById('doc')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); out.textContent = 'Texto seleccionado: cópialo con Ctrl+C o Cmd+C.'; }
+  });
+</script>
