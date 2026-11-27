@@ -11,7 +11,7 @@ Estado para retomar el trabajo sin contexto previo. Última actualización: 2026
 | Saber qué está cerrado y qué falta | [docs/CIERRE_FASES_1_2.md](docs/CIERRE_FASES_1_2.md): matriz de cierre de las fases 1 y 2 |
 | Reprocesar fallas | Pantalla «Cola de fallas»; reglas en `src/channels/failures.ts` |
 | Pedir accesos a SS1 | [docs/SS1_SOLICITUD_INTEGRACION.html](docs/SS1_SOLICITUD_INTEGRACION.html) (solicitud formal SS1-CRM-INT-01, pendiente de envío) y el detalle en [docs/SS1_SOLICITUD_FASE2.md](docs/SS1_SOLICITUD_FASE2.md) |
-| Gamificación ampliada (retos, logros, tarjetas, tiempo real) y lo pendiente (regalos, concursos, torneos y rankings ampliados) | [docs/GAMIFICACION.md](docs/GAMIFICACION.md) |
+| Gamificación ampliada (retos, logros, tarjetas, tiempo real, regalos, torneos, clasificaciones, concursos, impacto con grupo de control) y lo que falta | [docs/GAMIFICACION.md](docs/GAMIFICACION.md) |
 | Sesiones con operadores | [docs/usabilidad/GUION.md](docs/usabilidad/GUION.md) (0 de 5 realizadas) |
 | Saber qué se probó y qué falló | [docs/QA_REPORT.md](docs/QA_REPORT.md): matriz por módulo, defectos y evidencia |
 | Integrar con el PAM de SS1 | [docs/PAM_INTEGRATION.md](docs/PAM_INTEGRATION.md) y [docs/SS1_DATA_CONTRACT.md](docs/SS1_DATA_CONTRACT.md) |
@@ -73,8 +73,10 @@ Los defectos de incrementos anteriores (16 hallazgos de UX, revisión externa y 
 1. Correr el contrato contra SS1 apenas lleguen los accesos y resolver o asignar cada discrepancia del informe.
 2. Hacer las cinco sesiones, corregir los problemas de interfaz prioritarios y repetir esas tareas.
 3. Persistir bonos con la reserva de presupuesto en la misma transacción y la bandeja in-app (`docs/DATABASE.md`). Los libros de XP y monedas ya son durables (migración 004).
-4. Escritura condicional por versión en `journey_instances`, para cerrar la carrera web/worker documentada.
-5. Configurar un linter.
+4. Sincronizar la gamificación (retos, regalos, torneos, concursos) entre réplicas de la web; hoy se carga al arrancar y cada réplica escribe lo suyo.
+5. Conectar el mecanismo de sorteo autorizado de SS1 como `DrawProvider` (`src/gamification/contests.ts`).
+6. Escritura condicional por versión en `journey_instances`, para cerrar la carrera web/worker documentada.
+7. Configurar un linter.
 
 ## Reglas que no cambian
 

@@ -22,6 +22,9 @@ test('Gamificación: reto en el backoffice, inscripción, progreso en vivo, logr
   ok('B.5', !(await p.$('[data-cha="approve"]')), 'el analista no ve «Aprobar»');
   await p.click('[data-chsim="reto_primeros_pasos"]'); await p.waitForSelector('[data-chout="reto_primeros_pasos"]:not([hidden]) .simres');
   ok('B.6', /se completa/.test(await p.innerText('[data-chout="reto_primeros_pasos"]')), 'simulación sin efectos');
+  await p.click('[data-chimp="reto_diario_explora"]'); await p.waitForSelector('[data-chout="reto_diario_explora"]:not([hidden]) .simres');
+  const imp = await p.innerText('[data-chout="reto_diario_explora"]');
+  ok('B.6b', /grupo de control 20/.test(imp) && /Expuestos/i.test(imp) && /Retención D7/i.test(imp), 'impacto: control, expuestos y retención');
   await p.addScriptTag({ content: AXE });
   let vs = await p.evaluate(async () => (await axe.run('#view')).violations.map((v) => `${v.id}(${v.nodes.length}) ${v.nodes[0].html.slice(0, 90)}`));
   ok('B.axe', vs.length === 0, vs.join(' | ') || 'sin violaciones');

@@ -65,6 +65,8 @@ export const CRM_ENDPOINTS = {
   getChallengesChallengeId: { method: 'GET', path: '/challenges/{challenge_id}', params: ['challenge_id'] as const, query: [] as const } as Op<{ challenge_id: string }>,
   /** Ciclo: enviar, aprobar (otra persona), pausar, reanudar, cerrar con motivo */
   postChallengesChallengeIdAction: { method: 'POST', path: '/challenges/{challenge_id}/{action}', params: ['challenge_id', 'action'] as const, query: [] as const } as Op<{ challenge_id: string; action: 'submit' | 'approve' | 'pause' | 'resume' | 'close' }>,
+  /** Impacto: retención D7/D30 por cohorte de participantes y tratamiento contra grupo de control (IC 95 %) · alcance analytics:read */
+  getChallengesChallengeIdImpact: { method: 'GET', path: '/challenges/{challenge_id}/impact', params: ['challenge_id'] as const, query: [] as const } as Op<{ challenge_id: string }>,
   /** Simular un reto con eventos de ejemplo, sin efectos */
   postChallengesChallengeIdSimulate: { method: 'POST', path: '/challenges/{challenge_id}/simulate', params: ['challenge_id'] as const, query: [] as const } as Op<{ challenge_id: string }>,
   /** Regalos instantáneos con métricas (asignados, reclamados, en pausa, vencidos, recompensas) · alcance journeys:read */

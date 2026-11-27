@@ -16,6 +16,7 @@ import { journeyState } from '../profile/journeyState.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
 import { DomainError, HOUR, toCsv } from '../shared/util.ts';
 import { DISQUALIFY_CODES } from '../gamification/contests.ts';
+import { ACTIVITY_EVENTS, challengeImpact } from '../analytics/gamImpact.ts';
 import { journeyImpact } from '../analytics/journeyImpact.ts';
 import { sourceQuality } from '../analytics/affiliates.ts';
 import { CSV_TYPES, csvToEvents } from '../ingestion/csvImport.ts';
@@ -658,6 +659,13 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const out = action === 'submit' ? app.challenges.submit(actor, id) : action === 'approve' ? app.challenges.approve(actor, id)
         : action === 'close' ? app.challenges.close(actor, id, String(req.body.reason ?? '')) : app.challenges.setPaused(actor, id, action === 'pause');
       return ok(out);
+    }
+    if ((r = m(/^GET \/challenges\/([\w-]+)\/impact$/))) {
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      const c = app.challenges.get(T, r[1]);
+      if (!c) return { status: 404, body: { error: 'not_found', message: 'Reto inexistente' } };
+      const activity = (p: string) => (app.ingestor.get(T, p)?.timeline ?? []).filter((x) => ACTIVITY_EVENTS.has(x.event_type)).map((x) => Date.parse(x.occurred_at));
+      return ok(challengeImpact({ challenge_id: c.id, control_group_pct: c.control_group_pct ?? 0, exposures: app.challenges.exposures(T, c.id), participants: app.challenges.enrollments(T, c.id).map((e) => ({ player_id: e.player_id, at: e.enrolled_at })), activity, now: app.clock.now().getTime() }));
     }
     if ((r = m(/^POST \/challenges\/([\w-]+)\/simulate$/))) {
       if (!can(actor, 'journeys.simulate')) return forbid('journeys.simulate');

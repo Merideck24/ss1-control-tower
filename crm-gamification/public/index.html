@@ -1328,6 +1328,7 @@ const VIEWS = {
       c.status === 'paused' && can('journeys.pause') ? `<button class="ghost" data-cha="resume" data-cid="${esc(c.id)}">Reanudar</button>` : '',
       ['active', 'paused', 'scheduled'].includes(c.status) && can('journeys.close') ? `<button class="ghost" data-cha="close" data-cid="${esc(c.id)}">Cerrar…</button>` : '',
       can('journeys.simulate') ? `<button class="ghost" data-chsim="${esc(c.id)}">Simular</button>` : '',
+      can('analytics.read') && c.status !== 'draft' && c.status !== 'pending_approval' ? `<button class="ghost" data-chimp="${esc(c.id)}">Impacto</button>` : '',
     ].join('');
     const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(t)}</option>`;
     return `<div class="card scroll"><h2>Retos</h2>
@@ -1345,7 +1346,8 @@ const VIEWS = {
       <label>Descripción <input name="description" size="60" placeholder="Qué tiene que hacer el jugador, en una frase"></label>
       <div class="row"><label>Período <select name="period"><option value="season">Temporada</option><option value="weekly">Semanal</option><option value="daily">Diario</option></select></label>
         <label>Modo <select name="mode"><option value="sequential">Secuencial (paso a paso)</option><option value="all">Varios pasos, en cualquier orden</option><option value="single">Un solo paso</option></select></label>
-        <label>Mercado <select name="market"><option value="">Todos</option><option>CO</option><option>PE</option><option>MX</option></select></label></div>
+        <label>Mercado <select name="market"><option value="">Todos</option><option>CO</option><option>PE</option><option>MX</option></select></label>
+        <label>Grupo de control (%) <input name="control" type="number" min="0" max="50" value="10" size="4"></label></div>
       <fieldset><legend>Pasos</legend>${[0, 1, 2].map((i) => `<div class="row"><label>Paso ${i + 1} <select name="step${i}"><option value="">—</option>${CH_STEPS.map((st, k) => `<option value="${k}"${i === 0 && k === 0 ? ' selected' : ''}>${esc(st.label)}</option>`).join('')}</select></label><label>Meta <input name="target${i}" type="number" min="1" value="1" size="6"></label></div>`).join('')}
         <p class="muted">Juego responsable: los retos diarios no admiten depósitos ni montos apostados, y ningún reto puede invitar a recuperar pérdidas. Participa solo quien se inscribe y no tiene restricciones ni señales de riesgo.</p></fieldset>
       <div class="row"><label>XP <input name="xp" type="number" min="0" value="200" size="6"></label><label>Monedas <input name="coins" type="number" min="0" value="0" size="6"></label>
@@ -1884,6 +1886,22 @@ const BIND = {
       if (action === 'close') { const reason = prompt('Motivo del cierre (queda en la auditoría):'); if (reason === null) return; if (!reason.trim()) { flash('Escribe un motivo para cerrar el reto.', 'bad'); return; } body = { reason }; }
       try { const r = await api(`/challenges/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }); flash(`Reto ${({ submit: 'enviado a aprobación', approve: r.status === 'scheduled' ? 'aprobado y programado' : 'aprobado y activo', pause: 'en pausa', resume: 'reanudado', close: 'cerrado' })[action]}.`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
     });
+    document.querySelectorAll('[data-chimp]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.chimp; const row = document.querySelector(`[data-chout="${id}"]`);
+      try {
+        const r = await api(`/challenges/${encodeURIComponent(id)}/impact`); row.hidden = false;
+        const rate = (x) => x.rate === null ? '—' : pct(x.rate);
+        const liftCell = (l) => l.diff === null ? `<span class="muted">${esc(l.note ?? 'sin datos')}</span>` : `<b>${l.diff >= 0 ? '+' : ''}${num(l.diff * 100)} pp</b> <span class="muted">(IC 95 %: ${num(l.ci95[0] * 100)} a ${num(l.ci95[1] * 100)} pp)</span>${l.reliable ? '' : ` <span class="chip warn">${esc(l.note ?? 'muestra insuficiente')}</span>`}`;
+        row.firstElementChild.innerHTML = `<div class="simres" role="status"><b>Impacto del reto</b> <span class="muted">· grupo de control ${int(r.control_group_pct)} %</span>
+          ${r.control_group_pct ? `<table><caption class="sr-only">Retención por grupo</caption><tr><th>Métrica</th><th class="num">Tratamiento</th><th class="num">Control</th><th>Incremento</th></tr>
+            <tr><td>Expuestos</td><td class="num">${int(r.exposed.treatment)}</td><td class="num">${int(r.exposed.control)}</td><td></td></tr>
+            ${['d7', 'd30'].map((k) => `<tr><td>Retención ${k.toUpperCase()} <span class="muted">(maduros)</span></td><td class="num">${rate(r[k].treatment)} <span class="muted">de ${int(r[k].treatment.mature)}</span></td><td class="num">${rate(r[k].control)} <span class="muted">de ${int(r[k].control.mature)}</span></td><td>${liftCell(r[k])}</td></tr>`).join('')}</table>`
+            : '<p class="muted">Este reto no tiene grupo de control: se muestra la retención de los participantes, pero no se puede estimar el incremento.</p>'}
+          <table><caption class="sr-only">Cohortes de participantes</caption><tr><th>Cohorte (semana de inscripción)</th><th class="num">Participantes</th><th class="num">D7</th><th class="num">D30</th></tr>
+            ${r.cohorts.map((c) => `<tr><td>${esc(c.week)}</td><td class="num">${int(c.n)}</td><td class="num">${rate(c.d7)}</td><td class="num">${rate(c.d30)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Sin participantes todavía.</td></tr>'}</table>
+          <details><summary>Cómo se calcula</summary><dl class="defs">${Object.entries(r.definitions).map(([k, v]) => `<dt>${esc(({ exposure: 'Exposición', retention: 'Retención', lift: 'Incremento', cohorts: 'Cohortes' })[k] ?? k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details></div>`;
+      } catch (e) { flash(e.message, 'bad'); }
+    });
     document.querySelectorAll('[data-chsim]').forEach((b) => b.onclick = async () => {
       const id = b.dataset.chsim; const row = document.querySelector(`[data-chout="${id}"]`);
       $('#chsimrow').hidden = false;
@@ -1906,7 +1924,7 @@ const BIND = {
       const tz = String(d.get('timezone') || 'America/Bogota');
       const body = { id: d.get('id'), brand_id: 'rumbawin', name: d.get('name'), description: d.get('description') || d.get('name'), period: d.get('period'), season: '2026-T4', mode: steps.length === 1 ? 'single' : d.get('mode'), steps,
         reward: { ...(Number(d.get('xp')) ? { xp: Number(d.get('xp')) } : {}), ...(Number(d.get('coins')) ? { coins: Number(d.get('coins')) } : {}), ...(d.get('reward_id') ? { reward_id: d.get('reward_id') } : {}) },
-        ...(d.get('market') ? { market: d.get('market') } : {}), starts_at: new Date(d.get('starts_at') + 'T00:00:00-05:00').toISOString(), ends_at: new Date(d.get('ends_at') + 'T23:59:59-05:00').toISOString(), timezone: tz };
+        ...(d.get('market') ? { market: d.get('market') } : {}), ...(Number(d.get('control')) ? { control_group_pct: Number(d.get('control')) } : {}), starts_at: new Date(d.get('starts_at') + 'T00:00:00-05:00').toISOString(), ends_at: new Date(d.get('ends_at') + 'T23:59:59-05:00').toISOString(), timezone: tz };
       try { const c = await api('/challenges', { method: 'POST', body }); $('#chnewout').innerHTML = `<p class="ok">Borrador «${esc(c.name)}» v${c.version} guardado. Envíalo a aprobación desde la tabla.</p>`; flash('Borrador guardado.', 'ok'); setTimeout(show, 400); }
       catch (e) { $('#chnewout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
     };

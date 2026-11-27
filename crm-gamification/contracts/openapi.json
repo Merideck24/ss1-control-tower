@@ -1980,6 +1980,65 @@
         ]
       }
     },
+    "/v1/challenges/{challenge_id}/impact": {
+      "get": {
+        "tags": [
+          "Retos"
+        ],
+        "summary": "Impacto: retención D7/D30 por cohorte de participantes y tratamiento contra grupo de control (IC 95 %)",
+        "operationId": "getChallengesChallengeIdImpact",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
     "/v1/challenges/{challenge_id}/simulate": {
       "post": {
         "tags": [

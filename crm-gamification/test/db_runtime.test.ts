@@ -75,7 +75,7 @@ test('DB fase 2: actualizar desde la fase 1 conserva los datos y habilita los es
   await admin.query(`INSERT INTO journey_versions (tenant_id, journey_id, version, status, definition, created_by) VALUES ($1, 'j_old', 1, 'published', '{"id":"j_old"}', 'ana@ss1')`, [T]);
   await assert.rejects(admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`), /check/i, 'la fase 1 no admite «uncertain»');
   const r = await migrate(admin);
-  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql', '005_gifts_contests.sql', '006_leaderboard_prefs.sql']);
+  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql', '005_gifts_contests.sql', '006_leaderboard_prefs.sql', '007_challenge_exposures.sql']);
   const row = (await admin.query(`SELECT status, attempts, vars, journey_id FROM delivery_receipts WHERE idempotency_key = 'k-fase1'`)).rows[0];
   assert.deepEqual([row.status, row.attempts, row.vars, row.journey_id], ['accepted', 1, null, null], 'el recibo de la fase 1 sigue igual');
   await admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`);
@@ -379,5 +379,24 @@ test('DB concursos: bases, participaciones, descalificación y compromiso del so
   assert.ok(['c1', 'c2'].includes(dr.winners![0].player_id));
   const pr = w.app.contests.verifyDraw(T, 'conc_db');
   assert.deepEqual([pr.commit_matches, pr.reproduced], [true, true], 'la semilla persistida coincide con el compromiso publicado');
+  await w.boot.stop();
+});
+
+test('DB impacto: las exposiciones al reto (tratamiento o control) sobreviven al reinicio y no se duplican', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  const A = { id: 'ana@ss1', tenant_id: T }, B = { id: 'beto@ss1', tenant_id: T };
+  let w = await proc('all', clock);
+  w.app.challenges.saveDraft(A, { id: 'reto_exp', brand_id: 'rumbawin', name: 'Reto exp', description: 'x', period: 'season', season: 'S', mode: 'single', reward: { xp: 10 }, control_group_pct: 50,
+    steps: [{ id: 'v', label: 'Visita', kind: 'activity', action: 'feature_visited', target: 5 }], starts_at: '2026-11-19T00:00:00Z', ends_at: '2026-12-31T00:00:00Z', timezone: 'America/Bogota' } as never);
+  w.app.challenges.submit(A, 'reto_exp'); w.app.challenges.approve(B, 'reto_exp');
+  for (const p of ['e1', 'e2', 'e3', 'e4']) { onboard(w.app, clock, p); w.app.ingestor.ingest(ev(T, p, 'player.activity' as never, { action: 'feature_visited', feature: 'x' } as never, clock.now().toISOString(), { event_id: `${p}-x` })); }
+  const before = w.app.challenges.exposures(T, 'reto_exp').map((x) => [x.player_id, x.arm, x.at]).sort();
+  assert.equal(before.length, 4);
+  await w.boot.stop();
+  clock.advance(86_400_000);
+  w = await proc('all', clock);
+  w.app.ingestor.ingest(ev(T, 'e1', 'player.activity' as never, { action: 'feature_visited', feature: 'y' } as never, clock.now().toISOString(), { event_id: 'e1-y' }));
+  assert.deepEqual(w.app.challenges.exposures(T, 'reto_exp').map((x) => [x.player_id, x.arm, x.at]).sort(), before, 'misma fecha de exposición tras reiniciar');
   await w.boot.stop();
 });

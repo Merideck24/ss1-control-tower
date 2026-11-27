@@ -320,7 +320,7 @@ export function seedDemoChallenges(app: App, tenant: string, now: number) {
         { id: 'perfil', label: 'Completa tu perfil', kind: 'activity' as const, action: 'profile_completed' as const, target: 1 },
         { id: 'explora', label: 'Visita dos secciones del sitio', kind: 'activity' as const, action: 'feature_visited' as const, target: 2 },
         { id: 'juega', label: 'Juega 3 rondas de casino', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'casino' as const, target: 3 }], ...window },
-    { id: 'reto_diario_explora', brand_id: 'rumbawin', name: 'Descubre algo nuevo', description: 'Visita una sección que no conozcas', period: 'daily' as const, mode: 'single' as const,
+    { id: 'reto_diario_explora', brand_id: 'rumbawin', name: 'Descubre algo nuevo', description: 'Visita una sección que no conozcas', period: 'daily' as const, mode: 'single' as const, control_group_pct: 20,
       reward: { coins: 10 }, steps: [{ id: 'visita', label: 'Visita una sección del sitio', kind: 'activity' as const, action: 'feature_visited' as const, target: 1 }], ...window },
     { id: 'reto_fiel', brand_id: 'rumbawin', name: 'Camino a Oro', description: 'Alcanza el nivel Oro y haz 5 apuestas deportivas', period: 'season' as const, season: '2026-T4', mode: 'all' as const,
       reward: { xp: 500 }, steps: [
@@ -337,7 +337,7 @@ export function seedDemoChallenges(app: App, tenant: string, now: number) {
   const at = new Date(now - HOUR).toISOString();
   ok.forEach((p, i) => {
     app.challenges.enroll(tenant, p.player_id, 'reto_primeros_pasos', i % 2 === 0);
-    if (i % 3 === 0) app.challenges.enroll(tenant, p.player_id, 'reto_diario_explora', false);
+    if (i % 3 === 0 && app.challenges.arm(app.challenges.get(tenant, 'reto_diario_explora')!, p.player_id) === 'treatment') app.challenges.enroll(tenant, p.player_id, 'reto_diario_explora', false);
     const emit = (type: string, payload: unknown, k: string) => app.ingestor.ingest(ev(tenant, p.player_id, type as never, payload as never, at, { event_id: `demo-gam-${p.player_id}-${k}`, source: type === 'player.activity' ? 'ss1.site' : 'ss1.wallet' }));
     // avances distintos: unos completan, otros quedan a mitad, otros sin empezar
     const stage = i % 4;

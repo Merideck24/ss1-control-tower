@@ -76,6 +76,7 @@ export const CATALOG: Endpoint[] = [
   e('POST /challenges', 'Retos', 'Guardar borrador de reto (valida salvaguardas de juego responsable)', 'journeys.draft', null, { body: 'Challenge' }),
   e('GET /challenges/([\\w-]+)', 'Retos', 'Versiones de un reto', 'gamification.read', 'journeys:read', { params: ['challenge_id'] }),
   e('POST /challenges/([\\w-]+)/(submit|approve|pause|resume|close)', 'Retos', 'Ciclo: enviar, aprobar (otra persona), pausar, reanudar, cerrar con motivo', ['journeys.submit', 'journeys.approve', 'journeys.pause', 'journeys.close'], null, { params: ['challenge_id', 'action'] }),
+  e('GET /challenges/([\\w-]+)/impact', 'Retos', 'Impacto: retención D7/D30 por cohorte de participantes y tratamiento contra grupo de control (IC 95 %)', 'analytics.read', 'analytics:read', { params: ['challenge_id'] }),
   e('POST /challenges/([\\w-]+)/simulate', 'Retos', 'Simular un reto con eventos de ejemplo, sin efectos', 'journeys.simulate', null, { params: ['challenge_id'], body: '{ player_id, events: [{ event_type, payload }] }' }),
   e('GET /gifts', 'Regalos', 'Regalos instantáneos con métricas (asignados, reclamados, en pausa, vencidos, recompensas)', 'gamification.read', 'journeys:read'),
   e('POST /gifts', 'Regalos', 'Guardar borrador de regalo (jugadores o segmento, cupo, vigencia)', 'journeys.draft', null, { body: 'Gift' }),

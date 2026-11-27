@@ -28,6 +28,9 @@ import type { AchievementService } from './achievements.ts';
 import type { RealtimeHub } from './realtime.ts';
 import type { StoreService } from './store.ts';
 import { DAY, LOSS_CHASING, rgIneligibility } from './safeguards.ts';
+import { assignArm } from '../experiments/experiments.ts';
+import type { Exposure } from '../analytics/gamImpact.ts';
+export type ChallengeExposure = Exposure & { tenant_id: string; challenge_id: string };
 
 export type StepKind = 'count' | 'sum' | 'activity' | 'loyalty_level';
 export type ChallengeStep = { id: string; label: string; kind: StepKind; event_type?: 'bet.settled' | 'deposit.settled'; product?: 'casino' | 'sports'; action?: 'profile_completed' | 'feature_visited' | 'preferences_saved'; feature?: string; level?: string; target: number };
@@ -38,6 +41,8 @@ export type Challenge = {
   name: string; description: string; period: Period; mode: 'single' | 'sequential' | 'all'; steps: ChallengeStep[];
   reward: { xp?: number; coins?: number; reward_id?: string };
   starts_at: string; ends_at: string; timezone: string; max_participants?: number;
+  /** % de jugadores elegibles que no ven el reto (grupo de control estable), para medir el incremento */
+  control_group_pct?: number;
   status: ChallengeStatus; version: number; created_by: string; approved_by?: string; approval_signature?: string; updated_at: string; close_reason?: string;
 };
 export type RewardState = { status: 'pending' | 'confirmed' | 'suppressed' | 'failed' | 'reversed'; detail?: string; idempotency_key: string; grant_id?: string };
@@ -61,13 +66,15 @@ function periodKey(c: Challenge, iso: string): string {
   const week = 1 + Math.round(((d.getTime() - firstThu.getTime()) / DAY - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
-const signed = (c: Challenge) => ({ id: c.id, version: c.version, steps: c.steps, reward: c.reward, period: c.period, mode: c.mode, starts_at: c.starts_at, ends_at: c.ends_at, segment: c.segment ?? null, market: c.market ?? null });
+const signed = (c: Challenge) => ({ id: c.id, version: c.version, steps: c.steps, reward: c.reward, period: c.period, mode: c.mode, starts_at: c.starts_at, ends_at: c.ends_at, segment: c.segment ?? null, market: c.market ?? null, ...(c.control_group_pct ? { control_group_pct: c.control_group_pct } : {}) });
 
 export type ChallengeDeps = { clock: Clock; audit: AuditLog; loyalty: LoyaltyService; rewards: RewardService; store: StoreService; policy: PolicyEngine; achievements: AchievementService; realtime: RealtimeHub; profile: (t: string, p: string) => PlayerProfile | undefined; riskHold?: (t: string, p: string) => boolean };
 
 export class ChallengeService {
   #defs = new Map<string, Challenge[]>(); // tenant::id → versiones
   #enroll = new Map<string, Enrollment>(); // tenant::challenge::player
+  #exposed = new Map<string, ChallengeExposure>(); // tenant::challenge::player
+  onExposure?: (x: ChallengeExposure) => void;
   /** Operación: duplicados suprimidos y retraso entre el evento y la actualización (por tenant). */
   #ops = new Map<string, { duplicates: number; lag_ms: number[] }>();
   #op(t: string) { let o = this.#ops.get(t); if (!o) this.#ops.set(t, (o = { duplicates: 0, lag_ms: [] })); return o; }
@@ -91,6 +98,7 @@ export class ChallengeService {
     if (!(Date.parse(c.ends_at) > Date.parse(c.starts_at))) e.push('La fecha de fin debe ser posterior al inicio.');
     try { new Intl.DateTimeFormat('en', { timeZone: c.timezone }); } catch { e.push('Zona horaria inválida.'); }
     if (!c.reward || !(c.reward.xp || c.reward.coins || c.reward.reward_id)) e.push('El reto necesita una recompensa (XP, monedas o un bono del catálogo).');
+    if (c.control_group_pct !== undefined && !(Number.isInteger(c.control_group_pct) && c.control_group_pct >= 0 && c.control_group_pct <= 50)) e.push('El grupo de control debe ser un entero entre 0 y 50 %.');
     if (LOSS_CHASING.test(`${c.name} ${c.description} ${(c.steps ?? []).map((s) => s.label).join(' ')}`)) e.push('Juego responsable: un reto no puede invitar a recuperar pérdidas.');
     const ids = new Set<string>();
     for (const s of c.steps ?? []) {
@@ -184,8 +192,23 @@ export class ChallengeService {
     if (c.market && p.country?.value !== c.market) r.push('other_market');
     r.push(...rgIneligibility({ loyalty: this.#d.loyalty, riskHold: this.#d.riskHold }, p, at));
     if (c.segment && !evaluate(c.segment, p, new Date(at))) r.push('not_in_segment');
+    if (this.arm(c, p.player_id) === 'control') r.push('control_group');
     return r;
   }
+
+  /** Grupo estable del jugador en el reto (tratamiento si el reto no tiene grupo de control). */
+  arm(c: Challenge, player: string): 'treatment' | 'control' { return c.control_group_pct ? assignArm(c.tenant_id, `challenge:${c.id}`, player, c.control_group_pct) : 'treatment'; }
+  /** Primera exposición de un jugador elegible (sin contar el grupo de control) mientras el reto está activo. */
+  #expose(c: Challenge, p: PlayerProfile, at: string) {
+    if (c.status !== 'active') return;
+    const k = `${c.tenant_id}::${c.id}::${p.player_id}`;
+    if (this.#exposed.has(k)) return;
+    if (this.ineligibility(c, p, at).some((r) => r !== 'control_group')) return;
+    const x: ChallengeExposure = { tenant_id: c.tenant_id, challenge_id: c.id, player_id: p.player_id, arm: this.arm(c, p.player_id), at };
+    this.#exposed.set(k, x); this.onExposure?.(x);
+  }
+  exposures(tenant: string, id: string) { return [...this.#exposed.values()].filter((x) => x.tenant_id === tenant && x.challenge_id === id); }
+  restoreExposures(xs: ChallengeExposure[]) { for (const x of xs) this.#exposed.set(`${x.tenant_id}::${x.challenge_id}::${x.player_id}`, x); }
 
   // ───────── jugador ─────────
   enroll(tenant: string, player: string, id: string, notify: boolean): Enrollment {
@@ -225,6 +248,7 @@ export class ChallengeService {
   // ───────── eventos ─────────
   onEvent(e: EventEnvelope, p: PlayerProfile | undefined) {
     if (!p) return;
+    for (const c of this.list(e.tenant_id)) if (c.status === 'active' && c.brand_id === e.brand_id) this.#expose(c, p, e.occurred_at);
     // señal de riesgo o restricción de juego responsable: se suspenden las inscripciones activas
     if (e.event_type === 'rg.risk_signal' || (e.event_type === 'rg.status_changed' && (e as EventEnvelope<'rg.status_changed'>).payload.status !== 'none')) {
       for (const en of this.#mine(e.tenant_id, e.player_id)) if (en.status === 'active') {
@@ -366,7 +390,9 @@ export class ChallengeService {
   playerView(tenant: string, player: string) {
     const p = this.#d.profile(tenant, player);
     const now = this.#now();
-    return this.list(tenant).filter((c) => c.status === 'active' || c.status === 'scheduled' || this.#enroll.has(`${tenant}::${c.id}::${player}`)).map((latest) => {
+    if (p) for (const c of this.list(tenant)) this.#expose(c, p, now);
+    // el grupo de control no ve el reto (salvo que ya estuviera inscrito antes de que existiera el grupo)
+    return this.list(tenant).filter((c) => (c.status === 'active' || c.status === 'scheduled' || this.#enroll.has(`${tenant}::${c.id}::${player}`)) && (this.arm(c, player) === 'treatment' || this.#enroll.has(`${tenant}::${c.id}::${player}`))).map((latest) => {
       const en = this.#enroll.get(`${tenant}::${latest.id}::${player}`);
       const c = (en ? this.get(tenant, latest.id, en.version) : latest) ?? latest;
       const pk = periodKey(c, now);

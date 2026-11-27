@@ -5,7 +5,7 @@
  */
 import type { App } from '../app.ts';
 import type { PlayerAchState, ShareLink, ShareMetric } from '../gamification/achievements.ts';
-import type { Challenge, Enrollment } from '../gamification/challenges.ts';
+import type { Challenge, ChallengeExposure, Enrollment } from '../gamification/challenges.ts';
 import type { Gift, GiftAssignment } from '../gamification/gifts.ts';
 import type { Tournament, TournamentEntry } from '../gamification/games.ts';
 type Pref = { tenant_id: string; player_id: string; hidden: boolean };
@@ -18,7 +18,7 @@ type Metrics = { tenant_id: string; achievement_id: string; counts: Record<Share
 export class PgGamStore {
   #db: Db;
   constructor(db: Db) { this.#db = db; }
-  async write(tenant: string, x: { challenges: Challenge[]; enrollments: Enrollment[]; players: PlayerAchState[]; links: ShareLink[]; metrics: Metrics[]; gifts?: Gift[]; giftAssignments?: GiftAssignment[]; tournaments?: Tournament[]; entries?: TournamentEntry[]; prefs?: Pref[]; contests?: Contest[]; contestEntries?: ContestEntry[]; secrets?: Secret[] }) {
+  async write(tenant: string, x: { challenges: Challenge[]; enrollments: Enrollment[]; players: PlayerAchState[]; links: ShareLink[]; metrics: Metrics[]; gifts?: Gift[]; giftAssignments?: GiftAssignment[]; tournaments?: Tournament[]; entries?: TournamentEntry[]; prefs?: Pref[]; contests?: Contest[]; contestEntries?: ContestEntry[]; secrets?: Secret[]; exposures?: ChallengeExposure[] }) {
     await withTenant(this.#db, tenant, async (c) => {
       for (const ch of x.challenges) await c.query(
         `INSERT INTO gamification_definitions (tenant_id, kind, id, status, definition, created_by, approved_by, updated_at) VALUES ($1,'challenge',$2,$3,$4,$5,$6,now())
@@ -49,29 +49,31 @@ export class PgGamStore {
       for (const e of x.contestEntries ?? []) await prog('contest_entry', e.contest_id, e.player_id, e);
       // semilla del sorteo: solo en la base (nunca en la API) hasta que se sortea y se revela
       for (const k of x.secrets ?? []) await prog('contest_result', k.contest_id, '-', k);
+      // una exposición no cambia: solo se inserta la primera
+      for (const e of x.exposures ?? []) await c.query(`INSERT INTO gamification_progress (tenant_id, kind, id, player_id, state, updated_at) VALUES ($1,'challenge_exposure',$2,$3,$4,now()) ON CONFLICT (tenant_id, kind, id, player_id) DO NOTHING`, [tenant, e.challenge_id, e.player_id, JSON.stringify(e)]);
     });
   }
   async load(tenant: string) {
     return withTenant(this.#db, tenant, async (c) => {
       const drows = (await c.query(`SELECT kind, definition FROM gamification_definitions WHERE kind IN ('challenge','gift','tournament','contest')`)).rows;
       const defs = drows.filter((r) => r.kind === 'challenge').map((r) => r.definition as Challenge);
-      const rows = (await c.query(`SELECT kind, state FROM gamification_progress WHERE kind IN ('challenge','achievements','share_link','share_metrics','gift','tournament_entry','leaderboard_pref','contest_entry','contest_result')`)).rows;
+      const rows = (await c.query(`SELECT kind, state FROM gamification_progress WHERE kind IN ('challenge','achievements','share_link','share_metrics','gift','tournament_entry','leaderboard_pref','contest_entry','contest_result','challenge_exposure')`)).rows;
       const of = <T,>(k: string) => rows.filter((r) => r.kind === k).map((r) => r.state as T);
       return { challenges: defs, enrollments: of<Enrollment>('challenge'), players: of<PlayerAchState>('achievements'), links: of<ShareLink>('share_link'), metrics: of<Metrics>('share_metrics'),
         gifts: drows.filter((r) => r.kind === 'gift').map((r) => r.definition as Gift), giftAssignments: of<GiftAssignment>('gift'),
         tournaments: drows.filter((r) => r.kind === 'tournament').map((r) => r.definition as Tournament), entries: of<TournamentEntry>('tournament_entry'), prefs: of<Pref>('leaderboard_pref'),
-        contests: drows.filter((r) => r.kind === 'contest').map((r) => r.definition as Contest), contestEntries: of<ContestEntry>('contest_entry'), secrets: of<Secret>('contest_result') };
+        contests: drows.filter((r) => r.kind === 'contest').map((r) => r.definition as Contest), contestEntries: of<ContestEntry>('contest_entry'), secrets: of<Secret>('contest_result'), exposures: of<ChallengeExposure>('challenge_exposure') };
     });
   }
 }
 
 /** Conecta los servicios con la base: encola cada cambio y lo escribe por lotes. */
 export function attachGam(app: App, store: PgGamStore, onError: (e: unknown) => void = (e) => console.error('[persistencia de gamificación]', e)) {
-  type Q = { challenges: Map<string, Challenge>; enrollments: Map<string, Enrollment>; players: Map<string, PlayerAchState>; links: Map<string, ShareLink>; metrics: Map<string, Metrics>; gifts: Map<string, Gift>; giftAssignments: Map<string, GiftAssignment>; tournaments: Map<string, Tournament>; entries: Map<string, TournamentEntry>; prefs: Map<string, Pref>; contests: Map<string, Contest>; contestEntries: Map<string, ContestEntry>; secrets: Map<string, Secret> };
+  type Q = { challenges: Map<string, Challenge>; enrollments: Map<string, Enrollment>; players: Map<string, PlayerAchState>; links: Map<string, ShareLink>; metrics: Map<string, Metrics>; gifts: Map<string, Gift>; giftAssignments: Map<string, GiftAssignment>; tournaments: Map<string, Tournament>; entries: Map<string, TournamentEntry>; prefs: Map<string, Pref>; contests: Map<string, Contest>; contestEntries: Map<string, ContestEntry>; secrets: Map<string, Secret>; exposures: Map<string, ChallengeExposure> };
   const by = new Map<string, Q>();
-  const q = (t: string) => { let x = by.get(t); if (!x) by.set(t, (x = { challenges: new Map(), enrollments: new Map(), players: new Map(), links: new Map(), metrics: new Map(), gifts: new Map(), giftAssignments: new Map(), tournaments: new Map(), entries: new Map(), prefs: new Map(), contests: new Map(), contestEntries: new Map(), secrets: new Map() })); return x; };
+  const q = (t: string) => { let x = by.get(t); if (!x) by.set(t, (x = { challenges: new Map(), enrollments: new Map(), players: new Map(), links: new Map(), metrics: new Map(), gifts: new Map(), giftAssignments: new Map(), tournaments: new Map(), entries: new Map(), prefs: new Map(), contests: new Map(), contestEntries: new Map(), secrets: new Map(), exposures: new Map() })); return x; };
   let chain: Promise<unknown> = Promise.resolve(); let timer: ReturnType<typeof setTimeout> | null = null;
-  const drain = async () => { const b = [...by]; by.clear(); for (const [t, x] of b) await store.write(t, { challenges: [...x.challenges.values()], enrollments: [...x.enrollments.values()], players: [...x.players.values()], links: [...x.links.values()], metrics: [...x.metrics.values()], gifts: [...x.gifts.values()], giftAssignments: [...x.giftAssignments.values()], tournaments: [...x.tournaments.values()], entries: [...x.entries.values()], prefs: [...x.prefs.values()], contests: [...x.contests.values()], contestEntries: [...x.contestEntries.values()], secrets: [...x.secrets.values()] }); };
+  const drain = async () => { const b = [...by]; by.clear(); for (const [t, x] of b) await store.write(t, { challenges: [...x.challenges.values()], enrollments: [...x.enrollments.values()], players: [...x.players.values()], links: [...x.links.values()], metrics: [...x.metrics.values()], gifts: [...x.gifts.values()], giftAssignments: [...x.giftAssignments.values()], tournaments: [...x.tournaments.values()], entries: [...x.entries.values()], prefs: [...x.prefs.values()], contests: [...x.contests.values()], contestEntries: [...x.contestEntries.values()], secrets: [...x.secrets.values()], exposures: [...x.exposures.values()] }); };
   const schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; chain = chain.then(drain).catch(onError); }, 20); };
   app.challenges.onChange = (x) => {
     for (const c of x.challenges ?? []) q(c.tenant_id).challenges.set(`${c.id}@${c.version}`, structuredClone(c));
@@ -100,6 +102,7 @@ export function attachGam(app: App, store: PgGamStore, onError: (e: unknown) => 
     for (const k of x.secrets ?? []) q(k.tenant_id).secrets.set(k.contest_id, { ...k });
     schedule();
   };
+  app.challenges.onExposure = (e) => { q(e.tenant_id).exposures.set(`${e.challenge_id}:${e.player_id}`, { ...e }); schedule(); };
   app.leaderboards.onChange = (p) => { q(p.tenant_id).prefs.set(p.player_id, { ...p }); schedule(); };
   return {
     flush: async () => { while (timer || by.size) { if (timer) { clearTimeout(timer); timer = null; } chain = chain.then(drain).catch(onError); await chain; } await chain; },
@@ -115,6 +118,7 @@ export async function loadGam(app: App, store: PgGamStore, tenants: string[]) {
     app.gifts.restore({ gifts: d.gifts, assignments: d.giftAssignments });
     app.games.restore({ tournaments: d.tournaments, entries: d.entries });
     app.leaderboards.restore(d.prefs);
+    app.challenges.restoreExposures(d.exposures);
     app.contests.restore({ contests: d.contests, entries: d.contestEntries, secrets: d.secrets });
     n += d.contests.length + d.contestEntries.length + d.tournaments.length + d.entries.length + d.gifts.length + d.giftAssignments.length + d.challenges.length + d.enrollments.length + d.players.length + d.links.length;
   }
