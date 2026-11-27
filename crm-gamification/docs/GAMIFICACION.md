@@ -1,12 +1,12 @@
 # Gamificación ampliada · SS1 CRM & Loyalty
 
-**Estado al 27 de noviembre de 2026.** Se completaron los pendientes de la primera entrega, en este orden:
+**Estado al 27 de noviembre de 2026** (commit `a316a2a`, CI verde: https://github.com/Merideck24/ss1-control-tower/actions/runs/46083156650 — 222 pruebas y 34 de navegador). Se completaron los pendientes de la primera entrega, en este orden, cada uno con su ejecución de CI en verde:
 
-1. Libros de XP y monedas durables en PostgreSQL (migración 004).
-2. Regalos instantáneos de punta a punta (migración 005).
-3. Torneos ampliados y tablas de clasificación (migración 006).
-4. Concursos con sorteo verificable o jurado.
-5. Retención D7/D30 por cohorte y grupo de control por reto (migración 007).
+1. Libros de XP y monedas durables en PostgreSQL (migración 004) — `b0715e1`, [CI](https://github.com/Merideck24/ss1-control-tower/actions/runs/46076666609).
+2. Regalos instantáneos de punta a punta (migración 005) — `5ae105a`, [CI](https://github.com/Merideck24/ss1-control-tower/actions/runs/46079847734).
+3. Torneos ampliados y tablas de clasificación (migración 006) — `a19f6d3`, [CI](https://github.com/Merideck24/ss1-control-tower/actions/runs/46081360617).
+4. Concursos con sorteo verificable o jurado — `13b42db`, [CI](https://github.com/Merideck24/ss1-control-tower/actions/runs/46082431417).
+5. Retención D7/D30 por cohorte y grupo de control por reto (migración 007) — `a316a2a`, [CI](https://github.com/Merideck24/ss1-control-tower/actions/runs/46083156650).
 
 La primera entrega fue el flujo completo:
 
