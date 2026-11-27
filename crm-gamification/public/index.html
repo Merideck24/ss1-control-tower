@@ -724,7 +724,7 @@ async function show() {
   try { clearTimeout(B.timer); } catch { /* B aún no existe en el primer render */ } // ni trabajo pendiente de la vista anterior
   try { if (current !== 'loyalty') rtStop(); } catch { /* aún sin tiempo real */ }
   v.innerHTML = '<p class="muted">Cargando…</p>';
-  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); }
+  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); v.querySelectorAll('[data-gotab]').forEach((b) => b.onclick = () => document.querySelector(`#tabs [data-k="${b.dataset.gotab}"]`)?.click()); }
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
 }
 
@@ -973,6 +973,12 @@ const VIEWS = {
       <div class="card"><h2>Supresiones</h2><div class="kpi">${suppressed}</div></div>
       <div class="card"><h2>Diferidos (horario silencioso)</h2><div class="kpi">${t.deferred}</div></div>
       <div class="card"><h2>Cola de errores</h2><div class="kpi ${t.dead_letters ? 'bad' : ''}">${t.dead_letters}</div></div>
+      ${t.gamification ? `<div class="card"><h2>Retos y logros</h2><div class="kpi">${int(t.gamification.enrolled)}</div><div class="muted">inscritos en ${int(t.gamification.challenges_active)} retos activos</div>
+        <div class="muted">Inicio ${t.gamification.start_rate === null ? '—' : pct(t.gamification.start_rate)} · finalización ${t.gamification.completion_rate === null ? '—' : pct(t.gamification.completion_rate)}</div>
+        <div class="muted">Recompensas: ${int(t.gamification.rewards.confirmed)} confirmadas · ${int(t.gamification.rewards.pending)} pendientes${t.gamification.rewards.reversed ? ` · ${int(t.gamification.rewards.reversed)} revertidas` : ''}</div>
+        <div class="muted">Duplicados suprimidos ${int(t.gamification.duplicates_suppressed)} · retraso p95 ${t.gamification.lag_p95_ms === null ? '—' : int(Math.round(t.gamification.lag_p95_ms / 1000)) + ' s'}</div>
+        <div class="muted">Tarjetas: ${int(t.gamification.share.share_click)} clics en compartir · ${int(t.gamification.share.visit)} visitas atribuidas</div>
+        ${can('gamification.read') ? '<button class="ghost" data-gotab="challenges">Ver retos</button>' : ''}</div>` : ''}
       <div class="card"><h2>Estado</h2><div class="kpi ${t.global_pause ? 'warn' : 'ok'}">${t.global_pause ? 'En pausa' : 'Operando'}</div></div>
       <div class="card" title="Tiempo real de proceso desde que llega el evento hasta decidir y ejecutar (perfil, políticas, recorridos, envíos), últimos ${int(t.latency.window)} eventos"><h2>Evento → decisión (p95)</h2><div class="kpi ${t.latency.within_slo === false ? 'bad' : 'ok'}">${t.latency.p95_ms === null ? '—' : t.latency.p95_ms.toLocaleString('es-CO') + ' ms'}</div>
         <div class="muted">p50 ${num(t.latency.p50_ms, 2)} · p99 ${num(t.latency.p99_ms, 2)} ms · objetivo ≤ ${t.latency.slo_p95_ms} ms · ${int(t.latency.n)} eventos${window.SS1_STATIC ? ' · medida en vivo en este navegador (varía entre cargas)' : ''}${t.latency.lag_p95_ms ? ` · llegada p95 ${Math.round(t.latency.lag_p95_ms / 1000)} s` : ''}</div></div>

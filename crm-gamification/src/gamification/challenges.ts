@@ -70,6 +70,10 @@ export type ChallengeDeps = { clock: Clock; audit: AuditLog; loyalty: LoyaltySer
 export class ChallengeService {
   #defs = new Map<string, Challenge[]>(); // tenant::id → versiones
   #enroll = new Map<string, Enrollment>(); // tenant::challenge::player
+  /** Operación: duplicados suprimidos y retraso entre el evento y la actualización (por tenant). */
+  #ops = new Map<string, { duplicates: number; lag_ms: number[] }>();
+  #op(t: string) { let o = this.#ops.get(t); if (!o) this.#ops.set(t, (o = { duplicates: 0, lag_ms: [] })); return o; }
+  ops(tenant: string) { const o = this.#op(tenant); const l = [...o.lag_ms].sort((a, b) => a - b); return { duplicates_suppressed: o.duplicates, updates: l.length, lag_p50_ms: l.length ? l[Math.floor(l.length / 2)] : null, lag_p95_ms: l.length ? l[Math.min(l.length - 1, Math.floor(l.length * 0.95))] : null }; }
   #d: ChallengeDeps;
   /** Persistencia: definiciones e inscripciones que cambiaron. */
   onChange?: (x: { challenges?: Challenge[]; enrollments?: Enrollment[] }) => void;
@@ -248,7 +252,8 @@ export class ChallengeService {
       const pk = periodKey(c, e.occurred_at);
       const per = (en.periods[pk] ??= { steps: {}, counted: [], deposits: {} });
       if (e.event_type === 'deposit.reversed') { this.#reverse(c, en, pk, e as EventEnvelope<'deposit.reversed'>, p); continue; }
-      if (per.completed_at || per.counted.includes(e.event_id)) continue; // idempotente por evento y período
+      if (per.counted.includes(e.event_id)) { this.#op(e.tenant_id).duplicates++; continue; } // idempotente por evento y período
+      if (per.completed_at) continue;
       let touched = false;
       for (const s of this.#openSteps(c, per)) {
         const d = this.#delta(s, e);
@@ -261,6 +266,7 @@ export class ChallengeService {
       }
       if (!touched) continue;
       per.counted.push(e.event_id);
+      const lag = Math.max(0, this.#d.clock.now().getTime() - Date.parse(e.occurred_at)); const o = this.#op(e.tenant_id); o.lag_ms.push(lag); if (o.lag_ms.length > 2000) o.lag_ms.splice(0, 1000);
       this.#d.realtime.publish(e.tenant_id, e.player_id, 'challenge.progress', { challenge_id: c.id, period: pk, steps: per.steps });
       if (c.steps.every((s) => (per.steps[s.id] ?? 0) >= s.target)) this.#complete(c, en, pk, p);
       this.#emit({ enrollments: [en] });

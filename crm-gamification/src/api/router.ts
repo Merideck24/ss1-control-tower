@@ -136,6 +136,16 @@ export function controlTower(app: App, tenant: string, brand?: string) {
     deferred: receipts.filter((r) => r.status === 'deferred').length,
     failures: receipts.filter((r) => r.status === 'failed' || r.status === 'uncertain').slice(-10),
     failure_queue_open: receipts.filter((r) => r.status === 'failed' || r.status === 'uncertain').length,
+    gamification: (() => {
+      const cs = app.challenges.stats(tenant, () => 0).filter((c) => !brand || c.brand_id === brand);
+      const sum = (k: 'participants' | 'enrolled' | 'rewards_confirmed' | 'rewards_pending' | 'rewards_reversed' | 'rewards_suppressed') => cs.reduce((a, c) => a + (c[k] as number), 0);
+      const done = cs.reduce((a, c) => a + (c.completion_rate ?? 0) * c.participants, 0);
+      const started = cs.reduce((a, c) => a + (c.start_rate ?? 0) * c.participants, 0);
+      const share = app.achievements.shareMetrics(tenant).reduce((a, m) => ({ share_click: a.share_click + m.share_click, download: a.download + m.download, visit: a.visit + m.visit, post_confirmed: a.post_confirmed + m.post_confirmed }), { share_click: 0, download: 0, visit: 0, post_confirmed: 0 });
+      return { challenges_active: cs.filter((c) => c.status === 'active').length, enrolled: sum('enrolled'), participants: sum('participants'),
+        start_rate: sum('participants') ? started / sum('participants') : null, completion_rate: sum('participants') ? done / sum('participants') : null,
+        rewards: { confirmed: sum('rewards_confirmed'), pending: sum('rewards_pending'), reversed: sum('rewards_reversed'), suppressed: sum('rewards_suppressed') }, share, ...app.challenges.ops(tenant) };
+    })(),
     budgets: app.rewards.catalog(tenant).map((i) => ({ reward_id: i.id, name: i.name, ...app.rewards.budget(tenant, i.id) })),
     alerts: app.policy.alerts().filter((a) => a.tenant_id === tenant).slice(-10),
     dead_letters: app.ingestor.deadLetters().length,
@@ -159,13 +169,20 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
   const r0 = `${req.method} ${path}`;
   if (r0 === 'GET /openapi.json') return ok(buildOpenApi());
   if (r0 === 'GET /health') return ok({ status: 'ok', api_version: API_VERSION, tenants: app.tenants.length });
+  const m = (pattern: RegExp) => r0.match(pattern);
+  let r: RegExpMatchArray | null;
+  // tarjeta compartida: pública por diseño (sin sesión ni tenant; el enlace opaco identifica la tarjeta; revocable)
+  if ((r = m(/^GET \/public\/share\/([A-Za-z0-9_-]{16,64})$/))) {
+    const card = app.achievements.publicCard(r[1]);
+    if (!card) return { status: 404, body: { error: 'not_found', message: 'Esta tarjeta ya no está disponible.' } };
+    const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    return { status: 200, contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(card.text)}</title><meta property="og:title" content="${esc(card.text)}"><style>body{margin:0;background:#062B3D;display:grid;place-items:center;min-height:100vh}svg{max-width:100%;height:auto}</style></head><body>${card.svg}</body></html>` };
+  }
   // llaves de servicio: solo rutas del catálogo que declaren uno de sus alcances
   if (actor.scopes) {
     const ep = findEndpoint(req.method, path);
     if (!ep || !ep.scope || !actor.scopes.includes(ep.scope)) return { status: 403, body: { error: 'scope_required', message: ep?.scope ? `La llave necesita el alcance «${ep.scope}».` : 'Esta operación no está disponible para llaves de servicio.' } };
   }
-  const m = (pattern: RegExp) => r0.match(pattern);
-  let r: RegExpMatchArray | null;
   try {
     if (!app.tenants.includes(T)) return { status: 403, body: { error: 'tenant_unknown', message: `Tenant ${T} no habilitado` } };
     if (r0 === 'GET /session') return ok({ now: app.clock.now().toISOString(), actor, permissions: Object.keys(PERMISSIONS).filter((p) => can(actor, p)), copilot_tools: app.copilot.definitionsFor(copilotSession(actor)).map((t) => t.name), copilot_ask: Boolean(opts.ask) });
@@ -631,13 +648,6 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     if (r0 === 'GET /gamification/share-metrics') {
       if (!can(actor, 'analytics.read')) return forbid('analytics.read');
       return ok(app.achievements.shareMetrics(T));
-    }
-    // ───────── Público: tarjeta compartida (sin sesión; identificador opaco; revocable) ─────────
-    if ((r = m(/^GET \/public\/share\/([A-Za-z0-9_-]{16,64})$/))) {
-      const card = app.achievements.publicCard(r[1]);
-      if (!card) return { status: 404, body: { error: 'not_found', message: 'Esta tarjeta ya no está disponible.' } };
-      const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-      return { status: 200, contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(card.text)}</title><meta property="og:title" content="${esc(card.text)}"><style>body{margin:0;background:#062B3D;display:grid;place-items:center;min-height:100vh}svg{max-width:100%;height:auto}</style></head><body>${card.svg}</body></html>` };
     }
     // ───────── Jugador: retos, logros, alias, tarjetas y tiempo real ─────────
     // en producción lo llama el backend del sitio con una llave de servicio (players:write) y el id del jugador de su sesión

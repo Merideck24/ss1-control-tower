@@ -12,6 +12,7 @@ import { seedTenant } from '../app.ts';
 import { createPool, type Db } from './db.ts';
 import { attachOps, loadOps, syncOps, type OpsRole } from './ops.ts';
 import { PgOpsStore } from './opsStore.ts';
+import { attachGam, loadGam, PgGamStore } from './gamStore.ts';
 import { PgAuditStore, PgEventStore, attachPersistence, rebuildFromStore } from './stores.ts';
 
 export type Booted = { db: Db; ops: PgOpsStore; flush: () => Promise<void>; tick: () => Promise<{ events: number; synced: number; woke: number }>; stop: () => Promise<void>; loaded: Awaited<ReturnType<typeof loadOps>>['counts']; events: number };
@@ -28,13 +29,17 @@ export async function bootWithDb(app: App, o: { role: OpsRole; tenants: string[]
   const loaded = await loadOps(app, ops, o.tenants, { interrupted: o.role !== 'web' });
   let cursor = loaded.cursor;
   const opsP = attachOps(app, ops);
+  // gamificación: retos, inscripciones, logros, alias y enlaces (los efectos corren donde llega el evento)
+  const gam = new PgGamStore(db);
+  const gamLoaded = await loadGam(app, gam, o.tenants);
+  const gamP = attachGam(app, gam);
   // el worker no crea recorridos: los recibe de la base (los publica la web)
   for (const t of o.tenants) { seedTenant(app, t, 'rumbawin', { journeys: o.role !== 'worker' }); app.policy.markRgFeedSynced(t); }
   const seqs = new Map<string, number>();
   const r = await rebuildFromStore(app, events, o.tenants, seqs);
-  const flush = async () => { await persist.flush(); await opsP.flush(); };
+  const flush = async () => { await persist.flush(); await opsP.flush(); await gamP.flush(); };
   await flush();
-  log(`PostgreSQL (${o.role}): ${r.events} eventos reconstruidos · ${loaded.counts.versions} versiones, ${loaded.counts.instances} instancias (${loaded.counts.waiting} en espera), ${loaded.counts.receipts} recibos${loaded.counts.interrupted ? ` · ${loaded.counts.interrupted} envíos interrumpidos pasan a «incierto»` : ''} · auditoría desde #${last?.seq ?? 0}.`);
+  log(`PostgreSQL (${o.role}): ${r.events} eventos reconstruidos · ${loaded.counts.versions} versiones, ${loaded.counts.instances} instancias (${loaded.counts.waiting} en espera), ${loaded.counts.receipts} recibos${loaded.counts.interrupted ? ` · ${loaded.counts.interrupted} envíos interrumpidos pasan a «incierto»` : ''} · ${gamLoaded} registros de gamificación · auditoría desde #${last?.seq ?? 0}.`);
   let busy = false;
   const tick = async () => {
     if (busy) return { events: 0, synced: 0, woke: 0 };
@@ -45,6 +50,7 @@ export async function bootWithDb(app: App, o: { role: OpsRole; tenants: string[]
       const s = await syncOps(app, ops, o.tenants, cursor, flush);
       cursor = s.cursor;
       const woke = o.role === 'web' ? 0 : app.runtime.runDue();
+      if (o.role !== 'worker') app.challenges.tick();
       await flush();
       return { events: ev.events, synced: s.changed, woke };
     } finally { busy = false; }

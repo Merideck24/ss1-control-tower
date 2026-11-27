@@ -38,6 +38,7 @@ export type Unlock = { achievement_id: string; level: number; at: string };
 export type ShareLink = { id: string; tenant_id: string; brand_id: string; player_id: string; achievement_id: string; level: number; created_at: string; revoked_at?: string };
 export type ShareMetric = 'share_click' | 'download' | 'visit' | 'post_confirmed';
 export type Alias = { alias: string; show_on_cards: boolean; updated_at: string };
+export type PlayerAchState = { tenant_id: string; player_id: string; challenges: number; profile: boolean; features: string[]; unlocks: Unlock[]; alias: Alias | null };
 
 /** Identidad visual por defecto de SS1 (si la marca no define la suya). */
 export const SS1_TOKENS = { bg: '#062B3D', cta: '#FFD21F', icon: '#F5B700', text: '#F4F7E8', secondary: '#087A78', promo: '#FF7A1A' };
@@ -64,7 +65,25 @@ export class AchievementService {
   #links = new Map<string, ShareLink>();
   #metrics = new Map<string, Record<ShareMetric, number>>(); // tenant::achievement
   #d: { clock: Clock; audit: AuditLog; loyalty: LoyaltyService; realtime: RealtimeHub; brandName: (tenant: string, brand: string) => string };
+  /** Persistencia: estado de jugador, enlaces y métricas que cambiaron. */
+  onChange?: (x: { players?: PlayerAchState[]; links?: ShareLink[]; metrics?: { tenant_id: string; achievement_id: string; counts: Record<ShareMetric, number> }[] }) => void;
   constructor(d: AchievementService['_deps']) { this.#d = d; }
+  /** Estado durable de un jugador (contadores, desbloqueos y alias). */
+  snapshot(tenant: string, player: string): PlayerAchState {
+    const c = this.#c(tenant, player);
+    return { tenant_id: tenant, player_id: player, challenges: c.challenges, profile: c.profile, features: [...c.features], unlocks: [...(this.#unlocks.get(`${tenant}::${player}`) ?? [])], alias: this.alias(tenant, player) };
+  }
+  #changed(tenant: string, player: string) { this.onChange?.({ players: [this.snapshot(tenant, player)] }); }
+  restore(x: { players?: PlayerAchState[]; links?: ShareLink[]; metrics?: { tenant_id: string; achievement_id: string; counts: Record<ShareMetric, number> }[] }) {
+    for (const p of x.players ?? []) {
+      const k = `${p.tenant_id}::${p.player_id}`;
+      this.#counters.set(k, { challenges: p.challenges, profile: p.profile, features: new Set(p.features) });
+      this.#unlocks.set(k, p.unlocks);
+      if (p.alias) this.#aliases.set(k, p.alias); else this.#aliases.delete(k);
+    }
+    for (const l of x.links ?? []) this.#links.set(l.id, l);
+    for (const m of x.metrics ?? []) this.#metrics.set(`${m.tenant_id}::${m.achievement_id}`, m.counts);
+  }
   declare _deps: { clock: Clock; audit: AuditLog; loyalty: LoyaltyService; realtime: RealtimeHub; brandName: (tenant: string, brand: string) => string };
 
   #c(tenant: string, player: string) {
@@ -73,12 +92,12 @@ export class AchievementService {
     if (!c) this.#counters.set(k, (c = { challenges: 0, profile: false, features: new Set() }));
     return c;
   }
-  recordChallengeCompleted(tenant: string, brand: string, player: string) { this.#c(tenant, player).challenges++; return this.evaluate(tenant, brand, player); }
+  recordChallengeCompleted(tenant: string, brand: string, player: string) { this.#c(tenant, player).challenges++; const u = this.evaluate(tenant, brand, player); this.#changed(tenant, player); return u; }
   recordActivity(tenant: string, brand: string, player: string, action: string, feature?: string) {
     const c = this.#c(tenant, player);
     if (action === 'profile_completed') c.profile = true;
     if (action === 'feature_visited' && feature) c.features.add(feature.slice(0, 40));
-    return this.evaluate(tenant, brand, player);
+    const u = this.evaluate(tenant, brand, player); this.#changed(tenant, player); return u;
   }
 
   #value(tenant: string, brand: string, player: string, m: AchievementMetric): number {
@@ -108,6 +127,7 @@ export class AchievementService {
       }
     }
     this.#unlocks.set(k, have);
+    if (fresh.length) this.#changed(tenant, player);
     return fresh;
   }
 
@@ -136,6 +156,7 @@ export class AchievementService {
     const v = { alias: a, show_on_cards: show, updated_at: this.#d.clock.now().toISOString() };
     this.#aliases.set(`${tenant}::${player}`, v);
     this.#d.audit.record(tenant, player, 'player.alias_set', player, { show_on_cards: show });
+    this.#changed(tenant, player);
     return v;
   }
   alias(tenant: string, player: string) { return this.#aliases.get(`${tenant}::${player}`) ?? null; }
@@ -180,12 +201,13 @@ export class AchievementService {
     const link: ShareLink = { id: opaqueId(), tenant_id: tenant, brand_id: brand, player_id: player, achievement_id: achievementId, level: u.level, created_at: this.#d.clock.now().toISOString() };
     this.#links.set(link.id, link);
     this.#d.audit.record(tenant, player, 'share.link_created', player, { achievement: achievementId, link: link.id });
+    this.onChange?.({ links: [link] });
     return link;
   }
   revokeLink(tenant: string, player: string, id: string): ShareLink {
     const l = this.#links.get(id);
     if (!l || l.tenant_id !== tenant || l.player_id !== player) throw new DomainError('not_found', 'Enlace inexistente.');
-    if (!l.revoked_at) { l.revoked_at = this.#d.clock.now().toISOString(); this.#d.audit.record(tenant, player, 'share.link_revoked', player, { link: id }); }
+    if (!l.revoked_at) { l.revoked_at = this.#d.clock.now().toISOString(); this.#d.audit.record(tenant, player, 'share.link_revoked', player, { link: id }); this.onChange?.({ links: [l] }); }
     return l;
   }
   links(tenant: string, player: string) { return [...this.#links.values()].filter((l) => l.tenant_id === tenant && l.player_id === player); }
@@ -206,6 +228,7 @@ export class AchievementService {
     const m = this.#metrics.get(k) ?? { share_click: 0, download: 0, visit: 0, post_confirmed: 0 };
     m[type]++;
     this.#metrics.set(k, m);
+    this.onChange?.({ metrics: [{ tenant_id: tenant, achievement_id: achievementId, counts: { ...m } }] });
   }
   shareMetrics(tenant: string) {
     return ACHIEVEMENTS.map((a) => ({ achievement_id: a.id, name: a.name.es, ...(this.#metrics.get(`${tenant}::${a.id}`) ?? { share_click: 0, download: 0, visit: 0, post_confirmed: 0 }),

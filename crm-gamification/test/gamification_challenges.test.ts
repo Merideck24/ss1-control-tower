@@ -100,7 +100,8 @@ test('Gamificación · enlace público opaco, voluntario y revocable; métricas 
   assert.match(link.body.id, /^[A-Za-z0-9_-]{22}$/, 'identificador opaco');
   assert.doesNotMatch(link.body.id, /sint2|perfil/);
   assert.equal((await w.call('POST', '/players/sint2/achievements/perfil_completo/share-link', 'support', {})).status, 422, 'exige acción explícita');
-  const pub = await w.call('GET', `/public/share/${link.body.id}`, '');
+  // un visitante no tiene sesión ni tenant
+  const pub = await route(w.app, { method: 'GET', path: `/public/share/${link.body.id}`, query: new URLSearchParams(), headers: {}, body: {} }) as R;
   assert.equal(pub.status, 200);
   assert.match(String(pub.body), /<svg/);
   await w.call('POST', '/players/sint2/share-events', 'support', { type: 'share_click', achievement_id: 'perfil_completo' });
@@ -110,7 +111,7 @@ test('Gamificación · enlace público opaco, voluntario y revocable; métricas 
   const m = (await w.call('GET', '/gamification/share-metrics', 'crm_analyst')).body.find((x: { achievement_id: string }) => x.achievement_id === 'perfil_completo');
   assert.deepEqual([m.share_click, m.download, m.visit, m.post_confirmed, m.links_active], [1, 1, 1, 0, 1]);
   assert.equal((await w.call('POST', `/players/sint2/share-links/${link.body.id}/revoke`, 'support')).status, 200);
-  assert.equal((await w.call('GET', `/public/share/${link.body.id}`, '')).status, 404, 'revocado: deja de verse');
+  assert.equal((await route(w.app, { method: 'GET', path: `/public/share/${link.body.id}`, query: new URLSearchParams(), headers: {}, body: {} })).status, 404, 'revocado: deja de verse');
   // sin logro no hay tarjeta
   assert.equal((await w.call('POST', '/players/sint2/achievements/retador/card', 'support')).status, 422);
 });

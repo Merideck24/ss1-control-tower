@@ -74,7 +74,7 @@ test('DB fase 2: actualizar desde la fase 1 conserva los datos y habilita los es
   await admin.query(`INSERT INTO journey_versions (tenant_id, journey_id, version, status, definition, created_by) VALUES ($1, 'j_old', 1, 'published', '{"id":"j_old"}', 'ana@ss1')`, [T]);
   await assert.rejects(admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`), /check/i, 'la fase 1 no admite «uncertain»');
   const r = await migrate(admin);
-  assert.deepEqual(r.applied, ['002_runtime_persistence.sql']);
+  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql']);
   const row = (await admin.query(`SELECT status, attempts, vars, journey_id FROM delivery_receipts WHERE idempotency_key = 'k-fase1'`)).rows[0];
   assert.deepEqual([row.status, row.attempts, row.vars, row.journey_id], ['accepted', 1, null, null], 'el recibo de la fase 1 sigue igual');
   await admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`);
@@ -237,4 +237,36 @@ test('DB fase 2: el ciclo de aprobación sobrevive a la sincronización y al rei
   const pub = c.app.registry.publish(actor('beto@ss1', 'approver'), 'j_sig');
   assert.equal(pub.status, 'published');
   await c.boot.stop();
+});
+
+test('DB gamificación: retos, inscripciones, logros, alias y enlaces sobreviven al reinicio', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  let w = await proc('all', clock);
+  const ana = { id: 'ana@ss1', tenant_id: T }, beto = { id: 'beto@ss1', tenant_id: T };
+  w.app.challenges.saveDraft(ana, { id: 'reto_db', brand_id: 'rumbawin', name: 'Reto DB', description: 'Persistencia', period: 'season', season: 'S1', mode: 'single', reward: { xp: 100 },
+    steps: [{ id: 'p', label: 'Completa tu perfil', kind: 'activity', action: 'profile_completed', target: 1 }], starts_at: '2026-11-19T00:00:00Z', ends_at: '2026-12-31T00:00:00Z', timezone: 'America/Bogota' } as never);
+  w.app.challenges.submit(ana, 'reto_db'); w.app.challenges.approve(beto, 'reto_db');
+  onboard(w.app, clock, 'g1');
+  w.app.challenges.enroll(T, 'g1', 'reto_db', true);
+  w.app.ingestor.ingest(ev(T, 'g1', 'player.activity' as never, { action: 'profile_completed' } as never, clock.now().toISOString(), { event_id: 'g1-act' }));
+  w.app.achievements.setAlias(T, 'g1', 'Gamer_DB', true);
+  const link = w.app.achievements.createLink(T, 'rumbawin', 'g1', 'perfil_completo');
+  const revoked = w.app.achievements.createLink(T, 'rumbawin', 'g1', 'retador');
+  w.app.achievements.revokeLink(T, 'g1', revoked.id);
+  await w.boot.stop();
+  w = await proc('all', clock);
+  const v = w.app.challenges.playerView(T, 'g1').find((c) => c.id === 'reto_db')!;
+  assert.deepEqual([v.version, v.enrolled, !!v.completed_at, v.reward_state?.status, v.notify], [1, true, true, 'confirmed', true]);
+  const mine = w.app.achievements.mine(T, 'rumbawin', 'g1').filter((a) => a.level).map((a) => a.id).sort();
+  assert.deepEqual(mine, ['perfil_completo', 'retador']);
+  assert.equal(w.app.achievements.alias(T, 'g1')?.alias, 'Gamer_DB');
+  assert.match(w.app.achievements.publicCard(link.id)!.svg, /Gamer_DB/);
+  assert.equal(w.app.achievements.publicCard(revoked.id), null, 'el enlace revocado sigue revocado');
+  // un evento repetido tras reiniciar no vuelve a contar (idempotencia durable)
+  w.app.ingestor.ingest(ev(T, 'g1', 'player.activity' as never, { action: 'profile_completed' } as never, clock.now().toISOString(), { event_id: 'g1-act-2' }));
+  // el período ya está completado y persistido: un evento nuevo no lo vuelve a completar ni a premiar
+  assert.equal(w.app.audit.list(T).filter((a) => a.action === 'challenge.completed').length, 0, 'no hay una segunda finalización tras reiniciar');
+  // limitación conocida: el libro de fidelidad (XP) aún vive en memoria (docs/GAMIFICACION.md, pendientes)
+  await w.boot.stop();
 });

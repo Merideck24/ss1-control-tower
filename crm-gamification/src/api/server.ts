@@ -148,7 +148,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   } else {
     for (const t of demoTenants) { seedTenant(app, t); app.policy.markRgFeedSynced(t); seedAcquisitionHistory(app, t, 90, t === 'tenant-rumbawin' ? 1 : 0.3, t === 'tenant-rumbawin' ? 7 : 11); }
     // sin base: el mismo proceso despierta esperas y diferidos (antes solo avanzaban con POST /runtime/tick)
-    setInterval(() => { try { app.runtime.runDue(); } catch (e) { console.error('[runtime]', (e as Error).message); } }, Number(process.env.CRM_SYNC_INTERVAL_MS ?? 1000)).unref();
+    setInterval(() => { try { app.runtime.runDue(); app.challenges.tick(); } catch (e) { console.error('[runtime]', (e as Error).message); } }, Number(process.env.CRM_SYNC_INTERVAL_MS ?? 1000)).unref();
   }
   // demo: simula el latido del feed de juego responsable (en producción lo publica la fuente)
   const heartbeat = () => demoTenants.forEach((t) => app.policy.markRgFeedSynced(t));
