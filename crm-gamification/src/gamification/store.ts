@@ -35,6 +35,8 @@ export class StoreService {
   #predictions = new Map<string, Prediction>();
   #picks = new Map<string, Map<string, { option: string; at: string }>>(); // tenant::prediction → player → pick
   coinRateMinor = 100_000; // 1 moneda por cada COP 1.000 apostados
+  /** cada movimiento nuevo de monedas (persistencia) */
+  onCoin?: (tenant: string, e: CoinEntry) => void;
   constructor(d: Deps) { this.#d = d; }
 
   // ---- monedas ----
@@ -47,7 +49,20 @@ export class StoreService {
     const e = { id: `c_${ref}`, player_id: player, amount, reason, ref, at: this.#d.clock.now().toISOString() };
     const k = `${tenant}::${player}`;
     this.#coins.set(k, [...(this.#coins.get(k) ?? []), e]);
+    this.onCoin?.(tenant, e);
     return e;
+  }
+  /** Carga movimientos persistidos sin efectos; ignora los que ya están (misma ref). */
+  restoreCoins(tenant: string, entries: CoinEntry[]): number {
+    let n = 0;
+    for (const e of entries) {
+      const rk = `${tenant}::${e.ref}`;
+      if (this.#coinRefs.has(rk)) continue;
+      this.#coinRefs.add(rk); n++;
+      const k = `${tenant}::${e.player_id}`;
+      this.#coins.set(k, [...(this.#coins.get(k) ?? []), { ...e }]);
+    }
+    return n;
   }
   onEvent(e: EventEnvelope, p: PlayerProfile | undefined) {
     if (e.event_type !== 'bet.settled' || blocked(this.#d, p)) return;

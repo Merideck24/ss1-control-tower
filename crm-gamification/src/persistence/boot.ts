@@ -13,6 +13,7 @@ import { createPool, type Db } from './db.ts';
 import { attachOps, loadOps, syncOps, type OpsRole } from './ops.ts';
 import { PgOpsStore } from './opsStore.ts';
 import { attachGam, loadGam, PgGamStore } from './gamStore.ts';
+import { attachLedgers, PgLedgerStore, syncLedgers } from './ledgerStore.ts';
 import { PgAuditStore, PgEventStore, attachPersistence, rebuildFromStore } from './stores.ts';
 
 export type Booted = { db: Db; ops: PgOpsStore; flush: () => Promise<void>; tick: () => Promise<{ events: number; synced: number; woke: number }>; stop: () => Promise<void>; loaded: Awaited<ReturnType<typeof loadOps>>['counts']; events: number };
@@ -33,13 +34,17 @@ export async function bootWithDb(app: App, o: { role: OpsRole; tenants: string[]
   const gam = new PgGamStore(db);
   const gamLoaded = await loadGam(app, gam, o.tenants);
   const gamP = attachGam(app, gam);
+  // libros de XP y monedas: se cargan antes de los eventos, así un evento repetido no vuelve a sumar
+  const ledgers = new PgLedgerStore(db), ledgerCursors = new Map<string, { xp: number; coins: number }>();
+  const ledgerLoaded = await syncLedgers(app, ledgers, o.tenants, ledgerCursors);
+  const ledgerP = attachLedgers(app, ledgers);
   // el worker no crea recorridos: los recibe de la base (los publica la web)
   for (const t of o.tenants) { seedTenant(app, t, 'rumbawin', { journeys: o.role !== 'worker' }); app.policy.markRgFeedSynced(t); }
   const seqs = new Map<string, number>();
   const r = await rebuildFromStore(app, events, o.tenants, seqs);
-  const flush = async () => { await persist.flush(); await opsP.flush(); await gamP.flush(); };
+  const flush = async () => { await persist.flush(); await opsP.flush(); await gamP.flush(); await ledgerP.flush(); };
   await flush();
-  log(`PostgreSQL (${o.role}): ${r.events} eventos reconstruidos · ${loaded.counts.versions} versiones, ${loaded.counts.instances} instancias (${loaded.counts.waiting} en espera), ${loaded.counts.receipts} recibos${loaded.counts.interrupted ? ` · ${loaded.counts.interrupted} envíos interrumpidos pasan a «incierto»` : ''} · ${gamLoaded} registros de gamificación · auditoría desde #${last?.seq ?? 0}.`);
+  log(`PostgreSQL (${o.role}): ${r.events} eventos reconstruidos · ${loaded.counts.versions} versiones, ${loaded.counts.instances} instancias (${loaded.counts.waiting} en espera), ${loaded.counts.receipts} recibos${loaded.counts.interrupted ? ` · ${loaded.counts.interrupted} envíos interrumpidos pasan a «incierto»` : ''} · ${gamLoaded} registros de gamificación · ${ledgerLoaded} asientos de XP y monedas · auditoría desde #${last?.seq ?? 0}.`);
   let busy = false;
   const tick = async () => {
     if (busy) return { events: 0, synced: 0, woke: 0 };
@@ -47,6 +52,9 @@ export async function bootWithDb(app: App, o: { role: OpsRole; tenants: string[]
     try {
       // eventos que escribió el otro proceso: solo proyección (sus efectos ya corrieron allá)
       const ev = await rebuildFromStore(app, events, o.tenants, seqs);
+      await flush();
+      // asientos que escribió la otra réplica (los propios ya están y se ignoran por ref)
+      await syncLedgers(app, ledgers, o.tenants, ledgerCursors);
       const s = await syncOps(app, ops, o.tenants, cursor, flush);
       cursor = s.cursor;
       const woke = o.role === 'web' ? 0 : app.runtime.runDue();

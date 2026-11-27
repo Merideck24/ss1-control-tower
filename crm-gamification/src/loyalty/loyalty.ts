@@ -22,6 +22,8 @@ export class LoyaltyService {
   onThreshold?: (e: EventEnvelope<'loyalty.threshold_crossed'>) => void;
   /** subida de nivel (nunca bajadas: una reversión que baja de nivel no genera aviso) */
   onLevelUp?: (e: EventEnvelope<'loyalty.level_up'>) => void;
+  /** cada asiento nuevo (persistencia: libro durable en PostgreSQL) */
+  onAppend?: (e: LedgerEntry & { brand_id: string }) => void;
   constructor(clock: Clock) { this.#clock = clock; }
 
   setProgram(p: LoyaltyProgram): void {
@@ -58,6 +60,7 @@ export class LoyaltyService {
     this.#ledger.push(entry);
     const bk = `${e.tenant_id}::${e.player_id}::${e.season}`;
     this.#balances.set(bk, (this.#balances.get(bk) ?? 0) + e.points);
+    this.onAppend?.({ ...entry, brand_id: brand });
     const after = this.progress(e.tenant_id, brand, e.player_id);
     const prog = this.program(e.tenant_id, brand)!;
     const rank = (lv: string) => prog.levels.findIndex((l) => l.name === lv);
@@ -106,6 +109,22 @@ export class LoyaltyService {
     const orig = this.#ledger.find((x) => x.tenant_id === tenant && x.ref === ref && !x.compensates);
     if (!orig) throw new DomainError('entry_not_found', ref);
     return this.#append({ entry_id: `le_rev_${ref}`, tenant_id: tenant, player_id: orig.player_id, season: orig.season, points: -orig.points, reason, ref: `reverse:${ref}`, compensates: orig.entry_id }, brand);
+  }
+
+  /**
+   * Carga asientos persistidos (arranque o asientos de otra réplica). Sin efectos: no avisa niveles
+   * ni cruces del 50 %, y un asiento que ya está (misma ref) se ignora. Devuelve cuántos agregó.
+   */
+  restore(entries: LedgerEntry[]): number {
+    let n = 0;
+    for (const e of entries) {
+      const rk = `${e.tenant_id}::${e.ref}`;
+      if (this.#refs.has(rk)) continue;
+      this.#refs.add(rk); this.#ledger.push({ ...e }); n++;
+      const bk = `${e.tenant_id}::${e.player_id}::${e.season}`;
+      this.#balances.set(bk, (this.#balances.get(bk) ?? 0) + e.points);
+    }
+    return n;
   }
 
   movements(tenant: string, player: string) { return this.#ledger.filter((e) => e.tenant_id === tenant && e.player_id === player); }

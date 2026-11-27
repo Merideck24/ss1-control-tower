@@ -72,7 +72,7 @@ Los defectos de incrementos anteriores (16 hallazgos de UX, revisión externa y 
 
 1. Correr el contrato contra SS1 apenas lleguen los accesos y resolver o asignar cada discrepancia del informe.
 2. Hacer las cinco sesiones, corregir los problemas de interfaz prioritarios y repetir esas tareas.
-3. Persistir bonos con la reserva de presupuesto en la misma transacción, la bandeja in-app y los libros de fidelidad y monedas (`docs/DATABASE.md`).
+3. Persistir bonos con la reserva de presupuesto en la misma transacción y la bandeja in-app (`docs/DATABASE.md`). Los libros de XP y monedas ya son durables (migración 004).
 4. Escritura condicional por versión en `journey_instances`, para cerrar la carrera web/worker documentada.
 5. Configurar un linter.
 

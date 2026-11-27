@@ -10,10 +10,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import pg from 'pg';
 import { createApp, ev, type App } from '../src/app.ts';
-import { createPool, type Db } from '../src/persistence/db.ts';
+import { createPool, withTenant, type Db } from '../src/persistence/db.ts';
 import { migrate, MIGRATIONS_DIR } from '../src/persistence/migrate.ts';
 import { bootWithDb, type Booted } from '../src/persistence/boot.ts';
 import { PgOpsStore } from '../src/persistence/opsStore.ts';
+import { PgLedgerStore } from '../src/persistence/ledgerStore.ts';
 import { ManualClock } from '../src/shared/util.ts';
 import { T, T2 } from './helpers.ts';
 
@@ -74,7 +75,7 @@ test('DB fase 2: actualizar desde la fase 1 conserva los datos y habilita los es
   await admin.query(`INSERT INTO journey_versions (tenant_id, journey_id, version, status, definition, created_by) VALUES ($1, 'j_old', 1, 'published', '{"id":"j_old"}', 'ana@ss1')`, [T]);
   await assert.rejects(admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`), /check/i, 'la fase 1 no admite «uncertain»');
   const r = await migrate(admin);
-  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql']);
+  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql']);
   const row = (await admin.query(`SELECT status, attempts, vars, journey_id FROM delivery_receipts WHERE idempotency_key = 'k-fase1'`)).rows[0];
   assert.deepEqual([row.status, row.attempts, row.vars, row.journey_id], ['accepted', 1, null, null], 'el recibo de la fase 1 sigue igual');
   await admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`);
@@ -267,6 +268,42 @@ test('DB gamificación: retos, inscripciones, logros, alias y enlaces sobreviven
   w.app.ingestor.ingest(ev(T, 'g1', 'player.activity' as never, { action: 'profile_completed' } as never, clock.now().toISOString(), { event_id: 'g1-act-2' }));
   // el período ya está completado y persistido: un evento nuevo no lo vuelve a completar ni a premiar
   assert.equal(w.app.audit.list(T).filter((a) => a.action === 'challenge.completed').length, 0, 'no hay una segunda finalización tras reiniciar');
-  // limitación conocida: el libro de fidelidad (XP) aún vive en memoria (docs/GAMIFICACION.md, pendientes)
+  // el XP que otorgó el reto sobrevive al reinicio (libro durable, migración 004)
+  assert.ok(w.app.loyalty.movements(T, 'g1').some((m) => m.ref.includes('reto_db') && m.points === 100), 'el asiento de XP del reto sigue ahí');
+  assert.equal(w.app.loyalty.balance(T, 'g1', '2026-Q4'), 100);
   await w.boot.stop();
+});
+
+test('DB libros: XP y monedas sobreviven al reinicio, la otra réplica los recibe y nada se cuenta dos veces', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  const ana = { id: 'ana@ss1', tenant_id: T };
+  let web = await proc('web', clock);
+  const worker = await proc('worker', clock);
+  onboard(web.app, clock, 'l1');
+  web.app.loyalty.award(T, 'rumbawin', 'l1', 1500, 'mission:m1', 'mission:m1:l1');   // sube a Plata
+  web.app.store.adjust(ana, 'l1', 40, 'ajuste de prueba', 'a1');
+  web.app.store.adjust(ana, 'l1', -15, 'ajuste de prueba', 'a2');
+  web.app.loyalty.reverse(T, 'rumbawin', 'mission:m1:l1', 'reverso de prueba');
+  web.app.loyalty.award(T, 'rumbawin', 'l1', 300, 'mission:m2', 'mission:m2:l1');
+  await web.boot.flush();
+  const ledgers = new PgLedgerStore(web.boot.db);
+  assert.equal(await ledgers.balance(T, 'l1'), 25, 'saldo de monedas mantenido en la base');
+  // la otra réplica recibe los asientos en su ciclo, sin efectos (no vuelve a avisar la subida de nivel)
+  const ups = worker.app.audit.list(T).length;
+  await worker.boot.tick();
+  assert.equal(worker.app.loyalty.balance(T, 'l1', '2026-Q4'), 300);
+  assert.equal(worker.app.store.balance(T, 'l1'), 25);
+  assert.equal(worker.app.audit.list(T).length, ups, 'sincronizar no genera efectos');
+  await web.boot.stop(); await worker.boot.stop();
+  web = await proc('web', clock);
+  assert.equal(web.app.loyalty.balance(T, 'l1', '2026-Q4'), 300, 'XP tras reiniciar');
+  assert.equal(web.app.store.balance(T, 'l1'), 25, 'monedas tras reiniciar');
+  assert.equal(web.app.loyalty.movements(T, 'l1').filter((m) => m.compensates).length, 1, 'el asiento compensatorio sigue');
+  // repetir la misma referencia tras reiniciar no vuelve a sumar (idempotencia durable)
+  assert.equal(web.app.loyalty.award(T, 'rumbawin', 'l1', 300, 'mission:m2', 'mission:m2:l1'), undefined);
+  assert.equal(web.app.store.adjust(ana, 'l1', 40, 'ajuste de prueba', 'a1').entry, null);
+  // la base rechaza un saldo de monedas negativo aunque una réplica desactualizada lo intente
+  await assert.rejects(withTenant(web.boot.db, T, (c) => c.query(`UPDATE coin_balances SET balance = balance - 1000 WHERE player_id = 'l1'`)), /check/i);
+  await web.boot.stop();
 });
