@@ -1,6 +1,6 @@
 # Gamificación ampliada · SS1 CRM & Loyalty
 
-**Estado al 27 de noviembre de 2026.** Primera entrega funcional del alcance de gamificación de las fases 2 y 3. Primero se construyó el flujo completo que pedía el encargo:
+**Estado al 27 de noviembre de 2026** (commit `47aad3f`, CI verde: https://github.com/Merideck24/ss1-control-tower/actions/runs/46023285268 — 204 pruebas y 31 de navegador). Primera entrega funcional del alcance de gamificación de las fases 2 y 3. Primero se construyó el flujo completo que pedía el encargo:
 
 > crear reto → aprobar → inscribir jugador sintético → recibir evento → actualizar progreso → confirmar recompensa → desbloquear logro → generar tarjeta compartible
 
