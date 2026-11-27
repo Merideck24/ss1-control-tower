@@ -11,6 +11,7 @@ import { GamesService } from './gamification/games.ts';
 import { StoreService } from './gamification/store.ts';
 import { GiftService } from './gamification/gifts.ts';
 import { LeaderboardService } from './gamification/leaderboards.ts';
+import { ContestService } from './gamification/contests.ts';
 import { ChannelHub, isSent, MemoryAdapter } from './channels/channels.ts';
 import { FailureQueue } from './channels/failures.ts';
 import { RealtimeHub } from './gamification/realtime.ts';
@@ -86,6 +87,10 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   const achievements = new AchievementService({ clock, audit, loyalty, realtime, brandName: (_t, b) => BRAND_NAMES[b] ?? b });
   const challenges = new ChallengeService({ clock, audit, loyalty, rewards, store, policy, achievements, realtime, profile: (t, p) => ingestor.get(t, p), riskHold: (t, p) => policy.riskHold?.(t, p) ?? false });
   const gifts = new GiftService({ clock, audit, loyalty, rewards, store, policy, realtime, profile: (t, p) => ingestor.get(t, p), profiles: (t) => ingestor.all(t), riskHold: (t, p) => policy.riskHold?.(t, p) ?? false });
+  // sorteo de demostración (no autorizado): en producción no se aprueban ganadores con él (CRM_ALLOW_DEMO_DRAW=1 lo permite fuera de producción)
+  const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
+  const contests = new ContestService({ clock, audit, loyalty, rewards, store, policy, realtime, achievements, profile: (t, p) => ingestor.get(t, p), riskHold: (t, p) => policy.riskHold?.(t, p) ?? false,
+    allowUnauthorizedDraw: env.NODE_ENV !== 'production' || env.CRM_ALLOW_DEMO_DRAW === '1' });
   const leaderboards = new LeaderboardService({ games, challenges, loyalty, achievements, profile: (t, p) => ingestor.get(t, p), now: () => clock.now().toISOString(), riskHold: (t, p) => policy.riskHold?.(t, p) ?? false });
   ingestor.subscribe((e, prof, meta) => { performance.onEvent(e); splits.onEvent(e); if (meta.replay) return; loyalty.onEvent(e); gamification.onEvent(e, prof); games.onEvent(e, prof); store.onEvent(e, prof); risk.onEvent(e, prof); runtime.onEvent(e); challenges.onEvent(e, prof); if (e.event_type === 'loyalty.level_up') { achievements.evaluate(e.tenant_id, e.brand_id, e.player_id); challenges.refresh(e.tenant_id, e.player_id); } });
   risk.emit = (e) => ingestor.ingest(e);
@@ -164,7 +169,7 @@ export function createApp(clock: Clock = systemClock, opts: { demoProviders?: bo
   channels.onReceipt = (r) => { if (r.status === 'accepted' || r.status === 'failed') webhooks.emit(r.tenant_id, r.status === 'accepted' ? 'delivery.accepted' : 'delivery.failed', { player_id: r.player_id, channel: r.channel, template: r.template, status: r.status, reason: r.reason ?? null, at: r.at }); };
   const serviceKeys = new ServiceKeys({ audit, clock });
   const failures = new FailureQueue({ hub: channels, policy, registry, audit, clock, profile: (t, p) => ingestor.get(t, p) });
-  return { leaderboards, gifts, realtime, achievements, challenges, failures, serviceKeys, bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
+  return { contests, leaderboards, gifts, realtime, achievements, challenges, failures, serviceKeys, bus, webhooks, governance, content, onsite, demoProviders: demo, risk, splits, abuse, abuseAll, abuseReviews, clock, audit, ingestor, policy, channels, adapters, bonus, rewards, loyalty, registry, runtime, copilot, tenants, performance, performanceReport, alertCenter, kpiAlerts, models, personas, nba, gamification, games, store };
 }
 
 /** Plantillas, política, catálogo, programa y los 5 primeros recorridos del piloto. */

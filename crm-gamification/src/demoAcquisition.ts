@@ -346,6 +346,13 @@ export function seedDemoChallenges(app: App, tenant: string, now: number) {
     if (stage >= 3) for (const k of [1, 2, 3]) emit('bet.settled', { bet_id: `demo-gam-${p.player_id}-b${k}`, stake: { amount_minor: 500_000, currency: 'COP' }, product: 'casino' }, `b${k}`);
   });  // regalo instantáneo aprobado para jugadores de Colombia (elegibles al aprobar); sin reclamos sembrados,
   // para no mover los datos fijos del guion de usabilidad (un reclamo puede subir de nivel y enviar mensajes)
+  // concurso por sorteo abierto (bases aprobadas por otra persona; participar no exige compra)
+  if (!app.contests.get(tenant, 'concurso_fin_de_ano')) {
+    app.contests.saveDraft(analyst, { id: 'concurso_fin_de_ano', brand_id: 'rumbawin', name: 'Sorteo de fin de año', kind: 'draw', requirements: {},
+      rules: 'Participa gratis hasta la fecha de cierre. No se requiere depósito ni apuesta. Un ganador por puesto, elegido por sorteo verificable. Excluye cuentas con restricción de juego responsable.',
+      opens_at: new Date(now - DAY).toISOString(), closes_at: new Date(now + 10 * DAY).toISOString(), prizes: [{ place: 1, label: 'Camiseta oficial + 1.000 XP', xp: 1000 }, { place: 2, label: '200 monedas', coins: 200 }] } as never);
+    app.contests.submit(analyst, 'concurso_fin_de_ano'); app.contests.approve(approver, 'concurso_fin_de_ano');
+  }
   if (!app.gifts.get(tenant, 'regalo_temporada')) {
     app.gifts.saveDraft(analyst, { id: 'regalo_temporada', brand_id: 'rumbawin', name: 'Regalo de temporada', message: 'Gracias por jugar con nosotros esta temporada.', reward: { xp: 150, coins: 20 },
       audience: { segment: { field: 'country', op: 'eq', value: 'CO' } }, max_recipients: 500, expires_at: new Date(now + 14 * DAY).toISOString() } as never);

@@ -83,10 +83,28 @@ export const CRM_ENDPOINTS = {
   postPlayersPlayerIdLeaderboardVisibility: { method: 'POST', path: '/players/{player_id}/leaderboard-visibility', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
   /** Inscribirse en un torneo con inscripción voluntaria · alcance players:write */
   postPlayersPlayerIdTournamentsTournamentIdEnroll: { method: 'POST', path: '/players/{player_id}/tournaments/{tournament_id}/enroll', params: ['player_id', 'tournament_id'] as const, query: [] as const } as Op<{ player_id: string; tournament_id: string }>,
+  /** Concursos abiertos para el jugador, sus participaciones y resultados · alcance players:write */
+  getPlayersPlayerIdContests: { method: 'GET', path: '/players/{player_id}/contests', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Participar aceptando las bases (una vez por jugador) · alcance players:write */
+  postPlayersPlayerIdContestsContestIdEnter: { method: 'POST', path: '/players/{player_id}/contests/{contest_id}/enter', params: ['player_id', 'contest_id'] as const, query: [] as const } as Op<{ player_id: string; contest_id: string }>,
   /** Mis regalos: disponibles, reclamados, en pausa y vencidos · alcance players:write */
   getPlayersPlayerIdGifts: { method: 'GET', path: '/players/{player_id}/gifts', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
   /** Reclamar un regalo (única aunque llegue dos veces) · alcance players:write */
   postPlayersPlayerIdGiftsGiftIdClaim: { method: 'POST', path: '/players/{player_id}/gifts/{gift_id}/claim', params: ['player_id', 'gift_id'] as const, query: [] as const } as Op<{ player_id: string; gift_id: string }>,
+  /** Concursos con participaciones, válidas, descalificadas, ganadores y mecanismo de sorteo · alcance journeys:read */
+  getContests: { method: 'GET', path: '/contests', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Guardar borrador de concurso (bases, requisitos sin compra, premios, sorteo o jurado) */
+  postContests: { method: 'POST', path: '/contests', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Detalle de un concurso y sus participaciones · alcance journeys:read */
+  getContestsContestId: { method: 'GET', path: '/contests/{contest_id}', params: ['contest_id'] as const, query: [] as const } as Op<{ contest_id: string }>,
+  /** Ciclo: enviar, aprobar (firma de bases y compromiso del sorteo), cerrar inscripción, sortear, aprobar ganadores (otra persona; entrega premios), cancelar con motivo */
+  postContestsContestIdAction: { method: 'POST', path: '/contests/{contest_id}/{action}', params: ['contest_id', 'action'] as const, query: [] as const } as Op<{ contest_id: string; action: 'submit' | 'approve' | 'close' | 'draw' | 'approve-winners' | 'cancel' }>,
+  /** Jurado: proponer ganadores con motivación */
+  postContestsContestIdWinners: { method: 'POST', path: '/contests/{contest_id}/winners', params: ['contest_id'] as const, query: [] as const } as Op<{ contest_id: string }>,
+  /** Revisión: descalificar con código y motivo, o revertir */
+  postContestsContestIdEntriesPlayerIdAction: { method: 'POST', path: '/contests/{contest_id}/entries/{player_id}/{action}', params: ['contest_id', 'player_id', 'action'] as const, query: [] as const } as Op<{ contest_id: string; player_id: string; action: 'disqualify' | 'reinstate' }>,
+  /** Verificación del sorteo: compromiso, semilla revelada y reproducción · alcance journeys:read */
+  getContestsContestIdDrawProof: { method: 'GET', path: '/contests/{contest_id}/draw-proof', params: ['contest_id'] as const, query: [] as const } as Op<{ contest_id: string }>,
   /** Catálogo de logros con niveles y condiciones · alcance journeys:read */
   getAchievementsCatalog: { method: 'GET', path: '/achievements/catalog', params: [] as const, query: [] as const } as Op<{  }>,
   /** Interacciones con tarjetas: clic, descarga, visita atribuida, publicación confirmada · alcance analytics:read */

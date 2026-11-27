@@ -39,6 +39,9 @@
       "name": "Jugador"
     },
     {
+      "name": "Concursos"
+    },
+    {
       "name": "Logros"
     },
     {
@@ -2608,6 +2611,147 @@
         ]
       }
     },
+    "/v1/players/{player_id}/contests": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Concursos abiertos para el jugador, sus participaciones y resultados",
+        "operationId": "getPlayersPlayerIdContests",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/contests/{contest_id}/enter": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Participar aceptando las bases (una vez por jugador)",
+        "operationId": "postPlayersPlayerIdContestsContestIdEnter",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`. Cuerpo: `{ accept_rules, answer? }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ accept_rules, answer? }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
     "/v1/players/{player_id}/gifts": {
       "get": {
         "tags": [
@@ -2745,6 +2889,478 @@
         "x-ss1-scope": "players:write",
         "x-ss1-permission": [
           "gamification.player"
+        ]
+      }
+    },
+    "/v1/contests": {
+      "get": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Concursos con participaciones, válidas, descalificadas, ganadores y mecanismo de sorteo",
+        "operationId": "getContests",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Guardar borrador de concurso (bases, requisitos sin compra, premios, sorteo o jurado)",
+        "operationId": "postContests",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `Contest`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Contest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/contests/{contest_id}": {
+      "get": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Detalle de un concurso y sus participaciones",
+        "operationId": "getContestsContestId",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "contest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/contests/{contest_id}/{action}": {
+      "post": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Ciclo: enviar, aprobar (firma de bases y compromiso del sorteo), cerrar inscripción, sortear, aprobar ganadores (otra persona; entrega premios), cancelar con motivo",
+        "operationId": "postContestsContestIdAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.close` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "contest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submit",
+                "approve",
+                "close",
+                "draw",
+                "approve-winners",
+                "cancel"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve",
+          "journeys.close"
+        ]
+      }
+    },
+    "/v1/contests/{contest_id}/winners": {
+      "post": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Jurado: proponer ganadores con motivación",
+        "operationId": "postContestsContestIdWinners",
+        "description": "Permiso de rol: `journeys.submit` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ winners: [{ player_id, motivation }] }`.",
+        "parameters": [
+          {
+            "name": "contest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ winners: [{ player_id, motivation }] }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit"
+        ]
+      }
+    },
+    "/v1/contests/{contest_id}/entries/{player_id}/{action}": {
+      "post": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Revisión: descalificar con código y motivo, o revertir",
+        "operationId": "postContestsContestIdEntriesPlayerIdAction",
+        "description": "Permiso de rol: `journeys.submit` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ code, reason }`.",
+        "parameters": [
+          {
+            "name": "contest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "disqualify",
+                "reinstate"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ code, reason }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit"
+        ]
+      }
+    },
+    "/v1/contests/{contest_id}/draw-proof": {
+      "get": {
+        "tags": [
+          "Concursos"
+        ],
+        "summary": "Verificación del sorteo: compromiso, semilla revelada y reproducción",
+        "operationId": "getContestsContestIdDrawProof",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "contest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
         ]
       }
     },

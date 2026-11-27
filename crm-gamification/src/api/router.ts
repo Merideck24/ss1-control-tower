@@ -15,6 +15,7 @@ import { profileView } from '../profile/projection.ts';
 import { journeyState } from '../profile/journeyState.ts';
 import { runSegment, validateRules, SEGMENT_FIELDS } from '../segments/segmentEngine.ts';
 import { DomainError, HOUR, toCsv } from '../shared/util.ts';
+import { DISQUALIFY_CODES } from '../gamification/contests.ts';
 import { journeyImpact } from '../analytics/journeyImpact.ts';
 import { sourceQuality } from '../analytics/affiliates.ts';
 import { CSV_TYPES, csvToEvents } from '../ingestion/csvImport.ts';
@@ -686,6 +687,45 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!app.gifts.get(T, id)) return { status: 404, body: { error: 'not_found', message: 'Regalo inexistente' } };
       return ok(action === 'submit' ? app.gifts.submit(actor, id) : action === 'approve' ? app.gifts.approve(actor, id) : app.gifts.close(actor, id, String(req.body.reason ?? '')));
     }
+    // ───────── Concursos (backoffice) ─────────
+    if (r0 === 'GET /contests') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok({ as_of: app.clock.now().toISOString(), provider: app.contests.provider, items: app.contests.stats(T), disqualify_codes: DISQUALIFY_CODES });
+    }
+    if (r0 === 'POST /contests') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.contests.saveDraft(actor, req.body as never), 201);
+    }
+    if ((r = m(/^GET \/contests\/([\w-]+)$/))) {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      const c = app.contests.get(T, r[1]);
+      if (!c) return { status: 404, body: { error: 'not_found', message: 'Concurso inexistente' } };
+      // la semilla del sorteo no sale de la base hasta que se sortea
+      return ok({ contest: c, entries: app.contests.entries(T, r[1]).slice(0, 1000), stats: app.contests.stats(T).find((x) => x.id === r![1]) });
+    }
+    if ((r = m(/^POST \/contests\/([\w-]+)\/(submit|approve|close|draw|approve-winners|cancel)$/))) {
+      const [, id, action] = r;
+      const perm = action === 'submit' ? 'journeys.submit' : action === 'approve' || action === 'approve-winners' ? 'journeys.approve' : action === 'cancel' ? 'journeys.close' : 'journeys.submit';
+      if (!can(actor, perm)) return forbid(perm);
+      if (!app.contests.get(T, id)) return { status: 404, body: { error: 'not_found', message: 'Concurso inexistente' } };
+      return ok(action === 'submit' ? app.contests.submit(actor, id) : action === 'approve' ? app.contests.approve(actor, id) : action === 'close' ? app.contests.close(actor, id)
+        : action === 'draw' ? app.contests.drawWinners(actor, id) : action === 'approve-winners' ? app.contests.approveWinners(actor, id) : app.contests.cancel(actor, id, String(req.body.reason ?? '')));
+    }
+    if ((r = m(/^POST \/contests\/([\w-]+)\/winners$/))) {
+      if (!can(actor, 'journeys.submit')) return forbid('journeys.submit');
+      if (!app.contests.get(T, r[1])) return { status: 404, body: { error: 'not_found', message: 'Concurso inexistente' } };
+      return ok(app.contests.selectWinners(actor, r[1], (req.body.winners ?? []) as never));
+    }
+    if ((r = m(/^POST \/contests\/([\w-]+)\/entries\/([\w-]+)\/(disqualify|reinstate)$/))) {
+      if (!can(actor, 'journeys.submit')) return forbid('journeys.submit');
+      if (!app.contests.get(T, r[1])) return { status: 404, body: { error: 'not_found', message: 'Concurso inexistente' } };
+      return ok(r[3] === 'disqualify' ? app.contests.disqualify(actor, r[1], r[2], String(req.body.code ?? ''), String(req.body.reason ?? '')) : app.contests.reinstate(actor, r[1], r[2], String(req.body.reason ?? '')));
+    }
+    if ((r = m(/^GET \/contests\/([\w-]+)\/draw-proof$/))) {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      if (!app.contests.get(T, r[1])) return { status: 404, body: { error: 'not_found', message: 'Concurso inexistente' } };
+      return ok(app.contests.verifyDraw(T, r[1]));
+    }
     if (r0 === 'GET /achievements/catalog') {
       if (!can(actor, 'gamification.read')) return forbid('gamification.read');
       return ok(ACHIEVEMENTS.map((a) => ({ id: a.id, icon: a.icon, metric: a.metric, name: a.name, description: a.description, levels: a.levels })));
@@ -729,6 +769,15 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const c = playerCtx(r[1]); if (isResp(c)) return c;
       if (!app.games.tournament(T, r[2])) return { status: 404, body: { error: 'not_found', message: 'Torneo inexistente' } };
       return ok(app.games.enrollTournament(T, r[1], r[2]));
+    }
+    if ((r = m(/^GET \/players\/([\w-]+)\/contests$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.contests.playerView(T, r[1], (p) => app.leaderboards.display(T, p).display));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/contests\/([\w-]+)\/enter$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      if (!app.contests.get(T, r[2])) return { status: 404, body: { error: 'not_found', message: 'Concurso inexistente' } };
+      return ok(app.contests.enter(T, r[1], r[2], { answer: req.body.answer === undefined ? undefined : String(req.body.answer), accept_rules: req.body.accept_rules === true }));
     }
     if ((r = m(/^GET \/players\/([\w-]+)\/gifts$/))) {
       const c = playerCtx(r[1]); if (isResp(c)) return c;
@@ -952,7 +1001,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     return { status: 404, body: { error: 'route_not_found', message: r0 } };
   } catch (e) {
     const err = e as DomainError;
-    const status = ['forbidden', 'tenant_mismatch', 'segregation_of_duties', 'not_visible', 'not_participant'].includes(err.code) ? 403 : ['reprocess_in_progress', 'not_reprocessable'].includes(err.code) ? 409 : err.code ? 422 : 500;
+    const status = ['forbidden', 'tenant_mismatch', 'segregation_of_duties', 'not_visible', 'not_participant'].includes(err.code) ? 403 : err.code === 'draw_not_authorized' ? 409 : ['reprocess_in_progress', 'not_reprocessable'].includes(err.code) ? 409 : err.code ? 422 : 500;
     return { status, body: { error: err.code ?? 'internal_error', message: err.message } };
   }
 }

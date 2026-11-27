@@ -358,3 +358,26 @@ test('DB torneos y clasificaciones: reglas, puntajes, cierre pendiente de aproba
   assert.equal(w.app.loyalty.balance(T, 't1', '2026-Q4') - xp0, 400, 'premio pagado al aprobar');
   await w.boot.stop();
 });
+
+test('DB concursos: bases, participaciones, descalificación y compromiso del sorteo sobreviven al reinicio; el sorteo se verifica después', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  const A = { id: 'ana@ss1', tenant_id: T }, B = { id: 'beto@ss1', tenant_id: T };
+  let w = await proc('all', clock);
+  for (const p of ['c1', 'c2', 'c3']) onboard(w.app, clock, p);
+  w.app.contests.saveDraft(A, { id: 'conc_db', brand_id: 'rumbawin', name: 'Concurso DB', rules: 'Participa gratis. Sin compra ni apuesta. Un ganador elegido por sorteo verificable con semilla.', kind: 'draw', requirements: {}, opens_at: '2026-11-20T00:00:00Z', closes_at: '2026-11-25T00:00:00Z', prizes: [{ place: 1, label: '200 XP', xp: 200 }] } as never);
+  w.app.contests.submit(A, 'conc_db');
+  const ap = w.app.contests.approve(B, 'conc_db');
+  for (const p of ['c1', 'c2', 'c3']) w.app.contests.enter(T, p, 'conc_db', { accept_rules: true });
+  w.app.contests.disqualify(A, 'conc_db', 'c3', 'duplicate_account', 'Cuenta duplicada confirmada por soporte');
+  await w.boot.stop();
+  w = await proc('all', clock);
+  assert.equal(w.app.contests.get(T, 'conc_db')?.draw?.seed_commit, ap.draw!.seed_commit);
+  assert.deepEqual(w.app.contests.entries(T, 'conc_db').map((e) => [e.player_id, e.status]).sort(), [['c1', 'valid'], ['c2', 'valid'], ['c3', 'disqualified']]);
+  w.app.contests.close(A, 'conc_db');
+  const dr = w.app.contests.drawWinners(A, 'conc_db');
+  assert.ok(['c1', 'c2'].includes(dr.winners![0].player_id));
+  const pr = w.app.contests.verifyDraw(T, 'conc_db');
+  assert.deepEqual([pr.commit_matches, pr.reproduced], [true, true], 'la semilla persistida coincide con el compromiso publicado');
+  await w.boot.stop();
+});
