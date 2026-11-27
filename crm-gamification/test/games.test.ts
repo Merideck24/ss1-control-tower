@@ -38,11 +38,15 @@ test('G4: puntaje con tope por apuesta, cierre con hash, exclusión JR al cierre
   assert.throws(() => app.games.finalizeTournament(actor, 't_test'), /aún no termina/);
   app.ingestor.ingest(ev(T, 'p2', 'rg.status_changed', { status: 'self_excluded' }, clock.now().toISOString()));
   clock.set('2026-11-16T01:00:00Z');
-  const t = app.games.finalizeTournament(actor, 't_test');
+  const closed = app.games.finalizeTournament(actor, 't_test');
+  assert.equal(closed.status, 'results_pending', 'cerrar no paga: espera aprobación');
+  assert.equal(app.loyalty.movements(T, 'p1').filter((m) => m.reason === 'tournament:t_test').length, 0);
+  assert.throws(() => app.games.approveResults(actor, 't_test'), /no aprueba sus resultados/);
+  const t = app.games.approveResults({ id: 'boss', tenant_id: T }, 't_test');
   assert.deepEqual(t.final!.standings.map((s) => [s.rank, s.player_id]), [[1, 'p1'], [2, 'p3']]);
   assert.equal(t.final!.excluded, 1);
   assert.equal(t.final!.hash, standingsHash(t.final!.standings));
-  const again = app.games.finalizeTournament(actor, 't_test');
+  const again = app.games.approveResults({ id: 'boss', tenant_id: T }, 't_test');
   assert.equal(again.final!.hash, t.final!.hash);
   assert.equal(app.loyalty.movements(T, 'p1').filter((m) => m.reason === 'tournament:t_test').length, 1);
 });

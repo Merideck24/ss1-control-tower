@@ -51,6 +51,9 @@
       "name": "Gamificación"
     },
     {
+      "name": "Clasificaciones"
+    },
+    {
       "name": "Riesgo"
     },
     {
@@ -2292,6 +2295,316 @@
           "journeys.submit",
           "journeys.approve",
           "journeys.close"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/leaderboards": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Clasificaciones visibles para el jugador, con su posición",
+        "operationId": "getPlayersPlayerIdLeaderboards",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/leaderboards/{type}/{board_id}": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Una clasificación (alias autorizado o nombre opaco; fila propia aparte)",
+        "operationId": "getPlayersPlayerIdLeaderboardsTypeBoardId",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tournament",
+                "challenge",
+                "season"
+              ]
+            }
+          },
+          {
+            "name": "board_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/leaderboard-visibility": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Ocultarse en las clasificaciones (sigue contando)",
+        "operationId": "postPlayersPlayerIdLeaderboardVisibility",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`. Cuerpo: `{ hidden }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ hidden }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/tournaments/{tournament_id}/enroll": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Inscribirse en un torneo con inscripción voluntaria",
+        "operationId": "postPlayersPlayerIdTournamentsTournamentIdEnroll",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tournament_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
         ]
       }
     },
@@ -4641,9 +4954,9 @@
         "tags": [
           "Gamificación"
         ],
-        "summary": "Activar o cerrar torneo",
+        "summary": "Activar (fija las reglas), cerrar con conciliación (propone premios) o aprobar resultados (otra persona; paga)",
         "operationId": "postGamificationTournamentsTournamentIdAction",
-        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` (crm_analyst, tenant_admin, approver). No disponible para llaves de servicio.",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.close` o `journeys.approve` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
         "parameters": [
           {
             "name": "tournament_id",
@@ -4661,7 +4974,9 @@
               "type": "string",
               "enum": [
                 "activate",
-                "finalize"
+                "finalize",
+                "close",
+                "approve-results"
               ]
             }
           },
@@ -4713,7 +5028,155 @@
         "x-ss1-scope": null,
         "x-ss1-permission": [
           "journeys.submit",
+          "journeys.close",
           "journeys.approve"
+        ]
+      }
+    },
+    "/v1/gamification/tournaments/{tournament_id}/rebuild": {
+      "get": {
+        "tags": [
+          "Gamificación"
+        ],
+        "summary": "Reconstruir la clasificación desde los eventos (hash y coincidencia con el cierre)",
+        "operationId": "getGamificationTournamentsTournamentIdRebuild",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "tournament_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/leaderboards/{type}/{board_id}": {
+      "get": {
+        "tags": [
+          "Clasificaciones"
+        ],
+        "summary": "Clasificación paginada con empates y desempates (backoffice: con ids)",
+        "operationId": "getLeaderboardsTypeBoardId",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tournament",
+                "challenge",
+                "season"
+              ]
+            }
+          },
+          {
+            "name": "board_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
         ]
       }
     },

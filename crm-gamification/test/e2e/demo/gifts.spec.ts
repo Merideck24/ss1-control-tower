@@ -20,7 +20,7 @@ test('Regalos: crear, aprobar y entregar, Mis regalos, reclamar una vez', async 
   let vs = await axeRun(p); ok('G.axe', vs.length === 0, vs.join(' | ') || 'sin violaciones');
   await p.goto(PAGE + '#/regalos?rol=approver'); await p.reload(); await p.waitForSelector('[data-gfa="approve"]', { timeout: 60000 });
   await p.click('[data-gfa="approve"][data-gid="regalo_regalo_ui"]'); await p.waitForTimeout(700);
-  ok('G.4', /lo recibieron/.test(await p.innerText('#flash')), await p.innerText('#flash'));
+  ok('G.4', /lo recibi/.test(await p.innerText('#flash')), await p.innerText('#flash'));
   // jugador con el regalo de temporada disponible
   await p.goto(PAGE + '#/fidelidad?rol=support'); await p.reload(); await p.waitForSelector('#lpq', { timeout: 60000 });
   const pid = await p.evaluate(async () => { const h = { 'x-tenant-id': 'tenant-rumbawin', 'x-roles': 'support', 'x-actor': 'qa@ss1' }; const ps = await (await fetch('/api/players?sort=recent', { headers: h })).json(); for (const x of ps) { const gs = await (await fetch(`/api/players/${x.player_id}/gifts`, { headers: h })).json(); if (gs.some((g: any) => g.gift_id === 'regalo_temporada' && g.status === 'available')) return x.player_id; } return null; });

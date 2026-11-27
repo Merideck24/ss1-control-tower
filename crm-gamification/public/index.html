@@ -16,7 +16,7 @@
 .jpending{margin:4px 0 8px;padding-left:20px}h3.sub{font-size:14px;margin:8px 0 2px}
 .fqf label{display:flex;flex-direction:column;gap:2px;font-size:12px}.fqf label.chk{flex-direction:row;align-items:center;gap:6px}.frp{display:grid;gap:8px;margin-top:8px}.frp label{display:flex;flex-direction:column;gap:2px}.frp label.chk{flex-direction:row;align-items:center;gap:6px}.fqt tr[aria-current] td{background:var(--brand-soft)}
 .gch{border:1px solid var(--line,#333);border-radius:6px;padding:8px 10px;margin:6px 0;display:grid;gap:4px}.gch.done{border-color:var(--brand)}
-.ggifts{list-style:none;padding:0;margin:0}.gsteps{list-style:none;margin:2px 0;padding:0;display:grid;gap:4px}.gsteps li{display:grid;grid-template-columns:1fr;gap:2px}.gsteps li.ok>span:first-child{color:var(--ok)}
+.lbav{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff;font-weight:700;font-size:12px}.glb{list-style:none;padding:0;margin:4px 0;display:grid;gap:2px}.glb li{display:grid;grid-template-columns:2em 24px 1fr auto;gap:6px;align-items:center;padding:3px 4px;border-radius:6px}.glb li.me{background:var(--brand-soft, rgba(8,122,120,.12));font-weight:600}.glb li.gap{display:block;text-align:center;color:var(--muted)}.ggifts{list-style:none;padding:0;margin:0}.gsteps{list-style:none;margin:2px 0;padding:0;display:grid;gap:4px}.gsteps li{display:grid;grid-template-columns:1fr;gap:2px}.gsteps li.ok>span:first-child{color:var(--ok)}
 .gach{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.gbadge{border:1px dashed var(--line,#444);border-radius:6px;padding:8px;display:grid;gap:4px;justify-items:start}.gbadge .gico{filter:grayscale(1);opacity:.55}.gbadge.got{border-style:solid;border-color:var(--brand)}.gbadge.got .gico{filter:none;opacity:1}.gico{font-size:22px}
 .gcard svg{width:100%;height:auto;border-radius:6px;display:block}.gsharebox{display:grid;gap:8px;margin-top:10px}.defs dt{font-weight:600;margin-top:6px}.defs dd{margin:0 0 4px;color:var(--muted)}
 @media (prefers-reduced-motion: no-preference){.gbadge.got{animation:gpop .35s ease-out}@keyframes gpop{from{transform:scale(.92)}to{transform:none}}}
@@ -297,7 +297,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['challenges', 'Retos y logros', 'gamification.read'], ['gifts', 'Regalos', 'gamification.read'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['challenges', 'Retos y logros', 'gamification.read'], ['gifts', 'Regalos', 'gamification.read'], ['leaderboards', 'Clasificaciones', 'gamification.read'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -537,7 +537,7 @@ let ROUTE = {};
 const ROUTE_KEY = 'ss1-crm-route-v1';
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } } };
 /** la URL usa el nombre del menú (#/plantillas); las claves antiguas (#/content) siguen funcionando */
-const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', challenges: 'retos', gifts: 'regalos', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
+const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', challenges: 'retos', gifts: 'regalos', leaderboards: 'clasificaciones', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
 const UNSLUG = Object.fromEntries(Object.entries(SLUG).map(([k, v]) => [v, k]));
 function parseRoute() {
   const [rawTab, qs] = location.hash.replace(/^#\/?/, '').split('?');
@@ -724,7 +724,7 @@ async function show() {
   try { clearTimeout(B.timer); } catch { /* B aún no existe en el primer render */ } // ni trabajo pendiente de la vista anterior
   try { if (current !== 'loyalty') rtStop(); } catch { /* aún sin tiempo real */ }
   v.innerHTML = '<p class="muted">Cargando…</p>';
-  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); v.querySelectorAll('[data-gotab]').forEach((b) => b.onclick = () => document.querySelector(`#tabs [data-k="${b.dataset.gotab}"]`)?.click()); }
+  try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); v.querySelectorAll('[data-gotab]').forEach((b) => b.onclick = () => { if (b.dataset.lb) { LBQ.board = b.dataset.lb; LBQ.page = 1; } document.querySelector(`#tabs [data-k="${b.dataset.gotab}"]`)?.click(); }); }
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
 }
 
@@ -1100,10 +1100,10 @@ const VIEWS = {
         <div class="row" style="margin-top:8px"><button id="msave">Guardar borrador</button></div></div><br>` : ''}
       <div class="card scroll"><h2>Torneos</h2><table><tr><th>Torneo</th><th>Puntúa</th><th>Ventana</th><th>Estado</th><th class="num">Participan</th><th>Podio</th><th><span class="sr-only">Acciones</span></th></tr>
         ${tours.map((t) => `<tr><td>${esc(t.name)}</td><td>${t.metric === 'bet_count' ? 'apuestas' : `monto apostado (tope ${moneyC(t.stake_cap_minor)} por apuesta)`}${t.product ? ' · ' + esc(t.product) : ''}<br><span class="muted">mínimo ${int(t.min_score)}</span></td>
-          <td class="muted">${new Date(t.starts_at).toLocaleDateString('es-CO')} – ${new Date(t.ends_at).toLocaleDateString('es-CO')}</td><td><span class="chip ${t.status === 'active' ? 'brand' : ''}">${({ draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activo', finished: 'Cerrado' })[t.status]}</span>${t.final ? `<br><span class="muted" title="${esc(t.final.hash)}">hash ${esc(t.final.hash.slice(0, 10))}…</span>` : ''}</td>
+          <td class="muted">${new Date(t.starts_at).toLocaleDateString('es-CO')} – ${new Date(t.ends_at).toLocaleDateString('es-CO')}${t.enrollment === 'opt_in' ? '<br>con inscripción' : ''}</td><td><span class="chip ${t.status === 'active' ? 'brand' : t.status === 'results_pending' ? 'warn' : ''}">${({ draft: 'Borrador', pending_approval: 'Pendiente de aprobación', active: 'Activo', results_pending: 'Resultados por aprobar', finished: 'Cerrado y pagado' })[t.status] ?? t.status}</span>${t.rules_hash ? `<br><span class="muted" title="${esc(t.rules_hash)}">reglas v${int(t.version ?? 1)} · ${esc(t.rules_hash.slice(0, 8))}…</span>` : ''}${(t.final ?? t.results) ? `<br><span class="muted" title="${esc((t.final ?? t.results).hash)}">resultado ${esc((t.final ?? t.results).hash.slice(0, 8))}…</span>` : ''}${t.late && (t.late.accepted || t.late.rejected_after_grace || t.late.ignored_after_close) ? `<br><span class="muted">tardíos: ${int(t.late.accepted)} contados, ${int(t.late.rejected_after_grace + t.late.ignored_after_close)} fuera de plazo</span>` : ''}</td>
           <td class="num">${int(t.participants)}</td><td>${t.standings.slice(0, 3).map((x) => `${x.rank}. ${esc(x.player_id)} (${int(x.score)})`).join('<br>') || '<span class="muted">—</span>'}</td>
-          <td class="num">${t.status === 'active' && Date.parse(t.ends_at) < serverNow() && can('journeys.approve') ? `<button data-tfin="${esc(t.id)}">Cerrar y premiar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin torneos.</td></tr>'}</table>
-        <p class="muted">Ranking reproducible desde los eventos: a igual puntaje gana quien lo alcanzó primero. Al cierre se excluyen jugadores con gamificación desactivada o restricción de juego responsable, se guarda la foto con hash y los premios se pagan una sola vez.</p></div><br>
+          <td class="num">${t.status === 'active' && Date.parse(t.ends_at) < serverNow() && (can('journeys.close') || can('journeys.submit')) ? `<button data-tclose="${esc(t.id)}">Cerrar y conciliar</button>` : ''}${t.status === 'results_pending' && can('journeys.approve') ? `<button data-tappr="${esc(t.id)}">Aprobar resultados y pagar</button>` : ''}${t.status !== 'draft' && t.status !== 'pending_approval' ? `<button class="ghost" data-gotab="leaderboards" data-lb="tournament:${esc(t.id)}">Clasificación</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin torneos.</td></tr>'}</table>
+        <p class="muted">Las reglas se fijan al iniciar (su hash se verifica al aprobar). Ranking reproducible desde los eventos: a igual puntaje gana quien lo alcanzó primero. Los eventos que llegan tarde cuentan dentro del margen del torneo. Al cerrar se concilia y se excluye a quien tenga gamificación desactivada o restricción de juego responsable; los premios se pagan solo cuando otra persona aprueba los resultados, y una sola vez.</p></div><br>
       ${games.map((gm) => `<div class="card scroll"><h2>${esc(gm.name)} · ${gm.kind === 'wheel' ? 'ruleta' : 'caja de premios'}</h2>
         <div class="row"><span class="chip">${plural(gm.spins_per_day, 'tirada gratis', 'tiradas gratis')} por día</span><span class="chip">Costo esperado ${moneyC(gm.expected.cost_per_spin_minor)} por tirada</span><span class="chip">${num(gm.expected.xp_per_spin)} XP esperados por tirada</span><span class="chip">${plural(gm.spins, 'tirada jugada', 'tiradas jugadas')}</span></div>
         <table><tr><th>Premio</th><th class="num">Probabilidad</th><th class="num">Observado</th></tr>${gm.expected.probabilities.map((pr) => `<tr><td>${esc(pr.label)}</td><td class="num">${pct(pr.p, 1)}</td><td class="num">${gm.spins ? pct((gm.observed[pr.id] ?? 0) / gm.spins, 1) : '—'}</td></tr>`).join('')}</table>
@@ -1388,6 +1388,22 @@ const VIEWS = {
         <label>Vence <input name="expires_at" type="date" required value="${new Date(serverNow() + 7 * 864e5).toISOString().slice(0, 10)}"></label></div>
       <div class="row"><button type="submit">Guardar borrador</button></div><div id="gfnewout" role="status"></div></form></div>` : ''}`;
   },
+  async leaderboards() {
+    const [tours, chs] = await Promise.all([api('/gamification/tournaments').catch(() => []), api('/challenges').catch(() => ({ items: [] }))]);
+    const opts = [...tours.filter((t) => !['draft', 'pending_approval'].includes(t.status)).map((t) => [`tournament:${t.id}`, `Torneo · ${t.name}`]), ...chs.items.filter((c) => c.status === 'active').map((c) => [`challenge:${c.id}`, `Reto · ${c.name}`]), ['season:2026-Q4', 'Temporada 2026-Q4 (XP)']];
+    if (!LBQ.board || !opts.some(([v]) => v === LBQ.board)) LBQ.board = opts[0]?.[0] ?? 'season:2026-Q4';
+    const [type, id] = LBQ.board.split(':');
+    const b = await api(`/leaderboards/${type}/${encodeURIComponent(id)}?page=${LBQ.page}&size=20`);
+    const VIS = { public: 'Pública en el sitio', participants: 'Solo participantes', hidden: 'Oculta en el sitio (solo backoffice)' };
+    return `<div class="card scroll"><h2>Clasificaciones</h2>
+      <form id="lbf" class="row fqf" aria-label="Elegir clasificación"><label>Clasificación <select name="board">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === LBQ.board ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label><button type="submit" class="ghost">Ver</button></form>
+      <div class="row"><span class="chip">${esc(VIS[b.visibility] ?? b.visibility)}</span><span class="chip">${plural(b.total, 'jugador', 'jugadores')}</span><span class="muted">${esc(b.tie_rule)}</span></div>
+      ${b.rows.length ? `<table><caption class="sr-only">${esc(b.name)}</caption><tr><th class="num">Posición</th><th>Jugador (id interno)</th><th>Cómo lo ve el sitio</th><th class="num">Puntaje</th><th>Empate</th><th>Alcanzado</th></tr>
+        ${b.rows.map((r) => `<tr><td class="num">${int(r.position)}</td><td>${esc(r.player_id)}</td><td><span class="lbav" style="background:hsl(${r.avatar.hue} 45% 32%)" aria-hidden="true">${esc(r.avatar.initial)}</span> ${esc(r.display)}</td><td class="num">${int(r.score)}</td><td>${r.tied ? '<span class="chip warn">empate en puntaje</span>' : '—'}</td><td class="muted">${esc(dateL(r.reached_at))}</td></tr>`).join('')}</table>
+        <nav class="row" aria-label="Páginas"><button class="ghost" data-lbp="${b.page - 1}"${b.page <= 1 ? ' disabled' : ''}>Anterior</button><span class="muted">Página ${int(b.page)} de ${int(b.pages)}</span><button class="ghost" data-lbp="${b.page + 1}"${b.page >= b.pages ? ' disabled' : ''}>Siguiente</button></nav>`
+        : '<p class="muted">Todavía nadie suma puntos en esta clasificación.</p>'}
+      <p class="muted">En el sitio el jugador ve su alias solo si lo autorizó; si no, un nombre opaco. Puede ocultarse: sigue contando y aparece como «Jugador oculto». No aparece quien tiene restricción de juego responsable, un caso abierto o una señal reciente. Nunca se muestran saldos ni montos.</p></div>`;
+  },
   async failures() {
     const F = FQ;
     const qs = new URLSearchParams(Object.entries({ brand: F.brand, journey: F.journey, channel: F.channel, status: F.status, reason: F.reason, from: F.from, to: F.to ? F.to + 'T23:59:59Z' : '', resolved: F.resolved ? '1' : '' }).filter(([, v]) => v));
@@ -1532,6 +1548,7 @@ function openSegmentWith(rule) {
   current = 'segments'; setRoute({}, true); renderTabs(); show().then(async () => { await SEG_READY; $('#rules').value = JSON.stringify(rule, null, 2); $('#excl').value = ''; rbSetRule('rules', rule); rbSetRule('excl', null); $('#prev').click(); });
 }
 let GQ = { status: '' };
+let LBQ = { board: '', page: 1 };
 /** Pasos predefinidos del formulario de retos (sin JSON). */
 const CH_STEPS = [
   { label: 'Completar el perfil', step: { kind: 'activity', action: 'profile_completed' } },
@@ -1549,13 +1566,13 @@ const sampleEvents = (s) => s.kind === 'activity' ? Array.from({ length: s.targe
 
 // ── Jugador: retos, «Mis logros» y tiempo real ──
 const G18 = {
-  es: { gifts: 'Mis regalos', claim: 'Reclamar', g_available: 'Disponible', g_claimed: 'Reclamado', g_held: 'En pausa', g_expired: 'Vencido', g_revoked: 'Ya no disponible', noGifts: 'No tienes regalos por ahora.', expires: 'Vence el', newGift: 'Nuevo regalo', title: 'Retos', live: 'En vivo', reconnecting: 'Reconectando…', offline: 'Sin conexión', join: 'Participar', notify: 'Avisarme', leave: 'Salir', done: 'Completado', until: 'Hasta el', reward: 'Recompensa', mine: 'Mis logros', toGet: 'Por obtener', share: 'Compartir', none: 'No hay retos disponibles ahora.', pending: 'Pendiente de confirmar', confirmed: 'Confirmada', suppressed: 'No otorgada', reversed: 'Revertida', failed: 'Falló', suspended: 'En pausa por tu seguridad', cantJoin: 'No disponible', of: 'de',
+  es: { board: 'Clasificación', boardOf: 'de', hideMe: 'Ocultarme en las clasificaciones', you: 'Tú', tied: 'empate', noBoards: 'Todavía no estás en ninguna clasificación.', joinT: 'Inscribirme', openT: 'Torneos con inscripción', pts: 'pts', gifts: 'Mis regalos', claim: 'Reclamar', g_available: 'Disponible', g_claimed: 'Reclamado', g_held: 'En pausa', g_expired: 'Vencido', g_revoked: 'Ya no disponible', noGifts: 'No tienes regalos por ahora.', expires: 'Vence el', newGift: 'Nuevo regalo', title: 'Retos', live: 'En vivo', reconnecting: 'Reconectando…', offline: 'Sin conexión', join: 'Participar', notify: 'Avisarme', leave: 'Salir', done: 'Completado', until: 'Hasta el', reward: 'Recompensa', mine: 'Mis logros', toGet: 'Por obtener', share: 'Compartir', none: 'No hay retos disponibles ahora.', pending: 'Pendiente de confirmar', confirmed: 'Confirmada', suppressed: 'No otorgada', reversed: 'Revertida', failed: 'Falló', suspended: 'En pausa por tu seguridad', cantJoin: 'No disponible', of: 'de',
     why: { rg_restricted: 'Tienes activa una restricción de juego responsable', rg_risk_case_open: 'Tu cuenta está en revisión de juego responsable', vulnerability_signal: 'Por tu bienestar, los retos están en pausa por ahora', gamification_opt_out: 'Desactivaste la gamificación', not_in_segment: 'Este reto es para otro grupo de jugadores', other_market: 'No está disponible en tu país', outside_window: 'Fuera de las fechas del reto', not_started: 'Todavía no empieza', not_active: 'El reto no está activo', other_brand: 'Es de otra marca' },
     period: { daily: 'Diario', weekly: 'Semanal', season: 'Temporada' } },
-  en: { gifts: 'My gifts', claim: 'Claim', g_available: 'Available', g_claimed: 'Claimed', g_held: 'On hold', g_expired: 'Expired', g_revoked: 'No longer available', noGifts: 'You have no gifts right now.', expires: 'Expires', newGift: 'New gift', title: 'Challenges', live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline', join: 'Join', notify: 'Notify me', leave: 'Leave', done: 'Completed', until: 'Until', reward: 'Reward', mine: 'My achievements', toGet: 'To unlock', share: 'Share', none: 'No challenges available right now.', pending: 'Awaiting confirmation', confirmed: 'Confirmed', suppressed: 'Not granted', reversed: 'Reversed', failed: 'Failed', suspended: 'Paused for your safety', cantJoin: 'Not available', of: 'of',
+  en: { board: 'Leaderboard', boardOf: 'of', hideMe: 'Hide me on leaderboards', you: 'You', tied: 'tie', noBoards: 'You are not on any leaderboard yet.', joinT: 'Join', openT: 'Tournaments open for sign-up', pts: 'pts', gifts: 'My gifts', claim: 'Claim', g_available: 'Available', g_claimed: 'Claimed', g_held: 'On hold', g_expired: 'Expired', g_revoked: 'No longer available', noGifts: 'You have no gifts right now.', expires: 'Expires', newGift: 'New gift', title: 'Challenges', live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline', join: 'Join', notify: 'Notify me', leave: 'Leave', done: 'Completed', until: 'Until', reward: 'Reward', mine: 'My achievements', toGet: 'To unlock', share: 'Share', none: 'No challenges available right now.', pending: 'Awaiting confirmation', confirmed: 'Confirmed', suppressed: 'Not granted', reversed: 'Reversed', failed: 'Failed', suspended: 'Paused for your safety', cantJoin: 'Not available', of: 'of',
     why: { rg_restricted: 'You have a responsible gaming restriction', rg_risk_case_open: 'Your account is under responsible gaming review', vulnerability_signal: 'For your wellbeing, challenges are paused for now', gamification_opt_out: 'You turned off gamification', not_in_segment: 'This challenge is for another group of players', other_market: 'Not available in your country', outside_window: 'Outside the challenge dates', not_started: 'Not started yet', not_active: 'The challenge is not active', other_brand: 'It belongs to another brand' },
     period: { daily: 'Daily', weekly: 'Weekly', season: 'Season' } },
-  pt: { gifts: 'Meus presentes', claim: 'Resgatar', g_available: 'Disponível', g_claimed: 'Resgatado', g_held: 'Em pausa', g_expired: 'Vencido', g_revoked: 'Não disponível', noGifts: 'Você não tem presentes agora.', expires: 'Vence em', newGift: 'Novo presente', title: 'Desafios', live: 'Ao vivo', reconnecting: 'Reconectando…', offline: 'Sem conexão', join: 'Participar', notify: 'Avise-me', leave: 'Sair', done: 'Concluído', until: 'Até', reward: 'Recompensa', mine: 'Minhas conquistas', toGet: 'A desbloquear', share: 'Compartilhar', none: 'Não há desafios disponíveis agora.', pending: 'Aguardando confirmação', confirmed: 'Confirmada', suppressed: 'Não concedida', reversed: 'Revertida', failed: 'Falhou', suspended: 'Pausado para sua segurança', cantJoin: 'Indisponível', of: 'de',
+  pt: { board: 'Classificação', boardOf: 'de', hideMe: 'Ocultar-me nas classificações', you: 'Você', tied: 'empate', noBoards: 'Você ainda não está em nenhuma classificação.', joinT: 'Inscrever-me', openT: 'Torneios com inscrição', pts: 'pts', gifts: 'Meus presentes', claim: 'Resgatar', g_available: 'Disponível', g_claimed: 'Resgatado', g_held: 'Em pausa', g_expired: 'Vencido', g_revoked: 'Não disponível', noGifts: 'Você não tem presentes agora.', expires: 'Vence em', newGift: 'Novo presente', title: 'Desafios', live: 'Ao vivo', reconnecting: 'Reconectando…', offline: 'Sem conexão', join: 'Participar', notify: 'Avise-me', leave: 'Sair', done: 'Concluído', until: 'Até', reward: 'Recompensa', mine: 'Minhas conquistas', toGet: 'A desbloquear', share: 'Compartilhar', none: 'Não há desafios disponíveis agora.', pending: 'Aguardando confirmação', confirmed: 'Confirmada', suppressed: 'Não concedida', reversed: 'Revertida', failed: 'Falhou', suspended: 'Pausado para sua segurança', cantJoin: 'Indisponível', of: 'de',
     why: { rg_restricted: 'Você tem uma restrição de jogo responsável', rg_risk_case_open: 'Sua conta está em revisão de jogo responsável', vulnerability_signal: 'Para o seu bem-estar, os desafios estão pausados', gamification_opt_out: 'Você desativou a gamificação', not_in_segment: 'Este desafio é para outro grupo de jogadores', other_market: 'Indisponível no seu país', outside_window: 'Fora das datas do desafio', not_started: 'Ainda não começou', not_active: 'O desafio não está ativo', other_brand: 'É de outra marca' },
     period: { daily: 'Diário', weekly: 'Semanal', season: 'Temporada' } },
 };
@@ -1566,7 +1583,7 @@ function rtSetState(st) { RT.state = st; const el = $('#rtstate'); if (el) { con
 function rtOnEvent(e) {
   RT.last = Math.max(RT.last, e.id);
   const t = G18[GAM.loc] ?? G18.es;
-  const msg = e.type === 'gift.received' ? `🎁 ${t.newGift}: ${e.data.name}` : e.type === 'achievement.unlocked' ? `🏅 ${e.data.name} · ${e.data.level_label}` : e.type === 'challenge.completed' ? `${t.done}: ${e.data.name}` : e.type === 'reward.status' ? `${t.reward}: ${t[e.data.status] ?? e.data.status}` : null;
+  const msg = e.type === 'tournament.result' ? `🏆 ${e.data.name}: #${e.data.rank}` : e.type === 'gift.received' ? `🎁 ${t.newGift}: ${e.data.name}` : e.type === 'achievement.unlocked' ? `🏅 ${e.data.name} · ${e.data.level_label}` : e.type === 'challenge.completed' ? `${t.done}: ${e.data.name}` : e.type === 'reward.status' ? `${t.reward}: ${t[e.data.status] ?? e.data.status}` : null;
   if (msg) { const live = $('#gamlive'); if (live) live.textContent = msg; }
   clearTimeout(GAM.redraw); GAM.redraw = setTimeout(() => RT.player && renderGam(RT.player, true), 150);
 }
@@ -1609,14 +1626,17 @@ async function rtStart(pid) {
   rtSetState('reconnecting');
   (sse ? stream : poll)();
 }
-const GAM = { loc: 'es', redraw: 0, share: null };
+const GAM = { loc: 'es', redraw: 0, share: null, board: '' };
 async function renderGam(pid, keep = false) {
   const phone = document.querySelector('#lout .phone'); if (!phone) return;
   let box = $('#gamx'); if (!box) { box = document.createElement('section'); box.id = 'gamx'; box.setAttribute('aria-labelledby', 'gamh'); phone.appendChild(box); }
-  let cs, ach, gf;
-  try { [cs, ach, gf] = await Promise.all([api(`/players/${encodeURIComponent(pid)}/challenges`), api(`/players/${encodeURIComponent(pid)}/achievements`), api(`/players/${encodeURIComponent(pid)}/gifts`).catch(() => [])]); }
+  let cs, ach, gf, lbs, lb = null;
+  try { [cs, ach, gf, lbs] = await Promise.all([api(`/players/${encodeURIComponent(pid)}/challenges`), api(`/players/${encodeURIComponent(pid)}/achievements`), api(`/players/${encodeURIComponent(pid)}/gifts`).catch(() => []), api(`/players/${encodeURIComponent(pid)}/leaderboards`).catch(() => ({ boards: [], hidden: false, open_tournaments: [] }))]); }
   catch (e) { box.innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
   const loc = GAM.loc; const t = G18[loc] ?? G18.es;
+  const cur = lbs.boards.find((b) => `${b.type}:${b.id}` === GAM.board) ?? lbs.boards.find((b) => b.type === 'tournament' && b.position) ?? lbs.boards[0];
+  if (cur) { GAM.board = `${cur.type}:${cur.id}`; try { lb = await api(`/players/${encodeURIComponent(pid)}/leaderboards/${cur.type}/${encodeURIComponent(cur.id)}?size=5`); } catch { lb = null; } }
+  const lbRow = (r) => `<li class="${r.is_viewer ? 'me' : ''}"><span class="num">${int(r.position)}</span><span class="lbav" style="background:hsl(${r.avatar.hue} 45% 32%)" aria-hidden="true">${esc(r.avatar.initial)}</span><span>${esc(r.is_viewer ? `${t.you} (${r.display})` : r.display)}${r.tied ? ` <span class="muted">· ${esc(t.tied)}</span>` : ''}</span><b class="num">${int(r.score)}</b></li>`;
   const rs = (r) => r ? `<span class="chip ${r.status === 'confirmed' ? 'ok' : r.status === 'pending' ? 'warn' : ''}">${esc(t.reward)}: ${esc(t[r.status] ?? r.status)}</span>` : '';
   const rew = (r) => [r.xp ? `${int(r.xp)} XP` : '', r.coins ? `${int(r.coins)} monedas` : '', r.reward_id ? label(r.reward_id) : ''].filter(Boolean).join(' + ');
   box.innerHTML = `<div class="row" style="justify-content:space-between;margin:14px 0 4px"><h2 id="gamh" style="margin:0">${esc(t.title)}</h2><span id="rtstate" class="chip" role="status">${esc(t[RT.state] ?? '')}</span></div>
@@ -1636,6 +1656,12 @@ async function renderGam(pid, keep = false) {
       <div class="muted">${esc(g.message)} · ${esc(rew(g.reward))}${g.status === 'available' ? ` · ${esc(t.expires)} ${esc(dateL(g.expires_at))}` : ''}</div>
       ${g.status === 'held' ? `<div class="muted">${esc(t.why[g.held_reason] ?? g.held_reason ?? '')}</div>` : ''}
       <div class="row" style="margin:4px 0 0">${g.status === 'available' || g.status === 'held' ? `<button data-gclaim="${esc(g.gift_id)}">${esc(t.claim)}</button>` : ''}${g.reward_state ? rs(g.reward_state) : ''}</div></li>`).join('')}</ul>` : `<p class="muted">${esc(t.noGifts)}</p>`}
+    <h2 style="margin:14px 0 4px">${esc(t.board)}</h2>
+    ${lbs.open_tournaments?.length ? `<div class="row"><span class="muted">${esc(t.openT)}:</span>${lbs.open_tournaments.map((o) => `<button class="ghost" data-tjoin="${esc(o.id)}">${esc(t.joinT)}: ${esc(o.name)}</button>`).join('')}</div>` : ''}
+    ${lb ? `${lbs.boards.length > 1 ? `<label>${esc(t.board)} <select id="gboard">${lbs.boards.map((b) => `<option value="${esc(b.type)}:${esc(b.id)}"${`${b.type}:${b.id}` === GAM.board ? ' selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>` : `<div class="muted">${esc(lb.name)}</div>`}
+      <ol class="glb">${lb.rows.map(lbRow).join('')}${lb.viewer_row && !lb.rows.some((r) => r.is_viewer) ? `<li class="gap" aria-hidden="true">…</li>${lbRow(lb.viewer_row)}` : ''}</ol>
+      <div class="muted">${esc(lb.tie_rule)}</div>` : `<p class="muted">${esc(t.noBoards)}</p>`}
+    <label class="chk"><input type="checkbox" id="ghide"${lbs.hidden ? ' checked' : ''}> ${esc(t.hideMe)}</label>
     <h2 style="margin:14px 0 4px">${esc(t.mine)}</h2>
     <div class="gach">${ach.achievements.map((a) => `<div class="gbadge ${a.level ? 'got' : ''}"><div class="gico" aria-hidden="true">${({ trophy: '🏆', compass: '🧭', shield: '🛡️', crown: '👑' })[a.icon] ?? '★'}</div><b>${esc(a.name)}</b><div class="muted">${a.level ? `${esc(a.level.label)} · ${esc(dateL(a.level.at))}` : `${esc(t.toGet)}: ${int(a.value)} ${t.of} ${int(a.next?.threshold ?? a.levels[0].threshold)}`}</div>
       ${a.level ? `<button class="ghost" data-gshare="${esc(a.id)}" aria-label="${esc(t.share)}: ${esc(a.name)}">${esc(t.share)}</button>` : ''}</div>`).join('')}</div>
@@ -1648,6 +1674,9 @@ function bindGam(pid) {
   document.querySelectorAll('[data-gjoin]').forEach((b) => b.onclick = async () => { const id = b.dataset.gjoin; b.disabled = true; try { await api(`/players/${P}/challenges/${encodeURIComponent(id)}/enroll`, { method: 'POST', body: { notify: !!$(`#gn-${CSS.escape(id)}`)?.checked } }); flash('Inscrito en el reto.', 'ok'); renderGam(pid, true); } catch (e) { b.disabled = false; flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gleave]').forEach((b) => b.onclick = async () => { try { await api(`/players/${P}/challenges/${encodeURIComponent(b.dataset.gleave)}/leave`, { method: 'POST' }); renderGam(pid, true); } catch (e) { flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gnotify]').forEach((b) => b.onchange = async () => { try { await api(`/players/${P}/challenges/${encodeURIComponent(b.dataset.gnotify)}/preferences`, { method: 'POST', body: { notify: b.checked } }); } catch (e) { flash(e.message, 'bad'); } });
+  if ($('#gboard')) $('#gboard').onchange = () => { GAM.board = $('#gboard').value; renderGam(pid, true); };
+  if ($('#ghide')) $('#ghide').onchange = async () => { try { await api(`/players/${P}/leaderboard-visibility`, { method: 'POST', body: { hidden: $('#ghide').checked } }); renderGam(pid, true); } catch (e) { flash(e.message, 'bad'); } };
+  document.querySelectorAll('[data-tjoin]').forEach((b) => b.onclick = async () => { b.disabled = true; try { await api(`/players/${P}/tournaments/${encodeURIComponent(b.dataset.tjoin)}/enroll`, { method: 'POST' }); flash('Inscrito en el torneo.', 'ok'); renderGam(pid, true); } catch (e) { b.disabled = false; flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gclaim]').forEach((b) => b.onclick = async () => { b.disabled = true; try { const a = await api(`/players/${P}/gifts/${encodeURIComponent(b.dataset.gclaim)}/claim`, { method: 'POST' }); const t = G18[GAM.loc] ?? G18.es; flash(a.status === 'claimed' ? `${t.g_claimed} ✓` : `${t.g_held}: ${t.why[a.held_reason] ?? a.held_reason}`, a.status === 'claimed' ? 'ok' : 'warn'); renderGam(pid, true); } catch (e) { b.disabled = false; flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gshare]').forEach((b) => b.onclick = () => { GAM.share = b.dataset.gshare; openShare(pid, b.dataset.gshare); });
   let n = 0;
@@ -1734,12 +1763,16 @@ async function openFailure(key, focus = true) {
   };
 }
 const BIND = {
+  leaderboards() {
+    if ($('#lbf')) $('#lbf').onsubmit = (ev) => { ev.preventDefault(); LBQ.board = new FormData($('#lbf')).get('board'); LBQ.page = 1; show(); };
+    document.querySelectorAll('[data-lbp]').forEach((b) => b.onclick = () => { LBQ.page = Number(b.dataset.lbp); show(); });
+  },
   gifts() {
     document.querySelectorAll('[data-gfa]').forEach((b) => b.onclick = async () => {
       const id = b.dataset.gid, action = b.dataset.gfa;
       let body = {};
       if (action === 'close') { const reason = prompt('Motivo del cierre (los regalos sin reclamar se revocan; queda en la auditoría):'); if (reason === null) return; if (!reason.trim()) { flash('Escribe un motivo para cerrar el regalo.', 'bad'); return; } body = { reason }; }
-      try { const r = await api(`/gifts/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }); flash(action === 'approve' ? `Regalo aprobado: ${int(r.assignment.assigned)} jugadores lo recibieron.` : action === 'submit' ? 'Regalo enviado a aprobación.' : 'Regalo cerrado.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+      try { const r = await api(`/gifts/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }); flash(action === 'approve' ? `Regalo aprobado: ${plural(r.assignment.assigned, 'jugador lo recibió', 'jugadores lo recibieron')}.` : action === 'submit' ? 'Regalo enviado a aprobación.' : 'Regalo cerrado.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
     });
     const f = $('#gfnew'); if (!f) return;
     f.name.oninput = () => { if (!f.id.dataset.touched) f.id.value = 'regalo_' + f.name.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 38); };
@@ -2193,8 +2226,11 @@ const BIND = {
       try { const m = await api(`/gamification/missions/${b.dataset.mid}/${b.dataset.mact}`, { method: 'POST' }); flash(m.status === 'pending_approval' ? 'Misión enviada a aprobación. La activa otra persona con rol Aprobador.' : m.status === 'active' ? 'Misión activa.' : 'Misión en pausa.', 'ok'); show(); }
       catch (e) { flash(e.message, 'bad'); }
     });
-    document.querySelectorAll('[data-tfin]').forEach((b) => b.onclick = async () => {
-      try { const t = await api(`/gamification/tournaments/${b.dataset.tfin}/finalize`, { method: 'POST' }); flash(`Torneo cerrado: ${t.final.payouts.length} premios, ${t.final.excluded} excluidos. Hash ${t.final.hash.slice(0, 12)}…`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    document.querySelectorAll('[data-tclose]').forEach((b) => b.onclick = async () => {
+      try { const t = await api(`/gamification/tournaments/${b.dataset.tclose}/close`, { method: 'POST' }); flash(`Torneo cerrado y conciliado: ${t.results.planned.length} premios propuestos, ${t.results.excluded} excluidos. Falta que otra persona apruebe los resultados.`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    });
+    document.querySelectorAll('[data-tappr]').forEach((b) => b.onclick = async () => {
+      try { const t = await api(`/gamification/tournaments/${b.dataset.tappr}/approve-results`, { method: 'POST' }); flash(`Resultados aprobados: ${t.final.payouts.length} premios pagados. Hash ${t.final.hash.slice(0, 12)}…`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
     });
     document.querySelectorAll('[data-pres]').forEach((b) => b.onclick = async () => {
       try { const r = await api(`/gamification/predictions/${b.dataset.pres}/resolve`, { method: 'POST', body: { option: b.dataset.opt } }); flash(`Predicción resuelta: ${r.resolved_option}. ${r.payouts} premios pagados.`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }

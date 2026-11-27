@@ -75,7 +75,7 @@ test('DB fase 2: actualizar desde la fase 1 conserva los datos y habilita los es
   await admin.query(`INSERT INTO journey_versions (tenant_id, journey_id, version, status, definition, created_by) VALUES ($1, 'j_old', 1, 'published', '{"id":"j_old"}', 'ana@ss1')`, [T]);
   await assert.rejects(admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`), /check/i, 'la fase 1 no admite «uncertain»');
   const r = await migrate(admin);
-  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql', '005_gifts_contests.sql']);
+  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql', '005_gifts_contests.sql', '006_leaderboard_prefs.sql']);
   const row = (await admin.query(`SELECT status, attempts, vars, journey_id FROM delivery_receipts WHERE idempotency_key = 'k-fase1'`)).rows[0];
   assert.deepEqual([row.status, row.attempts, row.vars, row.journey_id], ['accepted', 1, null, null], 'el recibo de la fase 1 sigue igual');
   await admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`);
@@ -326,5 +326,35 @@ test('DB regalos: la campaña, la asignación y la reclamación sobreviven al re
   w.app.gifts.claim(T, 'q1', 'reg_db');
   assert.equal(w.app.loyalty.balance(T, 'q1', '2026-Q4'), 120, 'sin segunda entrega');
   assert.equal(w.app.store.balance(T, 'q1'), 10);
+  await w.boot.stop();
+});
+
+test('DB torneos y clasificaciones: reglas, puntajes, cierre pendiente de aprobación y «ocultarme» sobreviven al reinicio', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  const A = { id: 'ana@ss1', tenant_id: T };
+  let w = await proc('all', clock);
+  for (const p of ['t1', 't2']) onboard(w.app, clock, p);
+  w.app.games.saveTournament(A, { id: 't_db', brand_id: 'rumbawin', name: 'Torneo DB', metric: 'bet_count', product: 'sports', starts_at: '2026-11-20T00:00:00Z', ends_at: '2026-11-21T00:00:00Z', min_score: 1, enrollment: 'opt_in', prizes: [{ from: 1, to: 1, prize: { xp: 400 } }] } as never);
+  const act = w.app.games.activateTournament({ ...A, canApprove: false }, 't_db');
+  w.app.games.enrollTournament(T, 't1', 't_db'); w.app.games.enrollTournament(T, 't2', 't_db');
+  const bet = (p: string, id: string) => w.app.ingestor.ingest(ev(T, p, 'bet.settled', { bet_id: id, stake: { amount_minor: 100_000, currency: 'COP' }, product: 'sports' }, clock.now().toISOString(), { event_id: id }));
+  bet('t1', 'tb1'); bet('t1', 'tb2'); bet('t2', 'tb3');
+  w.app.leaderboards.setHidden(T, 't2', true);
+  await w.boot.stop();
+  w = await proc('all', clock);
+  assert.equal(w.app.games.tournament(T, 't_db')?.rules_hash, act.rules_hash, 'reglas fijadas');
+  assert.deepEqual(w.app.games.standings(T, 't_db').map((s) => [s.player_id, s.score]), [['t1', 2], ['t2', 1]]);
+  assert.ok(w.app.games.isEnrolled(T, 't2', 't_db'));
+  assert.equal(w.app.leaderboards.board(T, 'tournament', 't_db', { viewer: 't1' }).rows[1].display, 'Jugador oculto');
+  clock.set('2026-11-21T02:00:00Z');
+  const closed = w.app.games.finalizeTournament(A, 't_db');
+  await w.boot.stop();
+  w = await proc('all', clock);
+  assert.equal(w.app.games.tournament(T, 't_db')?.status, 'results_pending');
+  const xp0 = w.app.loyalty.balance(T, 't1', '2026-Q4');
+  const fin = w.app.games.approveResults({ id: 'beto@ss1', tenant_id: T }, 't_db');
+  assert.equal(fin.final!.hash, closed.results!.hash);
+  assert.equal(w.app.loyalty.balance(T, 't1', '2026-Q4') - xp0, 400, 'premio pagado al aprobar');
   await w.boot.stop();
 });

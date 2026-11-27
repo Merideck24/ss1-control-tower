@@ -344,10 +344,24 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
       return ok(app.games.saveTournament(actor, req.body as never), 201);
     }
-    if ((r = m(/^POST \/gamification\/tournaments\/([\w-]+)\/(activate|finalize)$/))) {
-      if (r[2] === 'finalize') { if (!can(actor, 'journeys.approve') && !can(actor, 'runtime.global_pause')) return forbid('journeys.approve'); return ok(app.games.finalizeTournament(actor, r[1])); }
+    if ((r = m(/^POST \/gamification\/tournaments\/([\w-]+)\/(activate|finalize|close|approve-results)$/))) {
+      if (!app.games.tournament(T, r[1])) return { status: 404, body: { error: 'not_found', message: 'Torneo inexistente' } };
+      // cerrar (finalize = nombre anterior) concilia y propone premios; aprobar resultados (otra persona) paga
+      if (r[2] === 'finalize' || r[2] === 'close') { if (!can(actor, 'journeys.close') && !can(actor, 'journeys.submit')) return forbid('journeys.close'); return ok(app.games.finalizeTournament(actor, r[1])); }
+      if (r[2] === 'approve-results') { if (!can(actor, 'journeys.approve')) return forbid('journeys.approve'); return ok(app.games.approveResults(actor, r[1])); }
       if (!can(actor, 'journeys.submit') && !can(actor, 'journeys.approve')) return forbid('journeys.submit');
       return ok(app.games.activateTournament({ ...actor, canApprove: can(actor, 'journeys.approve') }, r[1]));
+    }
+    if ((r = m(/^GET \/gamification\/tournaments\/([\w-]+)\/rebuild$/))) {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      const t = app.games.tournament(T, r[1]);
+      if (!t) return { status: 404, body: { error: 'not_found', message: 'Torneo inexistente' } };
+      const rb = app.games.rebuild(T, r[1]);
+      return ok({ tournament_id: r[1], events: rb.events, hash: rb.hash, standings: rb.raw.slice(0, 100), matches_close: t.results ? t.results.hash === app.games.rebuild(T, r[1]).hash || null : null, rules_hash: t.rules_hash ?? null, late: t.late ?? null });
+    }
+    if ((r = m(/^GET \/leaderboards\/(tournament|challenge|season)\/([\w-]+)$/))) {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok(app.leaderboards.board(T, r[1] as never, r[2], { page: Number(req.query.get('page')) || 1, size: Number(req.query.get('size')) || 20 }));
     }
     if (r0 === 'GET /gamification/store') {
       if (!can(actor, 'gamification.read')) return forbid('gamification.read');
@@ -698,6 +712,24 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!app.challenges.get(T, r[2])) return { status: 404, body: { error: 'not_found', message: 'Reto inexistente' } };
       return ok(r[3] === 'enroll' ? app.challenges.enroll(T, r[1], r[2], req.body.notify === true) : r[3] === 'leave' ? app.challenges.leave(T, r[1], r[2]) : app.challenges.setNotify(T, r[1], r[2], req.body.notify === true));
     }
+    if ((r = m(/^GET \/players\/([\w-]+)\/leaderboards$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      const open = app.games.tournaments(T).filter((t) => t.status === 'active' && t.enrollment === 'opt_in' && t.brand_id === c.prof.brand_id && !app.games.isEnrolled(T, r![1], t.id)).map((t) => ({ id: t.id, name: t.name, ends_at: t.ends_at }));
+      return ok({ boards: app.leaderboards.forPlayer(T, r[1], app.loyalty.program(T, c.prof.brand_id)?.season), hidden: app.leaderboards.isHidden(T, r[1]), open_tournaments: open });
+    }
+    if ((r = m(/^GET \/players\/([\w-]+)\/leaderboards\/(tournament|challenge|season)\/([\w-]+)$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.leaderboards.board(T, r[2] as never, r[3], { viewer: r[1], page: Number(req.query.get('page')) || 1, size: Number(req.query.get('size')) || 10 }));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/leaderboard-visibility$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.leaderboards.setHidden(T, r[1], req.body.hidden === true));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/tournaments\/([\w-]+)\/enroll$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      if (!app.games.tournament(T, r[2])) return { status: 404, body: { error: 'not_found', message: 'Torneo inexistente' } };
+      return ok(app.games.enrollTournament(T, r[1], r[2]));
+    }
     if ((r = m(/^GET \/players\/([\w-]+)\/gifts$/))) {
       const c = playerCtx(r[1]); if (isResp(c)) return c;
       return ok(app.gifts.mine(T, r[1]));
@@ -920,7 +952,7 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
     return { status: 404, body: { error: 'route_not_found', message: r0 } };
   } catch (e) {
     const err = e as DomainError;
-    const status = ['forbidden', 'tenant_mismatch', 'segregation_of_duties'].includes(err.code) ? 403 : ['reprocess_in_progress', 'not_reprocessable'].includes(err.code) ? 409 : err.code ? 422 : 500;
+    const status = ['forbidden', 'tenant_mismatch', 'segregation_of_duties', 'not_visible', 'not_participant'].includes(err.code) ? 403 : ['reprocess_in_progress', 'not_reprocessable'].includes(err.code) ? 409 : err.code ? 422 : 500;
     return { status, body: { error: err.code ?? 'internal_error', message: err.message } };
   }
 }

@@ -127,5 +127,15 @@ export class LoyaltyService {
     return n;
   }
 
+  /** Saldo por jugador en una temporada y cuándo llegó a ese saldo (para clasificaciones). */
+  seasonTotals(tenant: string, season: string) {
+    const acc = new Map<string, { points: number; at: string }>();
+    for (const e of this.#ledger) {
+      if (e.tenant_id !== tenant || e.season !== season) continue;
+      const a = acc.get(e.player_id) ?? { points: 0, at: e.at }; a.points += e.points; a.at = e.at; acc.set(e.player_id, a);
+    }
+    return [...acc].map(([player_id, a]) => ({ player_id, points: a.points, at: a.at }));
+  }
+
   movements(tenant: string, player: string) { return this.#ledger.filter((e) => e.tenant_id === tenant && e.player_id === player); }
 }

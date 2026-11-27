@@ -75,6 +75,14 @@ export const CRM_ENDPOINTS = {
   getGiftsGiftId: { method: 'GET', path: '/gifts/{gift_id}', params: ['gift_id'] as const, query: [] as const } as Op<{ gift_id: string }>,
   /** Ciclo: enviar, aprobar y asignar (otra persona), cerrar con motivo */
   postGiftsGiftIdAction: { method: 'POST', path: '/gifts/{gift_id}/{action}', params: ['gift_id', 'action'] as const, query: [] as const } as Op<{ gift_id: string; action: 'submit' | 'approve' | 'close' }>,
+  /** Clasificaciones visibles para el jugador, con su posición · alcance players:write */
+  getPlayersPlayerIdLeaderboards: { method: 'GET', path: '/players/{player_id}/leaderboards', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Una clasificación (alias autorizado o nombre opaco; fila propia aparte) · alcance players:write */
+  getPlayersPlayerIdLeaderboardsTypeBoardId: { method: 'GET', path: '/players/{player_id}/leaderboards/{type}/{board_id}', params: ['player_id', 'type', 'board_id'] as const, query: ['page', 'size'] as const } as Op<{ player_id: string; type: 'tournament' | 'challenge' | 'season'; board_id: string }>,
+  /** Ocultarse en las clasificaciones (sigue contando) · alcance players:write */
+  postPlayersPlayerIdLeaderboardVisibility: { method: 'POST', path: '/players/{player_id}/leaderboard-visibility', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Inscribirse en un torneo con inscripción voluntaria · alcance players:write */
+  postPlayersPlayerIdTournamentsTournamentIdEnroll: { method: 'POST', path: '/players/{player_id}/tournaments/{tournament_id}/enroll', params: ['player_id', 'tournament_id'] as const, query: [] as const } as Op<{ player_id: string; tournament_id: string }>,
   /** Mis regalos: disponibles, reclamados, en pausa y vencidos · alcance players:write */
   getPlayersPlayerIdGifts: { method: 'GET', path: '/players/{player_id}/gifts', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
   /** Reclamar un regalo (única aunque llegue dos veces) · alcance players:write */
@@ -147,8 +155,12 @@ export const CRM_ENDPOINTS = {
   getGamificationTournaments: { method: 'GET', path: '/gamification/tournaments', params: [] as const, query: [] as const } as Op<{  }>,
   /** Guardar torneo */
   postGamificationTournaments: { method: 'POST', path: '/gamification/tournaments', params: [] as const, query: [] as const } as Op<{  }>,
-  /** Activar o cerrar torneo */
-  postGamificationTournamentsTournamentIdAction: { method: 'POST', path: '/gamification/tournaments/{tournament_id}/{action}', params: ['tournament_id', 'action'] as const, query: [] as const } as Op<{ tournament_id: string; action: 'activate' | 'finalize' }>,
+  /** Activar (fija las reglas), cerrar con conciliación (propone premios) o aprobar resultados (otra persona; paga) */
+  postGamificationTournamentsTournamentIdAction: { method: 'POST', path: '/gamification/tournaments/{tournament_id}/{action}', params: ['tournament_id', 'action'] as const, query: [] as const } as Op<{ tournament_id: string; action: 'activate' | 'finalize' | 'close' | 'approve-results' }>,
+  /** Reconstruir la clasificación desde los eventos (hash y coincidencia con el cierre) · alcance journeys:read */
+  getGamificationTournamentsTournamentIdRebuild: { method: 'GET', path: '/gamification/tournaments/{tournament_id}/rebuild', params: ['tournament_id'] as const, query: [] as const } as Op<{ tournament_id: string }>,
+  /** Clasificación paginada con empates y desempates (backoffice: con ids) · alcance journeys:read */
+  getLeaderboardsTypeBoardId: { method: 'GET', path: '/leaderboards/{type}/{board_id}', params: ['type', 'board_id'] as const, query: ['page', 'size'] as const } as Op<{ type: 'tournament' | 'challenge' | 'season'; board_id: string }>,
   /** Mini-juegos · alcance journeys:read */
   getGamificationMinigames: { method: 'GET', path: '/gamification/minigames', params: [] as const, query: [] as const } as Op<{  }>,
   /** Verificar resultados con la semilla revelada · alcance journeys:read */

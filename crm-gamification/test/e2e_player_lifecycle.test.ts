@@ -102,7 +102,8 @@ test('E2E: un jugador sube de nivel, completa los retos y cada módulo cuadra co
   // cierre del torneo (1.er puesto: 1.000 XP) y de la predicción (+100 monedas)
   w.tick(6 * D);
   const before = d.loyalty.points, coinsBefore = d.gamification.coins;
-  assert.equal((await w.api('POST', '/gamification/tournaments/t_sports_week/finalize', 'approver')).status, 200);
+  assert.equal((await w.api('POST', '/gamification/tournaments/t_sports_week/close', 'crm_analyst')).status, 200);
+  assert.equal((await w.api('POST', '/gamification/tournaments/t_sports_week/approve-results', 'approver')).status, 200);
   assert.equal((await w.api('POST', '/gamification/predictions/p_final/resolve', 'approver', { option: 'Local' })).status, 200);
   d = (await w.api('GET', `/players/${P}`)).body;
   assert.equal(d.loyalty.points - before, 1000, 'premio del torneo');
