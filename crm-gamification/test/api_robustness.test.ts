@@ -9,7 +9,7 @@ import { setup, onboard, T } from './helpers.ts';
 const BAD: Record<string, unknown>[] = [{}, { player_id: 12, amount_minor: 'mucho', option: null, rules: 'nope', nodes: 'x', paused: 'quizá', scopes: 'todo', policy: [], prizes: 'x', options: 'x' }];
 const fill = (pattern: string, v: string) => pattern.replace(/\(([^()]+)\)/g, (_m, inner: string) => (/^[\w-]+(\|[\w-]+)+$/.test(inner) ? inner.split('|')[0] : v)).replace(/\\\//g, '/');
 
-test('Robustez: las 107 operaciones responden 4xx (nunca 5xx) a datos vacíos, mal formados o parámetros inválidos', async () => {
+test('Robustez: las 113 operaciones responden 4xx (nunca 5xx) a datos vacíos, mal formados o parámetros inválidos', async () => {
   const { app, clock } = setup();
   onboard(app, clock, 'p1');
   seedDemoMissions(app, T, clock.now().getTime());

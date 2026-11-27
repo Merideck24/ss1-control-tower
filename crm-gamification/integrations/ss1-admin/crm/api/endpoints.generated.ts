@@ -67,6 +67,18 @@ export const CRM_ENDPOINTS = {
   postChallengesChallengeIdAction: { method: 'POST', path: '/challenges/{challenge_id}/{action}', params: ['challenge_id', 'action'] as const, query: [] as const } as Op<{ challenge_id: string; action: 'submit' | 'approve' | 'pause' | 'resume' | 'close' }>,
   /** Simular un reto con eventos de ejemplo, sin efectos */
   postChallengesChallengeIdSimulate: { method: 'POST', path: '/challenges/{challenge_id}/simulate', params: ['challenge_id'] as const, query: [] as const } as Op<{ challenge_id: string }>,
+  /** Regalos instantáneos con métricas (asignados, reclamados, en pausa, vencidos, recompensas) · alcance journeys:read */
+  getGifts: { method: 'GET', path: '/gifts', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Guardar borrador de regalo (jugadores o segmento, cupo, vigencia) */
+  postGifts: { method: 'POST', path: '/gifts', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Detalle de un regalo y sus asignaciones · alcance journeys:read */
+  getGiftsGiftId: { method: 'GET', path: '/gifts/{gift_id}', params: ['gift_id'] as const, query: [] as const } as Op<{ gift_id: string }>,
+  /** Ciclo: enviar, aprobar y asignar (otra persona), cerrar con motivo */
+  postGiftsGiftIdAction: { method: 'POST', path: '/gifts/{gift_id}/{action}', params: ['gift_id', 'action'] as const, query: [] as const } as Op<{ gift_id: string; action: 'submit' | 'approve' | 'close' }>,
+  /** Mis regalos: disponibles, reclamados, en pausa y vencidos · alcance players:write */
+  getPlayersPlayerIdGifts: { method: 'GET', path: '/players/{player_id}/gifts', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Reclamar un regalo (única aunque llegue dos veces) · alcance players:write */
+  postPlayersPlayerIdGiftsGiftIdClaim: { method: 'POST', path: '/players/{player_id}/gifts/{gift_id}/claim', params: ['player_id', 'gift_id'] as const, query: [] as const } as Op<{ player_id: string; gift_id: string }>,
   /** Catálogo de logros con niveles y condiciones · alcance journeys:read */
   getAchievementsCatalog: { method: 'GET', path: '/achievements/catalog', params: [] as const, query: [] as const } as Op<{  }>,
   /** Interacciones con tarjetas: clic, descarga, visita atribuida, publicación confirmada · alcance analytics:read */

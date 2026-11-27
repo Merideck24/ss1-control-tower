@@ -30,7 +30,7 @@ test('Gamificación: reto en el backoffice, inscripción, progreso en vivo, logr
   ok('B.7', /aprobado/.test(await p.innerText('#flash')), await p.innerText('#flash'));
   // jugador: tenant_admin para poder simular eventos
   await p.goto(PAGE + '#/fidelidad?rol=tenant_admin'); await p.reload(); await p.waitForSelector('#lpq', { timeout: 60000 });
-  const pid = await p.evaluate(async () => { const h = { 'x-tenant-id': 'tenant-rumbawin', 'x-roles': 'tenant_admin', 'x-actor': 'qa@ss1' }; const ps = await (await fetch('/api/players?limit=400', { headers: h })).json(); for (const x of ps) { const cs = await (await fetch(`/api/players/${x.player_id}/challenges`, { headers: h })).json(); const c = cs.find((y) => y.id === 'reto_primeros_pasos'); if (c && !c.enrolled && !c.ineligible.length) return x.player_id; } return null; });
+  const pid = await p.evaluate(async () => { const h = { 'x-tenant-id': 'tenant-rumbawin', 'x-roles': 'tenant_admin', 'x-actor': 'qa@ss1' }; const ps = await (await fetch('/api/players?sort=recent', { headers: h })).json(); for (const x of ps) { const cs = await (await fetch(`/api/players/${x.player_id}/challenges`, { headers: h })).json(); const c = cs.find((y) => y.id === 'reto_primeros_pasos'); if (c && !c.enrolled && !c.ineligible.length) return x.player_id; } return null; });
   ok('J.0', !!pid, `jugador elegible no inscrito: ${pid}`);
   await p.fill('#lpq', pid); await p.dispatchEvent('#lpq', 'change'); await p.waitForSelector('#gamx [data-gjoin="reto_primeros_pasos"]', { timeout: 30000 });
   await p.waitForFunction(() => /En vivo/.test(document.querySelector('#rtstate')?.textContent ?? ''), null, { timeout: 15000 });

@@ -63,6 +63,16 @@ const GAM_DEFINITIONS = {
   share_metrics: 'Clic en compartir, descarga y visita atribuida (apertura del enlace público) se cuentan por separado; «publicación confirmada» solo con evidencia del canal.',
 };
 
+/** Definiciones de las métricas de regalos instantáneos. */
+const GIFT_DEFINITIONS = {
+  assigned: 'Jugadores a los que se asignó el regalo al aprobarlo (elegibles en ese momento, en orden de id, hasta el cupo).',
+  claimed: 'Regalos reclamados por el jugador; el efecto se registró una sola vez con la clave del regalo y el jugador.',
+  claim_rate: 'Reclamados ÷ asignados.',
+  held: 'En pausa al reclamar por juego responsable o política; se pueden reclamar cuando se resuelva, dentro de la vigencia.',
+  expired: 'Asignados que no se reclamaron antes del vencimiento.',
+  skipped: 'Destinatarios que quedaron fuera al asignar, por motivo (restricción, caso abierto, señal reciente, otra marca, cupo).',
+};
+
 export const PERMISSIONS: Record<string, Role[]> = {
   'journeys.draft': ['crm_analyst', 'tenant_admin'],
   'journeys.submit': ['crm_analyst', 'tenant_admin'],
@@ -641,6 +651,27 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const evs = (Array.isArray(req.body.events) ? req.body.events : []).slice(0, 200).map((x: { event_type: string; payload: unknown }, i: number) => ev(T, p.player_id, x.event_type as never, (x.payload ?? {}) as never, app.clock.now().toISOString(), { event_id: `sim-${i}`, source: 'simulator' }));
       return ok(app.challenges.simulate(T, r[1], p, evs));
     }
+    // ───────── Regalos instantáneos (backoffice) ─────────
+    if (r0 === 'GET /gifts') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok({ as_of: app.clock.now().toISOString(), items: app.gifts.stats(T), definitions: GIFT_DEFINITIONS });
+    }
+    if (r0 === 'POST /gifts') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.gifts.saveDraft(actor, req.body as never), 201);
+    }
+    if ((r = m(/^GET \/gifts\/([\w-]+)$/))) {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      const g = app.gifts.get(T, r[1]);
+      return g ? ok({ gift: g, stats: app.gifts.stats(T).find((x) => x.id === r![1]), assignments: app.gifts.assignments(T, r[1]).slice(0, 500) }) : { status: 404, body: { error: 'not_found', message: 'Regalo inexistente' } };
+    }
+    if ((r = m(/^POST \/gifts\/([\w-]+)\/(submit|approve|close)$/))) {
+      const [, id, action] = r;
+      const perm = action === 'submit' ? 'journeys.submit' : action === 'approve' ? 'journeys.approve' : 'journeys.close';
+      if (!can(actor, perm)) return forbid(perm);
+      if (!app.gifts.get(T, id)) return { status: 404, body: { error: 'not_found', message: 'Regalo inexistente' } };
+      return ok(action === 'submit' ? app.gifts.submit(actor, id) : action === 'approve' ? app.gifts.approve(actor, id) : app.gifts.close(actor, id, String(req.body.reason ?? '')));
+    }
     if (r0 === 'GET /achievements/catalog') {
       if (!can(actor, 'gamification.read')) return forbid('gamification.read');
       return ok(ACHIEVEMENTS.map((a) => ({ id: a.id, icon: a.icon, metric: a.metric, name: a.name, description: a.description, levels: a.levels })));
@@ -666,6 +697,15 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       const c = playerCtx(r[1]); if (isResp(c)) return c;
       if (!app.challenges.get(T, r[2])) return { status: 404, body: { error: 'not_found', message: 'Reto inexistente' } };
       return ok(r[3] === 'enroll' ? app.challenges.enroll(T, r[1], r[2], req.body.notify === true) : r[3] === 'leave' ? app.challenges.leave(T, r[1], r[2]) : app.challenges.setNotify(T, r[1], r[2], req.body.notify === true));
+    }
+    if ((r = m(/^GET \/players\/([\w-]+)\/gifts$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.gifts.mine(T, r[1]));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/gifts\/([\w-]+)\/claim$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      if (!app.gifts.mine(T, r[1]).some((g) => g.gift_id === r![2])) return { status: 404, body: { error: 'not_found', message: 'No tienes ese regalo.' } };
+      return ok(app.gifts.claim(T, r[1], r[2]));
     }
     if ((r = m(/^GET \/players\/([\w-]+)\/achievements$/))) {
       const c = playerCtx(r[1]); if (isResp(c)) return c;

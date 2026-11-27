@@ -344,5 +344,11 @@ export function seedDemoChallenges(app: App, tenant: string, now: number) {
     if (stage >= 1) emit('player.activity', { action: 'profile_completed' }, 'perfil');
     if (stage >= 2) { emit('player.activity', { action: 'feature_visited', feature: 'torneos' }, 'f1'); emit('player.activity', { action: 'feature_visited', feature: 'tienda' }, 'f2'); }
     if (stage >= 3) for (const k of [1, 2, 3]) emit('bet.settled', { bet_id: `demo-gam-${p.player_id}-b${k}`, stake: { amount_minor: 500_000, currency: 'COP' }, product: 'casino' }, `b${k}`);
-  });
+  });  // regalo instantáneo aprobado para jugadores de Colombia (elegibles al aprobar); sin reclamos sembrados,
+  // para no mover los datos fijos del guion de usabilidad (un reclamo puede subir de nivel y enviar mensajes)
+  if (!app.gifts.get(tenant, 'regalo_temporada')) {
+    app.gifts.saveDraft(analyst, { id: 'regalo_temporada', brand_id: 'rumbawin', name: 'Regalo de temporada', message: 'Gracias por jugar con nosotros esta temporada.', reward: { xp: 150, coins: 20 },
+      audience: { segment: { field: 'country', op: 'eq', value: 'CO' } }, max_recipients: 500, expires_at: new Date(now + 14 * DAY).toISOString() } as never);
+    app.gifts.submit(analyst, 'regalo_temporada'); app.gifts.approve(approver, 'regalo_temporada');
+  }
 }

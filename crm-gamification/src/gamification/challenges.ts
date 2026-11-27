@@ -27,6 +27,7 @@ import { DomainError, sha256, type Clock } from '../shared/util.ts';
 import type { AchievementService } from './achievements.ts';
 import type { RealtimeHub } from './realtime.ts';
 import type { StoreService } from './store.ts';
+import { DAY, LOSS_CHASING, rgIneligibility } from './safeguards.ts';
 
 export type StepKind = 'count' | 'sum' | 'activity' | 'loyalty_level';
 export type ChallengeStep = { id: string; label: string; kind: StepKind; event_type?: 'bet.settled' | 'deposit.settled'; product?: 'casino' | 'sports'; action?: 'profile_completed' | 'feature_visited' | 'preferences_saved'; feature?: string; level?: string; target: number };
@@ -46,10 +47,7 @@ export type Enrollment = {
   periods: Record<string, { steps: Record<string, number>; counted: string[]; deposits: Record<string, { step: string; amount: number }>; completed_at?: string; reward?: RewardState }>;
 };
 
-const DAY = 86_400_000;
-const LOSS_CHASING = /recuper\w*\s+(\p{L}+\s+){0,2}(lo\s+)?(perdid|p[eé]rdid)|chase\s+(your\s+)?loss|recupera\w*\s+(tu|su)\s+dinero|vuelve\s+a\s+ganar\s+lo\s+perdido/iu;
 const MAX_ACTIVE_ENROLLMENTS = 3;
-const RISK_COOLDOWN_DAYS = 30;
 
 function periodKey(c: Challenge, iso: string): string {
   if (c.period === 'season') return c.season ?? 'temporada';
@@ -184,10 +182,7 @@ export class ChallengeService {
     if (p.brand_id !== c.brand_id) r.push('other_brand');
     if (at < c.starts_at || at > c.ends_at) r.push('outside_window');
     if (c.market && p.country?.value !== c.market) r.push('other_market');
-    if (this.#d.loyalty.isOptedOut(p.tenant_id, p.player_id)) r.push('gamification_opt_out');
-    if (!p.rg || p.rg.value !== 'none') r.push('rg_restricted');
-    if (this.#d.riskHold?.(p.tenant_id, p.player_id)) r.push('rg_risk_case_open');
-    if (p.risk && Date.parse(p.risk.occurred_at) > Date.parse(at) - RISK_COOLDOWN_DAYS * DAY) r.push('vulnerability_signal');
+    r.push(...rgIneligibility({ loyalty: this.#d.loyalty, riskHold: this.#d.riskHold }, p, at));
     if (c.segment && !evaluate(c.segment, p, new Date(at))) r.push('not_in_segment');
     return r;
   }

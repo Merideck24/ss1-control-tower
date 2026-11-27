@@ -16,7 +16,7 @@
 .jpending{margin:4px 0 8px;padding-left:20px}h3.sub{font-size:14px;margin:8px 0 2px}
 .fqf label{display:flex;flex-direction:column;gap:2px;font-size:12px}.fqf label.chk{flex-direction:row;align-items:center;gap:6px}.frp{display:grid;gap:8px;margin-top:8px}.frp label{display:flex;flex-direction:column;gap:2px}.frp label.chk{flex-direction:row;align-items:center;gap:6px}.fqt tr[aria-current] td{background:var(--brand-soft)}
 .gch{border:1px solid var(--line,#333);border-radius:6px;padding:8px 10px;margin:6px 0;display:grid;gap:4px}.gch.done{border-color:var(--brand)}
-.gsteps{list-style:none;margin:2px 0;padding:0;display:grid;gap:4px}.gsteps li{display:grid;grid-template-columns:1fr;gap:2px}.gsteps li.ok>span:first-child{color:var(--ok)}
+.ggifts{list-style:none;padding:0;margin:0}.gsteps{list-style:none;margin:2px 0;padding:0;display:grid;gap:4px}.gsteps li{display:grid;grid-template-columns:1fr;gap:2px}.gsteps li.ok>span:first-child{color:var(--ok)}
 .gach{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.gbadge{border:1px dashed var(--line,#444);border-radius:6px;padding:8px;display:grid;gap:4px;justify-items:start}.gbadge .gico{filter:grayscale(1);opacity:.55}.gbadge.got{border-style:solid;border-color:var(--brand)}.gbadge.got .gico{filter:none;opacity:1}.gico{font-size:22px}
 .gcard svg{width:100%;height:auto;border-radius:6px;display:block}.gsharebox{display:grid;gap:8px;margin-top:10px}.defs dt{font-weight:600;margin-top:6px}.defs dd{margin:0 0 4px;color:var(--muted)}
 @media (prefers-reduced-motion: no-preference){.gbadge.got{animation:gpop .35s ease-out}@keyframes gpop{from{transform:scale(.92)}to{transform:none}}}
@@ -297,7 +297,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['challenges', 'Retos y logros', 'gamification.read'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['challenges', 'Retos y logros', 'gamification.read'], ['gifts', 'Regalos', 'gamification.read'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -537,7 +537,7 @@ let ROUTE = {};
 const ROUTE_KEY = 'ss1-crm-route-v1';
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } } };
 /** la URL usa el nombre del menú (#/plantillas); las claves antiguas (#/content) siguen funcionando */
-const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', challenges: 'retos', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
+const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', challenges: 'retos', gifts: 'regalos', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
 const UNSLUG = Object.fromEntries(Object.entries(SLUG).map(([k, v]) => [v, k]));
 function parseRoute() {
   const [rawTab, qs] = location.hash.replace(/^#\/?/, '').split('?');
@@ -1357,6 +1357,37 @@ const VIEWS = {
       ${sm.map((x) => `<tr><td>${esc(x.name)}</td><td class="num">${int(x.unlocked_players)}</td><td class="num">${int(x.share_click)}</td><td class="num">${int(x.download)}</td><td class="num">${int(x.visit)}</td><td class="num">${int(x.post_confirmed)}</td><td class="num">${int(x.links_active)}</td></tr>`).join('')}</table>
       <p class="muted">Una publicación solo se cuenta como confirmada cuando el canal aporta evidencia; un clic en «Compartir» no lo es.</p></div>` : ''}`;
   },
+  async gifts() {
+    const [d, rw, players] = await Promise.all([api('/gifts'), api('/rewards').catch(() => ({ catalog: [] })), api('/players?sort=recent').catch(() => [])]);
+    const ST = { draft: 'Borrador', pending_approval: 'En aprobación', active: 'Activo', closed: 'Cerrado' };
+    const WHY = { rg_restricted: 'restricción de juego responsable', rg_risk_case_open: 'caso de riesgo abierto', vulnerability_signal: 'señal de riesgo reciente', gamification_opt_out: 'gamificación desactivada', other_brand: 'otra marca', player_not_found: 'jugador inexistente', over_capacity: 'fuera del cupo' };
+    const rew = (r) => [r.xp ? `${int(r.xp)} XP` : '', r.coins ? `${int(r.coins)} monedas` : '', r.reward_id ? label(r.reward_id) : ''].filter(Boolean).join(' + ');
+    const pctOr = (x) => x === null || x === undefined ? '—' : pct(x);
+    const actions = (g) => [
+      g.status === 'draft' && can('journeys.submit') ? `<button class="ghost" data-gfa="submit" data-gid="${esc(g.id)}">Enviar a aprobación</button>` : '',
+      g.status === 'pending_approval' && can('journeys.approve') ? `<button class="ghost" data-gfa="approve" data-gid="${esc(g.id)}">Aprobar y entregar</button>` : '',
+      g.status === 'active' && can('journeys.close') ? `<button class="ghost" data-gfa="close" data-gid="${esc(g.id)}">Cerrar…</button>` : '',
+    ].join('');
+    return `<div class="card scroll"><h2>Regalos instantáneos</h2>
+      <p class="muted">Un regalo llega al momento a la sección «Mis regalos» del jugador y se reclama una sola vez. Lo crea una persona y lo aprueba otra; al aprobar se asigna a los destinatarios elegibles en ese momento.</p>
+      ${d.items.length ? `<table><tr><th>Regalo</th><th>Recompensa</th><th>Estado</th><th class="num">Asignados</th><th class="num">Reclamados</th><th class="num">Tasa</th><th class="num">En pausa</th><th class="num">Vencidos</th><th class="num">Confirmadas</th><th class="num">Pendientes</th><th>Fuera al asignar</th><th><span class="sr-only">Acciones</span></th></tr>
+        ${d.items.map((g) => `<tr><td><b>${esc(g.name)}</b><div class="muted">${esc(g.id)} · vence ${esc(dateL(g.expires_at))}</div></td><td>${esc(rew(g.reward))}</td><td><span class="chip ${g.status === 'active' ? 'ok' : g.status === 'pending_approval' ? 'warn' : ''}">${esc(ST[g.status] ?? g.status)}</span></td>
+          <td class="num">${int(g.assigned)}</td><td class="num">${int(g.claimed)}</td><td class="num">${pctOr(g.claim_rate)}</td><td class="num">${int(g.held)}</td><td class="num">${int(g.expired)}</td><td class="num">${int(g.rewards_confirmed)}</td><td class="num">${int(g.rewards_pending)}</td>
+          <td>${Object.entries(g.skipped).map(([k, v]) => `<span class="chip">${esc(WHY[k] ?? k)}: ${int(v)}</span>`).join(' ') || '<span class="muted">—</span>'}</td><td><div class="row" style="margin:0">${actions(g)}</div></td></tr>`).join('')}</table>`
+        : '<p class="muted">Todavía no hay regalos. Crea uno abajo: queda en borrador hasta que otra persona lo apruebe.</p>'}
+      <details><summary>Cómo se calculan estas cifras</summary><dl class="defs">${Object.entries(d.definitions).map(([k, v]) => `<dt>${esc(({ assigned: 'Asignados', claimed: 'Reclamados', claim_rate: 'Tasa', held: 'En pausa', expired: 'Vencidos', skipped: 'Fuera al asignar' })[k] ?? k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details></div><br>
+    ${can('journeys.draft') ? `<div class="card"><h2>Nuevo regalo</h2><form id="gfnew" class="mform" aria-label="Nuevo regalo">
+      <div class="row"><label>Nombre <input name="name" required size="28" placeholder="p. ej. Regalo de bienvenida"></label><label>Identificador <input name="id" required size="20" pattern="[\\w-]{3,48}"></label></div>
+      <label>Mensaje para el jugador <input name="message" required size="60" maxlength="200" placeholder="Gracias por ser parte de RumbaWin"></label>
+      <fieldset><legend>Destinatarios</legend>
+        <div class="row"><label><input type="radio" name="aud" value="players" checked> Jugadores concretos</label><label><input type="radio" name="aud" value="segment"> Jugadores de un país</label></div>
+        <div class="row"><label>Jugadores (separados por coma) <input name="players" size="40" value="${esc(players.slice(0, 3).map((p) => p.player_id).join(', '))}"></label><label>País <select name="country"><option>CO</option><option>PE</option><option>MX</option></select></label><label>Cupo <input name="max" type="number" min="1" value="100" size="6"></label></div>
+        <p class="muted">Juego responsable: no recibe el regalo quien tiene una restricción, un caso de riesgo abierto o una señal de riesgo en los últimos 30 días. Si la señal llega después, el regalo queda en pausa al reclamarlo.</p></fieldset>
+      <div class="row"><label>XP <input name="xp" type="number" min="0" value="100" size="6"></label><label>Monedas <input name="coins" type="number" min="0" value="0" size="6"></label>
+        <label>Bono del catálogo <select name="reward_id"><option value="">Ninguno</option>${(rw.catalog ?? []).map((i) => `<option value="${esc(i.id)}">${esc(label(i.id))}</option>`).join('')}</select></label>
+        <label>Vence <input name="expires_at" type="date" required value="${new Date(serverNow() + 7 * 864e5).toISOString().slice(0, 10)}"></label></div>
+      <div class="row"><button type="submit">Guardar borrador</button></div><div id="gfnewout" role="status"></div></form></div>` : ''}`;
+  },
   async failures() {
     const F = FQ;
     const qs = new URLSearchParams(Object.entries({ brand: F.brand, journey: F.journey, channel: F.channel, status: F.status, reason: F.reason, from: F.from, to: F.to ? F.to + 'T23:59:59Z' : '', resolved: F.resolved ? '1' : '' }).filter(([, v]) => v));
@@ -1518,13 +1549,13 @@ const sampleEvents = (s) => s.kind === 'activity' ? Array.from({ length: s.targe
 
 // ── Jugador: retos, «Mis logros» y tiempo real ──
 const G18 = {
-  es: { title: 'Retos', live: 'En vivo', reconnecting: 'Reconectando…', offline: 'Sin conexión', join: 'Participar', notify: 'Avisarme', leave: 'Salir', done: 'Completado', until: 'Hasta el', reward: 'Recompensa', mine: 'Mis logros', toGet: 'Por obtener', share: 'Compartir', none: 'No hay retos disponibles ahora.', pending: 'Pendiente de confirmar', confirmed: 'Confirmada', suppressed: 'No otorgada', reversed: 'Revertida', failed: 'Falló', suspended: 'En pausa por tu seguridad', cantJoin: 'No disponible', of: 'de',
+  es: { gifts: 'Mis regalos', claim: 'Reclamar', g_available: 'Disponible', g_claimed: 'Reclamado', g_held: 'En pausa', g_expired: 'Vencido', g_revoked: 'Ya no disponible', noGifts: 'No tienes regalos por ahora.', expires: 'Vence el', newGift: 'Nuevo regalo', title: 'Retos', live: 'En vivo', reconnecting: 'Reconectando…', offline: 'Sin conexión', join: 'Participar', notify: 'Avisarme', leave: 'Salir', done: 'Completado', until: 'Hasta el', reward: 'Recompensa', mine: 'Mis logros', toGet: 'Por obtener', share: 'Compartir', none: 'No hay retos disponibles ahora.', pending: 'Pendiente de confirmar', confirmed: 'Confirmada', suppressed: 'No otorgada', reversed: 'Revertida', failed: 'Falló', suspended: 'En pausa por tu seguridad', cantJoin: 'No disponible', of: 'de',
     why: { rg_restricted: 'Tienes activa una restricción de juego responsable', rg_risk_case_open: 'Tu cuenta está en revisión de juego responsable', vulnerability_signal: 'Por tu bienestar, los retos están en pausa por ahora', gamification_opt_out: 'Desactivaste la gamificación', not_in_segment: 'Este reto es para otro grupo de jugadores', other_market: 'No está disponible en tu país', outside_window: 'Fuera de las fechas del reto', not_started: 'Todavía no empieza', not_active: 'El reto no está activo', other_brand: 'Es de otra marca' },
     period: { daily: 'Diario', weekly: 'Semanal', season: 'Temporada' } },
-  en: { title: 'Challenges', live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline', join: 'Join', notify: 'Notify me', leave: 'Leave', done: 'Completed', until: 'Until', reward: 'Reward', mine: 'My achievements', toGet: 'To unlock', share: 'Share', none: 'No challenges available right now.', pending: 'Awaiting confirmation', confirmed: 'Confirmed', suppressed: 'Not granted', reversed: 'Reversed', failed: 'Failed', suspended: 'Paused for your safety', cantJoin: 'Not available', of: 'of',
+  en: { gifts: 'My gifts', claim: 'Claim', g_available: 'Available', g_claimed: 'Claimed', g_held: 'On hold', g_expired: 'Expired', g_revoked: 'No longer available', noGifts: 'You have no gifts right now.', expires: 'Expires', newGift: 'New gift', title: 'Challenges', live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline', join: 'Join', notify: 'Notify me', leave: 'Leave', done: 'Completed', until: 'Until', reward: 'Reward', mine: 'My achievements', toGet: 'To unlock', share: 'Share', none: 'No challenges available right now.', pending: 'Awaiting confirmation', confirmed: 'Confirmed', suppressed: 'Not granted', reversed: 'Reversed', failed: 'Failed', suspended: 'Paused for your safety', cantJoin: 'Not available', of: 'of',
     why: { rg_restricted: 'You have a responsible gaming restriction', rg_risk_case_open: 'Your account is under responsible gaming review', vulnerability_signal: 'For your wellbeing, challenges are paused for now', gamification_opt_out: 'You turned off gamification', not_in_segment: 'This challenge is for another group of players', other_market: 'Not available in your country', outside_window: 'Outside the challenge dates', not_started: 'Not started yet', not_active: 'The challenge is not active', other_brand: 'It belongs to another brand' },
     period: { daily: 'Daily', weekly: 'Weekly', season: 'Season' } },
-  pt: { title: 'Desafios', live: 'Ao vivo', reconnecting: 'Reconectando…', offline: 'Sem conexão', join: 'Participar', notify: 'Avise-me', leave: 'Sair', done: 'Concluído', until: 'Até', reward: 'Recompensa', mine: 'Minhas conquistas', toGet: 'A desbloquear', share: 'Compartilhar', none: 'Não há desafios disponíveis agora.', pending: 'Aguardando confirmação', confirmed: 'Confirmada', suppressed: 'Não concedida', reversed: 'Revertida', failed: 'Falhou', suspended: 'Pausado para sua segurança', cantJoin: 'Indisponível', of: 'de',
+  pt: { gifts: 'Meus presentes', claim: 'Resgatar', g_available: 'Disponível', g_claimed: 'Resgatado', g_held: 'Em pausa', g_expired: 'Vencido', g_revoked: 'Não disponível', noGifts: 'Você não tem presentes agora.', expires: 'Vence em', newGift: 'Novo presente', title: 'Desafios', live: 'Ao vivo', reconnecting: 'Reconectando…', offline: 'Sem conexão', join: 'Participar', notify: 'Avise-me', leave: 'Sair', done: 'Concluído', until: 'Até', reward: 'Recompensa', mine: 'Minhas conquistas', toGet: 'A desbloquear', share: 'Compartilhar', none: 'Não há desafios disponíveis agora.', pending: 'Aguardando confirmação', confirmed: 'Confirmada', suppressed: 'Não concedida', reversed: 'Revertida', failed: 'Falhou', suspended: 'Pausado para sua segurança', cantJoin: 'Indisponível', of: 'de',
     why: { rg_restricted: 'Você tem uma restrição de jogo responsável', rg_risk_case_open: 'Sua conta está em revisão de jogo responsável', vulnerability_signal: 'Para o seu bem-estar, os desafios estão pausados', gamification_opt_out: 'Você desativou a gamificação', not_in_segment: 'Este desafio é para outro grupo de jogadores', other_market: 'Indisponível no seu país', outside_window: 'Fora das datas do desafio', not_started: 'Ainda não começou', not_active: 'O desafio não está ativo', other_brand: 'É de outra marca' },
     period: { daily: 'Diário', weekly: 'Semanal', season: 'Temporada' } },
 };
@@ -1535,7 +1566,7 @@ function rtSetState(st) { RT.state = st; const el = $('#rtstate'); if (el) { con
 function rtOnEvent(e) {
   RT.last = Math.max(RT.last, e.id);
   const t = G18[GAM.loc] ?? G18.es;
-  const msg = e.type === 'achievement.unlocked' ? `🏅 ${e.data.name} · ${e.data.level_label}` : e.type === 'challenge.completed' ? `${t.done}: ${e.data.name}` : e.type === 'reward.status' ? `${t.reward}: ${t[e.data.status] ?? e.data.status}` : null;
+  const msg = e.type === 'gift.received' ? `🎁 ${t.newGift}: ${e.data.name}` : e.type === 'achievement.unlocked' ? `🏅 ${e.data.name} · ${e.data.level_label}` : e.type === 'challenge.completed' ? `${t.done}: ${e.data.name}` : e.type === 'reward.status' ? `${t.reward}: ${t[e.data.status] ?? e.data.status}` : null;
   if (msg) { const live = $('#gamlive'); if (live) live.textContent = msg; }
   clearTimeout(GAM.redraw); GAM.redraw = setTimeout(() => RT.player && renderGam(RT.player, true), 150);
 }
@@ -1582,8 +1613,8 @@ const GAM = { loc: 'es', redraw: 0, share: null };
 async function renderGam(pid, keep = false) {
   const phone = document.querySelector('#lout .phone'); if (!phone) return;
   let box = $('#gamx'); if (!box) { box = document.createElement('section'); box.id = 'gamx'; box.setAttribute('aria-labelledby', 'gamh'); phone.appendChild(box); }
-  let cs, ach;
-  try { [cs, ach] = await Promise.all([api(`/players/${encodeURIComponent(pid)}/challenges`), api(`/players/${encodeURIComponent(pid)}/achievements`)]); }
+  let cs, ach, gf;
+  try { [cs, ach, gf] = await Promise.all([api(`/players/${encodeURIComponent(pid)}/challenges`), api(`/players/${encodeURIComponent(pid)}/achievements`), api(`/players/${encodeURIComponent(pid)}/gifts`).catch(() => [])]); }
   catch (e) { box.innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
   const loc = GAM.loc; const t = G18[loc] ?? G18.es;
   const rs = (r) => r ? `<span class="chip ${r.status === 'confirmed' ? 'ok' : r.status === 'pending' ? 'warn' : ''}">${esc(t.reward)}: ${esc(t[r.status] ?? r.status)}</span>` : '';
@@ -1600,6 +1631,11 @@ async function renderGam(pid, keep = false) {
           : why.length ? `<span class="muted">${esc(t.cantJoin)}: ${esc(t.why[why[0]] ?? why[0])}</span>`
           : `<label class="chk"><input type="checkbox" id="gn-${esc(c.id)}"> ${esc(t.notify)}</label><button data-gjoin="${esc(c.id)}">${esc(t.join)}</button>`}</div></div>`; }).join('') : `<p class="muted">${esc(t.none)}</p>`}
     ${can('events.write') ? `<details class="tech"><summary>Demo: simular actividad del jugador</summary><div class="row"><button class="ghost" data-gsim="profile_completed">Completar perfil</button><button class="ghost" data-gsim="feature_visited">Visitar una sección</button><button class="ghost" data-gsim="bet">Jugar una ronda de casino</button></div><p class="muted">En producción estos eventos llegan del sitio y de la wallet de SS1.</p></details>` : ''}
+    <h2 style="margin:14px 0 4px">${esc(t.gifts)}</h2>
+    ${gf.length ? `<ul class="ggifts">${gf.map((g) => `<li class="gch ${g.status === 'claimed' ? 'done' : ''}"><div class="row" style="justify-content:space-between;margin:0"><b>🎁 ${esc(g.name)}</b><span class="chip ${g.status === 'available' ? 'brand' : g.status === 'held' ? 'warn' : ''}">${esc(t['g_' + g.status] ?? g.status)}</span></div>
+      <div class="muted">${esc(g.message)} · ${esc(rew(g.reward))}${g.status === 'available' ? ` · ${esc(t.expires)} ${esc(dateL(g.expires_at))}` : ''}</div>
+      ${g.status === 'held' ? `<div class="muted">${esc(t.why[g.held_reason] ?? g.held_reason ?? '')}</div>` : ''}
+      <div class="row" style="margin:4px 0 0">${g.status === 'available' || g.status === 'held' ? `<button data-gclaim="${esc(g.gift_id)}">${esc(t.claim)}</button>` : ''}${g.reward_state ? rs(g.reward_state) : ''}</div></li>`).join('')}</ul>` : `<p class="muted">${esc(t.noGifts)}</p>`}
     <h2 style="margin:14px 0 4px">${esc(t.mine)}</h2>
     <div class="gach">${ach.achievements.map((a) => `<div class="gbadge ${a.level ? 'got' : ''}"><div class="gico" aria-hidden="true">${({ trophy: '🏆', compass: '🧭', shield: '🛡️', crown: '👑' })[a.icon] ?? '★'}</div><b>${esc(a.name)}</b><div class="muted">${a.level ? `${esc(a.level.label)} · ${esc(dateL(a.level.at))}` : `${esc(t.toGet)}: ${int(a.value)} ${t.of} ${int(a.next?.threshold ?? a.levels[0].threshold)}`}</div>
       ${a.level ? `<button class="ghost" data-gshare="${esc(a.id)}" aria-label="${esc(t.share)}: ${esc(a.name)}">${esc(t.share)}</button>` : ''}</div>`).join('')}</div>
@@ -1612,6 +1648,7 @@ function bindGam(pid) {
   document.querySelectorAll('[data-gjoin]').forEach((b) => b.onclick = async () => { const id = b.dataset.gjoin; b.disabled = true; try { await api(`/players/${P}/challenges/${encodeURIComponent(id)}/enroll`, { method: 'POST', body: { notify: !!$(`#gn-${CSS.escape(id)}`)?.checked } }); flash('Inscrito en el reto.', 'ok'); renderGam(pid, true); } catch (e) { b.disabled = false; flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gleave]').forEach((b) => b.onclick = async () => { try { await api(`/players/${P}/challenges/${encodeURIComponent(b.dataset.gleave)}/leave`, { method: 'POST' }); renderGam(pid, true); } catch (e) { flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gnotify]').forEach((b) => b.onchange = async () => { try { await api(`/players/${P}/challenges/${encodeURIComponent(b.dataset.gnotify)}/preferences`, { method: 'POST', body: { notify: b.checked } }); } catch (e) { flash(e.message, 'bad'); } });
+  document.querySelectorAll('[data-gclaim]').forEach((b) => b.onclick = async () => { b.disabled = true; try { const a = await api(`/players/${P}/gifts/${encodeURIComponent(b.dataset.gclaim)}/claim`, { method: 'POST' }); const t = G18[GAM.loc] ?? G18.es; flash(a.status === 'claimed' ? `${t.g_claimed} ✓` : `${t.g_held}: ${t.why[a.held_reason] ?? a.held_reason}`, a.status === 'claimed' ? 'ok' : 'warn'); renderGam(pid, true); } catch (e) { b.disabled = false; flash(e.message, 'bad'); } });
   document.querySelectorAll('[data-gshare]').forEach((b) => b.onclick = () => { GAM.share = b.dataset.gshare; openShare(pid, b.dataset.gshare); });
   let n = 0;
   document.querySelectorAll('[data-gsim]').forEach((b) => b.onclick = async () => {
@@ -1697,6 +1734,26 @@ async function openFailure(key, focus = true) {
   };
 }
 const BIND = {
+  gifts() {
+    document.querySelectorAll('[data-gfa]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.gid, action = b.dataset.gfa;
+      let body = {};
+      if (action === 'close') { const reason = prompt('Motivo del cierre (los regalos sin reclamar se revocan; queda en la auditoría):'); if (reason === null) return; if (!reason.trim()) { flash('Escribe un motivo para cerrar el regalo.', 'bad'); return; } body = { reason }; }
+      try { const r = await api(`/gifts/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }); flash(action === 'approve' ? `Regalo aprobado: ${int(r.assignment.assigned)} jugadores lo recibieron.` : action === 'submit' ? 'Regalo enviado a aprobación.' : 'Regalo cerrado.', 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    });
+    const f = $('#gfnew'); if (!f) return;
+    f.name.oninput = () => { if (!f.id.dataset.touched) f.id.value = 'regalo_' + f.name.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 38); };
+    f.id.oninput = () => { f.id.dataset.touched = '1'; };
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); const d = new FormData(f);
+      const audience = d.get('aud') === 'segment' ? { segment: { field: 'country', op: 'eq', value: d.get('country') } } : { players: String(d.get('players')).split(',').map((x) => x.trim()).filter(Boolean) };
+      const body = { id: d.get('id'), brand_id: 'rumbawin', name: d.get('name'), message: d.get('message'), audience, max_recipients: Number(d.get('max')) || 1,
+        reward: { ...(Number(d.get('xp')) ? { xp: Number(d.get('xp')) } : {}), ...(Number(d.get('coins')) ? { coins: Number(d.get('coins')) } : {}), ...(d.get('reward_id') ? { reward_id: d.get('reward_id') } : {}) },
+        expires_at: new Date(d.get('expires_at') + 'T23:59:59-05:00').toISOString() };
+      try { const g = await api('/gifts', { method: 'POST', body }); $('#gfnewout').innerHTML = `<p class="ok">Borrador «${esc(g.name)}» guardado. Envíalo a aprobación desde la tabla.</p>`; flash('Borrador guardado.', 'ok'); setTimeout(show, 400); }
+      catch (e) { $('#gfnewout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+  },
   challenges() {
     if ($('#chf')) $('#chf').onsubmit = (ev) => { ev.preventDefault(); GQ.status = new FormData($('#chf')).get('status') ?? ''; show(); };
     document.querySelectorAll('[data-cha]').forEach((b) => b.onclick = async () => {

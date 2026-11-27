@@ -9,7 +9,7 @@
  * - Transporte: SSE en el servidor (`GET /api/players/:id/stream`) y sondeo con el mismo cursor
  *   (`GET /players/:id/realtime?after=`) en la demo estática o como respaldo.
  */
-export type RealtimeType = 'challenge.progress' | 'challenge.step_done' | 'challenge.completed' | 'reward.status' | 'achievement.unlocked' | 'challenge.suspended';
+export type RealtimeType = 'challenge.progress' | 'challenge.step_done' | 'challenge.completed' | 'reward.status' | 'achievement.unlocked' | 'challenge.suspended' | 'gift.received' | 'gift.held' | 'gift.revoked' | 'leaderboard.updated' | 'tournament.result' | 'contest.result';
 export type RealtimeEvent = { id: number; at: string; type: RealtimeType; data: Record<string, unknown> };
 
 const KEEP = 200;

@@ -33,10 +33,13 @@
       "name": "Retos"
     },
     {
-      "name": "Logros"
+      "name": "Regalos"
     },
     {
       "name": "Jugador"
+    },
+    {
+      "name": "Logros"
     },
     {
       "name": "Rendimiento"
@@ -2037,6 +2040,398 @@
         "x-ss1-scope": null,
         "x-ss1-permission": [
           "journeys.simulate"
+        ]
+      }
+    },
+    "/v1/gifts": {
+      "get": {
+        "tags": [
+          "Regalos"
+        ],
+        "summary": "Regalos instantáneos con métricas (asignados, reclamados, en pausa, vencidos, recompensas)",
+        "operationId": "getGifts",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Regalos"
+        ],
+        "summary": "Guardar borrador de regalo (jugadores o segmento, cupo, vigencia)",
+        "operationId": "postGifts",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `Gift`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Gift"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/gifts/{gift_id}": {
+      "get": {
+        "tags": [
+          "Regalos"
+        ],
+        "summary": "Detalle de un regalo y sus asignaciones",
+        "operationId": "getGiftsGiftId",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "gift_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/gifts/{gift_id}/{action}": {
+      "post": {
+        "tags": [
+          "Regalos"
+        ],
+        "summary": "Ciclo: enviar, aprobar y asignar (otra persona), cerrar con motivo",
+        "operationId": "postGiftsGiftIdAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.close` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "gift_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submit",
+                "approve",
+                "close"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve",
+          "journeys.close"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/gifts": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Mis regalos: disponibles, reclamados, en pausa y vencidos",
+        "operationId": "getPlayersPlayerIdGifts",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/gifts/{gift_id}/claim": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Reclamar un regalo (única aunque llegue dos veces)",
+        "operationId": "postPlayersPlayerIdGiftsGiftIdClaim",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "gift_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
         ]
       }
     },

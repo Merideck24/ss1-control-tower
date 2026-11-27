@@ -58,7 +58,7 @@ export async function bootWithDb(app: App, o: { role: OpsRole; tenants: string[]
       const s = await syncOps(app, ops, o.tenants, cursor, flush);
       cursor = s.cursor;
       const woke = o.role === 'web' ? 0 : app.runtime.runDue();
-      if (o.role !== 'worker') app.challenges.tick();
+      if (o.role !== 'worker') { app.challenges.tick(); app.gifts.tick(); }
       await flush();
       return { events: ev.events, synced: s.changed, woke };
     } finally { busy = false; }

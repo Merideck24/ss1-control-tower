@@ -20,7 +20,8 @@ const profile = async (page: import('@playwright/test').Page, role: string, id: 
 const failure = async (page: import('@playwright/test').Page, player: string) => {
   await go(page, '#/cola-de-fallas?rol=crm_analyst');
   await page.click(`[data-fopen][aria-label*="${player}"]`);
-  await page.waitForSelector('#fdetail:not([hidden]) h2');
+  // la ruta no cambia entre fallas: esperar a que el panel muestre esta falla y no la anterior
+  await expect(page.locator('#fdetail:not([hidden]) h2')).toContainText(player);
   return (await page.innerText('#fdetail')).replace(/\s+/g, ' ');
 };
 

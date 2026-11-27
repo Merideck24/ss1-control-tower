@@ -75,7 +75,7 @@ test('DB fase 2: actualizar desde la fase 1 conserva los datos y habilita los es
   await admin.query(`INSERT INTO journey_versions (tenant_id, journey_id, version, status, definition, created_by) VALUES ($1, 'j_old', 1, 'published', '{"id":"j_old"}', 'ana@ss1')`, [T]);
   await assert.rejects(admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`), /check/i, 'la fase 1 no admite «uncertain»');
   const r = await migrate(admin);
-  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql']);
+  assert.deepEqual(r.applied, ['002_runtime_persistence.sql', '003_gamification.sql', '004_ledgers.sql', '005_gifts_contests.sql']);
   const row = (await admin.query(`SELECT status, attempts, vars, journey_id FROM delivery_receipts WHERE idempotency_key = 'k-fase1'`)).rows[0];
   assert.deepEqual([row.status, row.attempts, row.vars, row.journey_id], ['accepted', 1, null, null], 'el recibo de la fase 1 sigue igual');
   await admin.query(`UPDATE delivery_receipts SET status = 'uncertain' WHERE idempotency_key = 'k-fase1'`);
@@ -306,4 +306,25 @@ test('DB libros: XP y monedas sobreviven al reinicio, la otra réplica los recib
   // la base rechaza un saldo de monedas negativo aunque una réplica desactualizada lo intente
   await assert.rejects(withTenant(web.boot.db, T, (c) => c.query(`UPDATE coin_balances SET balance = balance - 1000 WHERE player_id = 'l1'`)), /check/i);
   await web.boot.stop();
+});
+
+test('DB regalos: la campaña, la asignación y la reclamación sobreviven al reinicio; reclamar de nuevo no duplica', { skip }, async () => {
+  await freshSchema();
+  const clock = new ManualClock('2026-11-20T15:00:00Z');
+  const A = { id: 'ana@ss1', tenant_id: T }, B = { id: 'beto@ss1', tenant_id: T };
+  let w = await proc('all', clock);
+  onboard(w.app, clock, 'q1'); onboard(w.app, clock, 'q2');
+  w.app.gifts.saveDraft(A, { id: 'reg_db', brand_id: 'rumbawin', name: 'Regalo DB', message: 'Un detalle para ti', reward: { xp: 120, coins: 10 }, audience: { players: ['q1', 'q2'] }, max_recipients: 10, expires_at: '2026-12-01T00:00:00Z' } as never);
+  w.app.gifts.submit(A, 'reg_db'); w.app.gifts.approve(B, 'reg_db');
+  w.app.gifts.claim(T, 'q1', 'reg_db');
+  await w.boot.stop();
+  w = await proc('all', clock);
+  assert.equal(w.app.gifts.get(T, 'reg_db')?.status, 'active');
+  assert.deepEqual(w.app.gifts.mine(T, 'q1').map((g) => g.status), ['claimed']);
+  assert.deepEqual(w.app.gifts.mine(T, 'q2').map((g) => g.status), ['available']);
+  assert.equal(w.app.loyalty.balance(T, 'q1', '2026-Q4'), 120);
+  w.app.gifts.claim(T, 'q1', 'reg_db');
+  assert.equal(w.app.loyalty.balance(T, 'q1', '2026-Q4'), 120, 'sin segunda entrega');
+  assert.equal(w.app.store.balance(T, 'q1'), 10);
+  await w.boot.stop();
 });

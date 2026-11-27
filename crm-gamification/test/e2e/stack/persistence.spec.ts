@@ -35,7 +35,7 @@ test('Persistencia: instancias en espera y recibos sobreviven al reinicio de la 
     expect(rec.map((r) => [r.status, r.journey_version, r.node_id])).toEqual([['accepted', 1, 'm']]);
     // la web lo muestra en Seguimiento
     await open(page, s.base, 'constructor', 'crm_analyst');
-    await expect.poll(async () => { await page.reload(); await page.waitForSelector('[data-runs="j_restart"]'); await page.click('[data-runs="j_restart"]'); return (await page.locator('[data-runsout="j_restart"]').innerText()).replace(/\s+/g, ' '); }, { timeout: 20_000 }).toMatch(/Completadas: 1/);
+    await expect.poll(async () => { await page.reload(); await page.waitForSelector('[data-runs="j_restart"]'); await page.click('[data-runs="j_restart"]'); await page.waitForFunction(() => !!document.querySelector('[data-runsout="j_restart"]')?.textContent?.trim(), null, { timeout: 5_000 }).catch(() => undefined); return (await page.locator('[data-runsout="j_restart"]').innerText()).replace(/\s+/g, ' '); }, { timeout: 20_000 }).toMatch(/Completadas: 1/);
     // segundo reinicio: sin reenvío
     await stopStack(s); await startWeb(s); await startWorker(s);
     await new Promise((r) => setTimeout(r, 2_000));
