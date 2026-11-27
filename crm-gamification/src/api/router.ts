@@ -8,6 +8,7 @@ import { autoLayout, reviewJourney } from '../journeys/builder.ts';
 import { SplitTracker } from '../experiments/bandit.ts';
 import { CHANNELS, EVENT_TYPES, NON_PLAYER_EVENTS } from '../domain/events.ts';
 import { isSent } from '../channels/channels.ts';
+import { ACHIEVEMENTS } from '../gamification/achievements.ts';
 import type { Actor, Role } from '../journeys/registry.ts';
 import { simulateJourney } from '../journeys/runtime.ts';
 import { profileView } from '../profile/projection.ts';
@@ -49,6 +50,19 @@ const SAMPLE_PAYLOAD: Record<string, unknown> = {
   'player.verified': { kyc_status: 'verified' },
 };
 
+
+/** Definiciones y ventanas de las métricas de gamificación (se muestran en el Control Tower). */
+const GAM_DEFINITIONS = {
+  eligible: 'Jugadores del tenant que hoy cumplen marca, mercado, segmento, vigencia y juego responsable (sin restricción, sin caso abierto, sin señal de riesgo en 30 días).',
+  enrolled: 'Inscripciones activas: el jugador se inscribió voluntariamente y no salió ni fue suspendido.',
+  participants: 'Inscripción × período (un reto diario cuenta una vez por día).',
+  start_rate: 'Participaciones con algún avance ÷ participaciones, en el período vigente y los anteriores.',
+  completion_rate: 'Participaciones completadas ÷ participaciones.',
+  rewards_confirmed: 'Recompensas que el servicio responsable confirmó (XP y monedas: el libro del CRM; bonos: el servicio de bonos tras conciliar).',
+  rewards_pending: 'Bonos pedidos sin confirmación todavía (respuesta incierta en conciliación).',
+  share_metrics: 'Clic en compartir, descarga y visita atribuida (apertura del enlace público) se cuentan por separado; «publicación confirmada» solo con evidencia del canal.',
+};
+
 export const PERMISSIONS: Record<string, Role[]> = {
   'journeys.draft': ['crm_analyst', 'tenant_admin'],
   'journeys.submit': ['crm_analyst', 'tenant_admin'],
@@ -57,6 +71,8 @@ export const PERMISSIONS: Record<string, Role[]> = {
   'journeys.pause': ['crm_analyst', 'tenant_admin', 'rg_officer', 'approver'],
   'journeys.close': ['tenant_admin', 'approver', 'rg_officer'],
   'failures.read': ['crm_analyst', 'tenant_admin', 'support', 'auditor', 'approver'],
+  // jugador: en producción lo llama el backend del sitio con una llave de servicio (players:write) y el id del jugador de su sesión
+  'gamification.player': ['support', 'tenant_admin', 'crm_analyst'],
   'failures.reprocess': ['crm_analyst', 'tenant_admin'],
   'journeys.simulate': ['crm_analyst', 'approver', 'tenant_admin'],
   'runtime.tick': ['crm_analyst', 'tenant_admin', 'rg_officer'],
@@ -573,6 +589,106 @@ export async function route(app: App, req: ApiRequest, opts: { ask?: AskFn; writ
       if (!can(actor, perm)) return forbid(perm);
       const out = action === 'submit' ? app.registry.submit(actor, id) : action === 'approve' ? app.registry.approve(actor, id) : action === 'publish' ? app.registry.publish(actor, id) : action === 'close' ? app.registry.close(actor, id, String(req.body.reason ?? '')) : app.registry.setPaused(actor, id, action === 'pause', String(req.body.reason ?? 'manual'));
       return ok(out);
+    }
+
+    // ───────── Retos (backoffice) ─────────
+    if (r0 === 'GET /challenges') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      const brand = req.query.get('brand'), status = req.query.get('status'), market = req.query.get('market');
+      const eligible = (c: { brand_id: string; id: string; version: number }) => app.ingestor.all(T).filter((p) => !app.challenges.ineligibility({ ...app.challenges.get(T, c.id, c.version)!, status: 'active' }, p).length).length;
+      const items = app.challenges.stats(T, eligible).filter((c) => (!brand || c.brand_id === brand) && (!status || c.status === status) && (!market || c.market === market));
+      return ok({ as_of: app.clock.now().toISOString(), items, definitions: GAM_DEFINITIONS });
+    }
+    if (r0 === 'POST /challenges') {
+      if (!can(actor, 'journeys.draft')) return forbid('journeys.draft');
+      return ok(app.challenges.saveDraft(actor, req.body as never), 201);
+    }
+    if ((r = m(/^GET \/challenges\/([\w-]+)$/))) {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      const vs = app.challenges.versions(T, r[1]);
+      return vs.length ? ok({ id: r[1], versions: vs }) : { status: 404, body: { error: 'not_found', message: 'Reto inexistente' } };
+    }
+    if ((r = m(/^POST \/challenges\/([\w-]+)\/(submit|approve|pause|resume|close)$/))) {
+      const [, id, action] = r;
+      const perm = action === 'submit' ? 'journeys.submit' : action === 'approve' ? 'journeys.approve' : action === 'close' ? 'journeys.close' : 'journeys.pause';
+      if (!can(actor, perm)) return forbid(perm);
+      if (!app.challenges.get(T, id)) return { status: 404, body: { error: 'not_found', message: 'Reto inexistente' } };
+      const out = action === 'submit' ? app.challenges.submit(actor, id) : action === 'approve' ? app.challenges.approve(actor, id)
+        : action === 'close' ? app.challenges.close(actor, id, String(req.body.reason ?? '')) : app.challenges.setPaused(actor, id, action === 'pause');
+      return ok(out);
+    }
+    if ((r = m(/^POST \/challenges\/([\w-]+)\/simulate$/))) {
+      if (!can(actor, 'journeys.simulate')) return forbid('journeys.simulate');
+      const p = app.ingestor.get(T, String(req.body.player_id ?? ''));
+      if (!p || !app.challenges.get(T, r[1])) return { status: 404, body: { error: 'not_found', message: 'Reto o jugador inexistente' } };
+      const evs = (Array.isArray(req.body.events) ? req.body.events : []).slice(0, 200).map((x: { event_type: string; payload: unknown }, i: number) => ev(T, p.player_id, x.event_type as never, (x.payload ?? {}) as never, app.clock.now().toISOString(), { event_id: `sim-${i}`, source: 'simulator' }));
+      return ok(app.challenges.simulate(T, r[1], p, evs));
+    }
+    if (r0 === 'GET /achievements/catalog') {
+      if (!can(actor, 'gamification.read')) return forbid('gamification.read');
+      return ok(ACHIEVEMENTS.map((a) => ({ id: a.id, icon: a.icon, metric: a.metric, name: a.name, description: a.description, levels: a.levels })));
+    }
+    if (r0 === 'GET /gamification/share-metrics') {
+      if (!can(actor, 'analytics.read')) return forbid('analytics.read');
+      return ok(app.achievements.shareMetrics(T));
+    }
+    // ───────── Público: tarjeta compartida (sin sesión; identificador opaco; revocable) ─────────
+    if ((r = m(/^GET \/public\/share\/([A-Za-z0-9_-]{16,64})$/))) {
+      const card = app.achievements.publicCard(r[1]);
+      if (!card) return { status: 404, body: { error: 'not_found', message: 'Esta tarjeta ya no está disponible.' } };
+      const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+      return { status: 200, contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(card.text)}</title><meta property="og:title" content="${esc(card.text)}"><style>body{margin:0;background:#062B3D;display:grid;place-items:center;min-height:100vh}svg{max-width:100%;height:auto}</style></head><body>${card.svg}</body></html>` };
+    }
+    // ───────── Jugador: retos, logros, alias, tarjetas y tiempo real ─────────
+    // en producción lo llama el backend del sitio con una llave de servicio (players:write) y el id del jugador de su sesión
+    const playerCtx = (player: string): { prof: NonNullable<ReturnType<typeof app.ingestor.get>>; locale: 'es' | 'en' | 'pt' } | ApiResponse => {
+      if (!can(actor, 'gamification.player')) return forbid('gamification.player');
+      const prof = app.ingestor.get(T, player);
+      if (!prof) return { status: 404, body: { error: 'not_found', message: `No existe el jugador ${player} en ${T}` } };
+      return { prof, locale: (['es', 'en', 'pt'].includes(prof.locale?.value ?? '') ? prof.locale!.value : 'es') as 'es' | 'en' | 'pt' };
+    };
+    const isResp = (x: unknown): x is ApiResponse => !!x && typeof x === 'object' && 'status' in x;
+    if ((r = m(/^GET \/players\/([\w-]+)\/challenges$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.challenges.playerView(T, r[1]));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/challenges\/([\w-]+)\/(enroll|leave|preferences)$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      if (!app.challenges.get(T, r[2])) return { status: 404, body: { error: 'not_found', message: 'Reto inexistente' } };
+      return ok(r[3] === 'enroll' ? app.challenges.enroll(T, r[1], r[2], req.body.notify === true) : r[3] === 'leave' ? app.challenges.leave(T, r[1], r[2]) : app.challenges.setNotify(T, r[1], r[2], req.body.notify === true));
+    }
+    if ((r = m(/^GET \/players\/([\w-]+)\/achievements$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok({ achievements: app.achievements.mine(T, c.prof.brand_id, r[1], c.locale), alias: app.achievements.alias(T, r[1]), links: app.achievements.links(T, r[1]) });
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/alias$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.achievements.setAlias(T, r[1], String(req.body.alias ?? ''), req.body.show_on_cards === true));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/achievements\/([\w-]+)\/card$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.achievements.card(T, c.prof.brand_id, r[1], r[2], c.locale));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/achievements\/([\w-]+)\/share-link$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      if (req.body.confirm !== true) return { status: 422, body: { error: 'confirmation_required', message: 'Compartir es una decisión del jugador: confirma que quieres crear un enlace público.' } };
+      const l = app.achievements.createLink(T, c.prof.brand_id, r[1], r[2]);
+      return ok({ ...l, url: `/api/public/share/${l.id}` });
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/share-links\/([A-Za-z0-9_-]+)\/revoke$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.achievements.revokeLink(T, r[1], r[2]));
+    }
+    if ((r = m(/^POST \/players\/([\w-]+)\/share-events$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      const type = String(req.body.type) as 'share_click' | 'download' | 'post_confirmed';
+      if (!['share_click', 'download', 'post_confirmed'].includes(type)) return { status: 422, body: { error: 'invalid_type', message: 'Tipo de interacción inválido.' } };
+      app.achievements.track(T, r[1], type, String(req.body.achievement_id ?? ''), req.body.evidence as never);
+      return ok({ recorded: type });
+    }
+    if ((r = m(/^GET \/players\/([\w-]+)\/realtime$/))) {
+      const c = playerCtx(r[1]); if (isResp(c)) return c;
+      return ok(app.realtime.since(T, r[1], Number(req.query.get('after')) || 0));
     }
     if (r0 === 'GET /failures') {
       if (!can(actor, 'failures.read')) return forbid('failures.read');

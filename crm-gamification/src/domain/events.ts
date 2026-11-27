@@ -18,6 +18,7 @@ export const EVENT_TYPES = [
   'marketing.spend_reported',
   'withdrawal.settled',
   'rg.risk_signal',
+  'player.activity',
 ] as const;
 
 /** Eventos que no pertenecen a un jugador (no actualizan la proyección). */
@@ -47,6 +48,8 @@ export type PayloadByType = {
   'withdrawal.settled': { withdrawal_id: string } & Money;
   /** I2: señal interna del monitor de riesgo (fuente crm.risk); dispara intervenciones, no promociones. */
   'rg.risk_signal': { level: 'medium' | 'high'; score: number; signals: string[] };
+  /** Actividad del jugador en el sitio o la app (fuente ss1.site): completar el perfil, visitar una función, guardar preferencias. Sin datos personales. */
+  'player.activity': { action: 'profile_completed' | 'feature_visited' | 'preferences_saved'; feature?: string };
   /** Inversión diaria agregada por campaña (fuente: plataformas de medios / afiliados). */
   'marketing.spend_reported': { campaign_id: string; campaign_name: string; channel: string; date: string; impressions: number; clicks: number; spend: Money };
 };

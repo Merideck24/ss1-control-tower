@@ -175,6 +175,7 @@ export function seedAcquisitionHistory(app: App, tenant: string, days = 60, scal
   email.failNext = 0; email.timeoutNext = null; email.rejectNext = null;
   seedDemoOnsite(app, tenant);
   seedDemoInboxReads(app, tenant, now);
+  seedDemoChallenges(app, tenant, now);
   // demo: presupuesto de bonos calibrado para quedar cerca del umbral de alerta
   const b = app.rewards.budget(tenant, 'welcome_fs_10');
   const it = app.rewards.item(tenant, 'welcome_fs_10');
@@ -304,4 +305,44 @@ export function seedDemoOnsite(app: App, tenant: string) {
       else if (u > 0.93) app.onsite.track(tenant, p.player_id, { campaign_id: s.campaign_id, type: 'dismiss', request_id: rid });
     }
   }
+}
+
+/**
+ * Retos de demostración, aprobados por otra persona: uno de temporada (secuencial), uno diario y uno
+ * de fidelidad. Inscribe jugadores sintéticos elegibles con avances distintos (deterministas).
+ */
+export function seedDemoChallenges(app: App, tenant: string, now: number) {
+  const analyst = { id: 'analyst@ss1', tenant_id: tenant }, approver = { id: 'approver@ss1', tenant_id: tenant };
+  const window = { starts_at: new Date(now - 7 * DAY).toISOString(), ends_at: new Date(now + 45 * DAY).toISOString(), timezone: 'America/Bogota' };
+  const defs = [
+    { id: 'reto_primeros_pasos', brand_id: 'rumbawin', name: 'Primeros pasos', description: 'Completa tu perfil, explora dos secciones y juega tres rondas de casino', period: 'season' as const, season: '2026-T4', mode: 'sequential' as const,
+      reward: { xp: 300, coins: 50 }, steps: [
+        { id: 'perfil', label: 'Completa tu perfil', kind: 'activity' as const, action: 'profile_completed' as const, target: 1 },
+        { id: 'explora', label: 'Visita dos secciones del sitio', kind: 'activity' as const, action: 'feature_visited' as const, target: 2 },
+        { id: 'juega', label: 'Juega 3 rondas de casino', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'casino' as const, target: 3 }], ...window },
+    { id: 'reto_diario_explora', brand_id: 'rumbawin', name: 'Descubre algo nuevo', description: 'Visita una sección que no conozcas', period: 'daily' as const, mode: 'single' as const,
+      reward: { coins: 10 }, steps: [{ id: 'visita', label: 'Visita una sección del sitio', kind: 'activity' as const, action: 'feature_visited' as const, target: 1 }], ...window },
+    { id: 'reto_fiel', brand_id: 'rumbawin', name: 'Camino a Oro', description: 'Alcanza el nivel Oro y haz 5 apuestas deportivas', period: 'season' as const, season: '2026-T4', mode: 'all' as const,
+      reward: { xp: 500 }, steps: [
+        { id: 'oro', label: 'Alcanza el nivel Oro', kind: 'loyalty_level' as const, level: 'Oro', target: 1 },
+        { id: 'dep', label: '5 apuestas deportivas', kind: 'count' as const, event_type: 'bet.settled' as const, product: 'sports' as const, target: 5 }], ...window },
+  ];
+  for (const d of defs) {
+    if (app.challenges.get(tenant, d.id)) continue;
+    app.challenges.saveDraft(analyst, d as never); app.challenges.submit(analyst, d.id); app.challenges.approve(approver, d.id);
+  }
+  // jugadores elegibles (sin restricciones), en orden estable
+  const ok = app.ingestor.all(tenant).filter((p) => p.brand_id === 'rumbawin' && !app.challenges.ineligibility(app.challenges.get(tenant, 'reto_primeros_pasos')!, p).length)
+    .sort((a, b) => a.player_id.localeCompare(b.player_id)).slice(0, 24);
+  const at = new Date(now - HOUR).toISOString();
+  ok.forEach((p, i) => {
+    app.challenges.enroll(tenant, p.player_id, 'reto_primeros_pasos', i % 2 === 0);
+    if (i % 3 === 0) app.challenges.enroll(tenant, p.player_id, 'reto_diario_explora', false);
+    const emit = (type: string, payload: unknown, k: string) => app.ingestor.ingest(ev(tenant, p.player_id, type as never, payload as never, at, { event_id: `demo-gam-${p.player_id}-${k}`, source: type === 'player.activity' ? 'ss1.site' : 'ss1.wallet' }));
+    // avances distintos: unos completan, otros quedan a mitad, otros sin empezar
+    const stage = i % 4;
+    if (stage >= 1) emit('player.activity', { action: 'profile_completed' }, 'perfil');
+    if (stage >= 2) { emit('player.activity', { action: 'feature_visited', feature: 'torneos' }, 'f1'); emit('player.activity', { action: 'feature_visited', feature: 'tienda' }, 'f2'); }
+    if (stage >= 3) for (const k of [1, 2, 3]) emit('bet.settled', { bet_id: `demo-gam-${p.player_id}-b${k}`, stake: { amount_minor: 500_000, currency: 'COP' }, product: 'casino' }, `b${k}`);
+  });
 }

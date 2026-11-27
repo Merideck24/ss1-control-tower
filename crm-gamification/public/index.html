@@ -15,6 +15,11 @@
 .nextact{border:1px solid #333;border-left:4px solid var(--brand);border-radius:6px;padding:8px 10px;margin:6px 0}.nextact.okb{border-left-color:var(--ok)}.nextact.warnb{border-left-color:var(--warn)}.nextact.badb{border-left-color:var(--bad)}
 .jpending{margin:4px 0 8px;padding-left:20px}h3.sub{font-size:14px;margin:8px 0 2px}
 .fqf label{display:flex;flex-direction:column;gap:2px;font-size:12px}.fqf label.chk{flex-direction:row;align-items:center;gap:6px}.frp{display:grid;gap:8px;margin-top:8px}.frp label{display:flex;flex-direction:column;gap:2px}.frp label.chk{flex-direction:row;align-items:center;gap:6px}.fqt tr[aria-current] td{background:var(--brand-soft)}
+.gch{border:1px solid var(--line,#333);border-radius:6px;padding:8px 10px;margin:6px 0;display:grid;gap:4px}.gch.done{border-color:var(--brand)}
+.gsteps{list-style:none;margin:2px 0;padding:0;display:grid;gap:4px}.gsteps li{display:grid;grid-template-columns:1fr;gap:2px}.gsteps li.ok>span:first-child{color:var(--ok)}
+.gach{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.gbadge{border:1px dashed var(--line,#444);border-radius:6px;padding:8px;display:grid;gap:4px;justify-items:start}.gbadge .gico{filter:grayscale(1);opacity:.55}.gbadge.got{border-style:solid;border-color:var(--brand)}.gbadge.got .gico{filter:none;opacity:1}.gico{font-size:22px}
+.gcard svg{width:100%;height:auto;border-radius:6px;display:block}.gsharebox{display:grid;gap:8px;margin-top:10px}.defs dt{font-weight:600;margin-top:6px}.defs dd{margin:0 0 4px;color:var(--muted)}
+@media (prefers-reduced-motion: no-preference){.gbadge.got{animation:gpop .35s ease-out}@keyframes gpop{from{transform:scale(.92)}to{transform:none}}}
 </style>
 <style>
   /* Diseño SS1 Admin (Vuexy/Vuetify, tema oscuro): menú lateral + barra superior flotante + tarjetas sobre fondo negro, acento dorado. */
@@ -292,7 +297,7 @@
 // pestaña → permiso requerido (null = visible para todos)
 const TABS = [
   ['tower', 'Control Tower', null], ['profile', 'Perfil 360', 'players.read'], ['segments', 'Segmentos', 'segments.preview'], ['builder', 'Constructor', null],
-  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
+  ['approval', 'Aprobación', null], ['analytics', 'Analítica', 'analytics.read'], ['gamification', 'Gamificación', 'gamification.read'], ['loyalty', 'Fidelidad (móvil)', 'players.read'], ['content', 'Plantillas', 'content.read'], ['policies', 'Políticas por mercado', 'policy.read'], ['onsite', 'Contenido en sitio', 'onsite.read'], ['rg', 'Juego responsable', 'rg.monitor'], ['challenges', 'Retos y logros', 'gamification.read'], ['failures', 'Cola de fallas', 'failures.read'], ['integrations', 'Integraciones', 'integration.read'], ['copilot', 'Copiloto', 'copilot'], ['audit', 'Auditoría', 'audit.read'],
 ];
 let SESSION = { permissions: [], copilot_tools: [], copilot_ask: false };
 const can = (p) => p === null || (p === 'copilot' ? SESSION.copilot_tools.length > 0 : SESSION.permissions.includes(p));
@@ -532,7 +537,7 @@ let ROUTE = {};
 const ROUTE_KEY = 'ss1-crm-route-v1';
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin almacenamiento */ } } };
 /** la URL usa el nombre del menú (#/plantillas); las claves antiguas (#/content) siguen funcionando */
-const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
+const SLUG = { tower: 'control-tower', profile: 'perfil-360', segments: 'segmentos', builder: 'constructor', approval: 'aprobacion', analytics: 'analitica', gamification: 'gamificacion', loyalty: 'fidelidad', content: 'plantillas', policies: 'politicas', onsite: 'contenido-en-sitio', rg: 'juego-responsable', challenges: 'retos', failures: 'cola-de-fallas', integrations: 'integraciones', copilot: 'copiloto', audit: 'auditoria' };
 const UNSLUG = Object.fromEntries(Object.entries(SLUG).map(([k, v]) => [v, k]));
 function parseRoute() {
   const [rawTab, qs] = location.hash.replace(/^#\/?/, '').split('?');
@@ -606,12 +611,16 @@ async function loadTheme(fromSession) {
   if (fromSession && window.SS1_INTEGRATION) applyTheme({ ...window.SS1_INTEGRATION.deriveBrandTokens(fromSession.primary), logo: window.SS1_INTEGRATION.parseThemeConfig({ logo: fromSession.logo }).logo ?? null });
 }
 
-async function api(path, opts = {}) {
+/** Cabeceras de sesión (las usa api() y el canal de tiempo real). */
+function apiHeaders() {
   const role = $('#role').value;
   const s = EMBED.session;
-  const headers = s
+  return s
     ? { 'content-type': 'application/json', authorization: `Bearer ${s.accessToken}`, 'x-tenant-id': s.tenantId, 'x-actor': `ss1:${s.user.id}`, ...(EMBED.roles ? { 'x-roles': EMBED.roles.join(',') || 'none' } : {}) }
     : { 'content-type': 'application/json', 'x-tenant-id': $('#tenant').value, 'x-roles': role, 'x-actor': role + '@ss1' };
+}
+async function api(path, opts = {}) {
+  const headers = apiHeaders();
   // B3: la marca elegida viaja en toda consulta (los endpoints que no la usan la ignoran)
   if ((opts.method ?? 'GET') === 'GET' && $('#brand')?.value && !/[?&]brand=/.test(path) && path !== '/brands') path += (path.includes('?') ? '&' : '?') + 'brand=' + encodeURIComponent($('#brand').value);
   const res = await fetch('/api' + path, {
@@ -652,6 +661,7 @@ const ICON_PATHS = {
   onsite: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h6"/>',
   integrations: '<path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 10h8"/><path d="M12 14v6"/>',
   rg: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/><path d="M9 12h6"/>',
+  challenges: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/>',
   failures: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
   audit: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>',
 };
@@ -712,6 +722,7 @@ async function show() {
   const v = $('#view');
   document.body.classList.remove('pdetail-open', 'ctx-open'); // al cambiar de vista no queda nada superpuesto
   try { clearTimeout(B.timer); } catch { /* B aún no existe en el primer render */ } // ni trabajo pendiente de la vista anterior
+  try { if (current !== 'loyalty') rtStop(); } catch { /* aún sin tiempo real */ }
   v.innerHTML = '<p class="muted">Cargando…</p>';
   try { v.innerHTML = await VIEWS[current](); BIND[current]?.(); addCsvButtons(v); nameTables(v); pageToc(v); }
   catch (e) { v.innerHTML = `<div class="card bad">Error: ${esc(e.message)}</div>`; }
@@ -1299,6 +1310,47 @@ const VIEWS = {
       <p class="muted">Bus de eventos (en memoria hasta conectar Kafka/RabbitMQ): ${w.bus_topics.length ? w.bus_topics.map(esc).join(', ') : 'sin temas'}. En la demo, las URL que contienen «falla» simulan un receptor caído.</p></div>`;
     return form + subs + recent;
   },
+  async challenges() {
+    const [d, cat, sm, rw, players] = await Promise.all([api('/challenges' + (GQ.status ? `?status=${GQ.status}` : '')), api('/achievements/catalog'), can('analytics.read') ? api('/gamification/share-metrics') : Promise.resolve([]), api('/rewards').catch(() => ({ catalog: [] })), api('/players?sort=recent').catch(() => [])]);
+    const ST = { draft: 'Borrador', pending_approval: 'En aprobación', scheduled: 'Programado', active: 'Activo', paused: 'En pausa', closed: 'Cerrado' };
+    const PER = { daily: 'Diario', weekly: 'Semanal', season: 'Temporada' };
+    const pctOr = (x) => x === null || x === undefined ? '—' : pct(x);
+    const actions = (c) => [
+      c.status === 'draft' && can('journeys.submit') ? `<button class="ghost" data-cha="submit" data-cid="${esc(c.id)}">Enviar a aprobación</button>` : '',
+      c.status === 'pending_approval' && can('journeys.approve') ? `<button class="ghost" data-cha="approve" data-cid="${esc(c.id)}">Aprobar</button>` : '',
+      c.status === 'active' && can('journeys.pause') ? `<button class="ghost" data-cha="pause" data-cid="${esc(c.id)}">Pausar</button>` : '',
+      c.status === 'paused' && can('journeys.pause') ? `<button class="ghost" data-cha="resume" data-cid="${esc(c.id)}">Reanudar</button>` : '',
+      ['active', 'paused', 'scheduled'].includes(c.status) && can('journeys.close') ? `<button class="ghost" data-cha="close" data-cid="${esc(c.id)}">Cerrar…</button>` : '',
+      can('journeys.simulate') ? `<button class="ghost" data-chsim="${esc(c.id)}">Simular</button>` : '',
+    ].join('');
+    const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(t)}</option>`;
+    return `<div class="card scroll"><h2>Retos</h2>
+      <form id="chf" class="row fqf" aria-label="Filtro de retos"><label>Estado <select name="status">${opt('', 'Todos', GQ.status)}${Object.entries(ST).map(([k, v]) => opt(k, v, GQ.status)).join('')}</select></label><button type="submit" class="ghost">Filtrar</button></form>
+      ${d.items.length ? `<table><tr><th>Reto</th><th>Período</th><th>Estado</th><th class="num">Elegibles</th><th class="num">Inscritos</th><th class="num">Participaciones</th><th class="num">Inicio</th><th class="num">Finalización</th><th class="num">Recompensas confirmadas</th><th class="num">Pendientes</th><th><span class="sr-only">Acciones</span></th></tr>
+        ${d.items.map((c) => `<tr><td><b>${esc(c.name)}</b> <span class="chip">v${c.version}</span><div class="muted">${esc(c.id)} · hasta ${esc(dateL(c.ends_at))}</div></td><td>${esc(PER[c.period] ?? c.period)}</td><td><span class="chip ${c.status === 'active' ? 'ok' : c.status === 'pending_approval' ? 'warn' : ''}">${esc(ST[c.status] ?? c.status)}</span></td>
+          <td class="num">${int(c.eligible)}</td><td class="num">${int(c.enrolled)}${c.suspended ? ` <span class="muted" title="suspendidas por juego responsable">(${int(c.suspended)} susp.)</span>` : ''}</td><td class="num">${int(c.participants)}</td><td class="num">${pctOr(c.start_rate)}</td><td class="num">${pctOr(c.completion_rate)}</td><td class="num">${int(c.rewards_confirmed)}</td><td class="num">${int(c.rewards_pending)}</td>
+          <td><div class="row" style="margin:0">${actions(c)}</div></td></tr><tr hidden data-chout="${esc(c.id)}"><td colspan="11"></td></tr>`).join('')}</table>`
+        : '<p class="muted">Sin retos con este filtro. Crea uno abajo: queda en borrador hasta que otra persona lo apruebe.</p>'}
+      <details><summary>Cómo se calculan estas cifras</summary><dl class="defs">${Object.entries(d.definitions).map(([k, v]) => `<dt>${esc(({ eligible: 'Elegibles', enrolled: 'Inscritos', participants: 'Participaciones', start_rate: 'Inicio', completion_rate: 'Finalización', rewards_confirmed: 'Recompensas confirmadas', rewards_pending: 'Pendientes', share_metrics: 'Tarjetas compartidas' })[k] ?? k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details>
+      <div class="row" id="chsimrow" hidden><label>Jugador para simular <select id="chsimp">${players.slice(0, 60).map((p) => `<option>${esc(p.player_id)}</option>`).join('')}</select></label></div>
+    </div><br>
+    ${can('journeys.draft') ? `<div class="card"><h2>Nuevo reto</h2><form id="chnew" class="mform" aria-label="Nuevo reto">
+      <div class="row"><label>Nombre <input name="name" required size="28" placeholder="p. ej. Primeros pasos"></label><label>Identificador <input name="id" required size="20" pattern="[\\w-]{3,48}"></label></div>
+      <label>Descripción <input name="description" size="60" placeholder="Qué tiene que hacer el jugador, en una frase"></label>
+      <div class="row"><label>Período <select name="period"><option value="season">Temporada</option><option value="weekly">Semanal</option><option value="daily">Diario</option></select></label>
+        <label>Modo <select name="mode"><option value="sequential">Secuencial (paso a paso)</option><option value="all">Varios pasos, en cualquier orden</option><option value="single">Un solo paso</option></select></label>
+        <label>Mercado <select name="market"><option value="">Todos</option><option>CO</option><option>PE</option><option>MX</option></select></label></div>
+      <fieldset><legend>Pasos</legend>${[0, 1, 2].map((i) => `<div class="row"><label>Paso ${i + 1} <select name="step${i}"><option value="">—</option>${CH_STEPS.map((st, k) => `<option value="${k}"${i === 0 && k === 0 ? ' selected' : ''}>${esc(st.label)}</option>`).join('')}</select></label><label>Meta <input name="target${i}" type="number" min="1" value="1" size="6"></label></div>`).join('')}
+        <p class="muted">Juego responsable: los retos diarios no admiten depósitos ni montos apostados, y ningún reto puede invitar a recuperar pérdidas. Participa solo quien se inscribe y no tiene restricciones ni señales de riesgo.</p></fieldset>
+      <div class="row"><label>XP <input name="xp" type="number" min="0" value="200" size="6"></label><label>Monedas <input name="coins" type="number" min="0" value="0" size="6"></label>
+        <label>Bono del catálogo <select name="reward_id"><option value="">Ninguno</option>${(rw.catalog ?? []).map((i) => `<option value="${esc(i.id)}">${esc(lbl ? label(i.id) : i.id)}</option>`).join('')}</select></label></div>
+      <div class="row"><label>Desde <input name="starts_at" type="date" required value="${new Date(serverNow()).toISOString().slice(0, 10)}"></label><label>Hasta <input name="ends_at" type="date" required value="${new Date(serverNow() + 30 * 864e5).toISOString().slice(0, 10)}"></label><label>Zona horaria <input name="timezone" value="America/Bogota" size="18"></label></div>
+      <div class="row"><button type="submit">Guardar borrador</button></div><div id="chnewout" role="status"></div></form></div><br>` : ''}
+    <div class="card scroll"><h2>Logros</h2><table><tr><th>Logro</th><th>Condición</th><th>Niveles</th></tr>${cat.map((a) => `<tr><td><b>${esc(a.name.es)}</b></td><td>${esc(a.description.es)}</td><td>${a.levels.map((l) => `<span class="chip">${esc(l.label.es)} · ${int(l.threshold)}</span>`).join(' ')}</td></tr>`).join('')}</table></div><br>
+    ${sm.length ? `<div class="card scroll"><h2>Tarjetas compartidas</h2><table><tr><th>Logro</th><th class="num">Jugadores con el logro</th><th class="num">Clic en compartir</th><th class="num">Descargas</th><th class="num">Visitas atribuidas</th><th class="num">Publicaciones confirmadas</th><th class="num">Enlaces activos</th></tr>
+      ${sm.map((x) => `<tr><td>${esc(x.name)}</td><td class="num">${int(x.unlocked_players)}</td><td class="num">${int(x.share_click)}</td><td class="num">${int(x.download)}</td><td class="num">${int(x.visit)}</td><td class="num">${int(x.post_confirmed)}</td><td class="num">${int(x.links_active)}</td></tr>`).join('')}</table>
+      <p class="muted">Una publicación solo se cuenta como confirmada cuando el canal aporta evidencia; un clic en «Compartir» no lo es.</p></div>` : ''}`;
+  },
   async failures() {
     const F = FQ;
     const qs = new URLSearchParams(Object.entries({ brand: F.brand, journey: F.journey, channel: F.channel, status: F.status, reason: F.reason, from: F.from, to: F.to ? F.to + 'T23:59:59Z' : '', resolved: F.resolved ? '1' : '' }).filter(([, v]) => v));
@@ -1442,6 +1494,161 @@ const COPILOT_TOOL = { query_metric: 'Consultar una métrica', preview_segment: 
 function openSegmentWith(rule) {
   current = 'segments'; setRoute({}, true); renderTabs(); show().then(async () => { await SEG_READY; $('#rules').value = JSON.stringify(rule, null, 2); $('#excl').value = ''; rbSetRule('rules', rule); rbSetRule('excl', null); $('#prev').click(); });
 }
+let GQ = { status: '' };
+/** Pasos predefinidos del formulario de retos (sin JSON). */
+const CH_STEPS = [
+  { label: 'Completar el perfil', step: { kind: 'activity', action: 'profile_completed' } },
+  { label: 'Visitar secciones del sitio', step: { kind: 'activity', action: 'feature_visited' } },
+  { label: 'Guardar preferencias', step: { kind: 'activity', action: 'preferences_saved' } },
+  { label: 'Rondas de casino', step: { kind: 'count', event_type: 'bet.settled', product: 'casino' } },
+  { label: 'Apuestas deportivas', step: { kind: 'count', event_type: 'bet.settled', product: 'sports' } },
+  { label: 'Alcanzar nivel Plata', step: { kind: 'loyalty_level', level: 'Plata' } },
+  { label: 'Alcanzar nivel Oro', step: { kind: 'loyalty_level', level: 'Oro' } },
+];
+/** Eventos de ejemplo que cumplen un paso (para simular). */
+const sampleEvents = (s) => s.kind === 'activity' ? Array.from({ length: s.target }, (_, i) => ({ event_type: 'player.activity', payload: { action: s.action, feature: s.feature ?? `seccion_${i + 1}` } }))
+  : s.kind === 'count' ? Array.from({ length: s.target }, (_, i) => ({ event_type: s.event_type, payload: s.event_type === 'bet.settled' ? { bet_id: `sim${i}`, stake: { amount_minor: 100000, currency: 'COP' }, product: s.product ?? 'casino' } : { deposit_id: `sim${i}`, amount_minor: 100000, currency: 'COP' } }))
+  : [];
+
+// ── Jugador: retos, «Mis logros» y tiempo real ──
+const G18 = {
+  es: { title: 'Retos', live: 'En vivo', reconnecting: 'Reconectando…', offline: 'Sin conexión', join: 'Participar', notify: 'Avisarme', leave: 'Salir', done: 'Completado', until: 'Hasta el', reward: 'Recompensa', mine: 'Mis logros', toGet: 'Por obtener', share: 'Compartir', none: 'No hay retos disponibles ahora.', pending: 'Pendiente de confirmar', confirmed: 'Confirmada', suppressed: 'No otorgada', reversed: 'Revertida', failed: 'Falló', suspended: 'En pausa por tu seguridad', cantJoin: 'No disponible', of: 'de',
+    why: { rg_restricted: 'Tienes activa una restricción de juego responsable', rg_risk_case_open: 'Tu cuenta está en revisión de juego responsable', vulnerability_signal: 'Por tu bienestar, los retos están en pausa por ahora', gamification_opt_out: 'Desactivaste la gamificación', not_in_segment: 'Este reto es para otro grupo de jugadores', other_market: 'No está disponible en tu país', outside_window: 'Fuera de las fechas del reto', not_started: 'Todavía no empieza', not_active: 'El reto no está activo', other_brand: 'Es de otra marca' },
+    period: { daily: 'Diario', weekly: 'Semanal', season: 'Temporada' } },
+  en: { title: 'Challenges', live: 'Live', reconnecting: 'Reconnecting…', offline: 'Offline', join: 'Join', notify: 'Notify me', leave: 'Leave', done: 'Completed', until: 'Until', reward: 'Reward', mine: 'My achievements', toGet: 'To unlock', share: 'Share', none: 'No challenges available right now.', pending: 'Awaiting confirmation', confirmed: 'Confirmed', suppressed: 'Not granted', reversed: 'Reversed', failed: 'Failed', suspended: 'Paused for your safety', cantJoin: 'Not available', of: 'of',
+    why: { rg_restricted: 'You have a responsible gaming restriction', rg_risk_case_open: 'Your account is under responsible gaming review', vulnerability_signal: 'For your wellbeing, challenges are paused for now', gamification_opt_out: 'You turned off gamification', not_in_segment: 'This challenge is for another group of players', other_market: 'Not available in your country', outside_window: 'Outside the challenge dates', not_started: 'Not started yet', not_active: 'The challenge is not active', other_brand: 'It belongs to another brand' },
+    period: { daily: 'Daily', weekly: 'Weekly', season: 'Season' } },
+  pt: { title: 'Desafios', live: 'Ao vivo', reconnecting: 'Reconectando…', offline: 'Sem conexão', join: 'Participar', notify: 'Avise-me', leave: 'Sair', done: 'Concluído', until: 'Até', reward: 'Recompensa', mine: 'Minhas conquistas', toGet: 'A desbloquear', share: 'Compartilhar', none: 'Não há desafios disponíveis agora.', pending: 'Aguardando confirmação', confirmed: 'Confirmada', suppressed: 'Não concedida', reversed: 'Revertida', failed: 'Falhou', suspended: 'Pausado para sua segurança', cantJoin: 'Indisponível', of: 'de',
+    why: { rg_restricted: 'Você tem uma restrição de jogo responsável', rg_risk_case_open: 'Sua conta está em revisão de jogo responsável', vulnerability_signal: 'Para o seu bem-estar, os desafios estão pausados', gamification_opt_out: 'Você desativou a gamificação', not_in_segment: 'Este desafio é para outro grupo de jogadores', other_market: 'Indisponível no seu país', outside_window: 'Fora das datas do desafio', not_started: 'Ainda não começou', not_active: 'O desafio não está ativo', other_brand: 'É de outra marca' },
+    period: { daily: 'Diário', weekly: 'Semanal', season: 'Temporada' } },
+};
+const RT = { player: null, last: 0, timer: 0, ctrl: null, state: 'offline', tries: 0, gen: 0 };
+function rtStop() { RT.gen++; clearTimeout(RT.timer); RT.timer = 0; try { RT.ctrl?.abort(); } catch { /* ya cerrado */ } RT.ctrl = null; RT.player = null; }
+function rtSetState(st) { RT.state = st; const el = $('#rtstate'); if (el) { const t = G18[GAM.loc] ?? G18.es; el.textContent = t[st] ?? st; el.className = 'chip ' + (st === 'live' ? 'ok' : st === 'reconnecting' ? 'warn' : ''); } }
+/** Al recibir un aviso: se vuelve a pintar el bloque (sin perder el cursor) y se anuncia por lector de pantalla. */
+function rtOnEvent(e) {
+  RT.last = Math.max(RT.last, e.id);
+  const t = G18[GAM.loc] ?? G18.es;
+  const msg = e.type === 'achievement.unlocked' ? `🏅 ${e.data.name} · ${e.data.level_label}` : e.type === 'challenge.completed' ? `${t.done}: ${e.data.name}` : e.type === 'reward.status' ? `${t.reward}: ${t[e.data.status] ?? e.data.status}` : null;
+  if (msg) { const live = $('#gamlive'); if (live) live.textContent = msg; }
+  clearTimeout(GAM.redraw); GAM.redraw = setTimeout(() => RT.player && renderGam(RT.player, true), 150);
+}
+async function rtStart(pid) {
+  rtStop(); RT.player = pid; RT.tries = 0; const gen = RT.gen;
+  try { RT.last = (await api(`/players/${encodeURIComponent(pid)}/realtime?after=0`)).last; } catch { RT.last = 0; }
+  // en la demo estática no hay servidor: el mismo cursor por sondeo cada 2 s; con servidor, SSE con reanudación (Last-Event-ID)
+  const sse = location.protocol.startsWith('http') && !window.SS1_DEMO;
+  const poll = async () => {
+    if (gen !== RT.gen) return;
+    try {
+      const r = await api(`/players/${encodeURIComponent(pid)}/realtime?after=${RT.last}`);
+      if (gen !== RT.gen) return;
+      rtSetState('live'); RT.tries = 0;
+      if (r.resync) { RT.last = r.last; renderGam(pid, true); } else r.events.forEach(rtOnEvent);
+    } catch { rtSetState(++RT.tries > 3 ? 'offline' : 'reconnecting'); }
+    RT.timer = setTimeout(poll, RT.tries ? Math.min(10000, 1000 * 2 ** RT.tries) : 2000);
+  };
+  const stream = async () => {
+    if (gen !== RT.gen) return;
+    const ctrl = new AbortController(); RT.ctrl = ctrl;
+    try {
+      const res = await fetch(`/api/players/${encodeURIComponent(pid)}/stream`, { headers: { ...apiHeaders(), 'last-event-id': String(RT.last) }, signal: ctrl.signal });
+      if (!res.ok || !res.body) throw new Error(String(res.status));
+      rtSetState('live'); RT.tries = 0;
+      const rd = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+      for (;;) {
+        const { value, done } = await rd.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+          const block = buf.slice(0, i); buf = buf.slice(i + 2);
+          const ev = /^event: (.+)$/m.exec(block)?.[1]; const data = /^data: (.+)$/m.exec(block)?.[1];
+          if (ev === 'resync') { renderGam(pid, true); continue; }
+          if (data) { try { rtOnEvent(JSON.parse(data)); } catch { /* bloque incompleto */ } }
+        }
+      }
+      throw new Error('cerrado');
+    } catch { if (gen !== RT.gen) return; rtSetState(++RT.tries > 3 ? 'offline' : 'reconnecting'); RT.timer = setTimeout(stream, Math.min(10000, 1000 * 2 ** RT.tries)); }
+  };
+  rtSetState('reconnecting');
+  (sse ? stream : poll)();
+}
+const GAM = { loc: 'es', redraw: 0, share: null };
+async function renderGam(pid, keep = false) {
+  const phone = document.querySelector('#lout .phone'); if (!phone) return;
+  let box = $('#gamx'); if (!box) { box = document.createElement('section'); box.id = 'gamx'; box.setAttribute('aria-labelledby', 'gamh'); phone.appendChild(box); }
+  let cs, ach;
+  try { [cs, ach] = await Promise.all([api(`/players/${encodeURIComponent(pid)}/challenges`), api(`/players/${encodeURIComponent(pid)}/achievements`)]); }
+  catch (e) { box.innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
+  const loc = GAM.loc; const t = G18[loc] ?? G18.es;
+  const rs = (r) => r ? `<span class="chip ${r.status === 'confirmed' ? 'ok' : r.status === 'pending' ? 'warn' : ''}">${esc(t.reward)}: ${esc(t[r.status] ?? r.status)}</span>` : '';
+  const rew = (r) => [r.xp ? `${int(r.xp)} XP` : '', r.coins ? `${int(r.coins)} monedas` : '', r.reward_id ? label(r.reward_id) : ''].filter(Boolean).join(' + ');
+  box.innerHTML = `<div class="row" style="justify-content:space-between;margin:14px 0 4px"><h2 id="gamh" style="margin:0">${esc(t.title)}</h2><span id="rtstate" class="chip" role="status">${esc(t[RT.state] ?? '')}</span></div>
+    <div id="gamlive" class="sr-only" aria-live="polite"></div>
+    ${cs.length ? cs.map((c) => { const why = c.ineligible.filter((w) => w !== 'not_active' || !c.enrolled); return `<div class="gch ${c.completed_at ? 'done' : ''}"><div class="row" style="justify-content:space-between;margin:0"><b>${esc(c.name)}</b><span class="chip">${esc(t.period[c.period] ?? c.period)}</span></div>
+      <div class="muted">${esc(c.description)} · ${esc(t.until)} ${esc(dateL(c.ends_at))}</div>
+      <ol class="gsteps">${c.steps.map((s) => { const pv = Math.min(100, Math.round(100 * s.value / s.target)); return `<li class="${s.done ? 'ok' : ''}"><span>${s.done ? '✓ ' : ''}${esc(s.label)}</span><div class="bar" role="progressbar" aria-valuenow="${pv}" aria-valuemin="0" aria-valuemax="100" aria-label="${esc(s.label)}: ${int(s.value)} ${t.of} ${int(s.target)}"><span style="width:${pv}%"></span></div><span class="muted">${int(s.value)} ${t.of} ${int(s.target)}</span></li>`; }).join('')}</ol>
+      <div class="row" style="margin:4px 0 0"><span class="muted">${esc(t.reward)}: ${esc(rew(c.reward))}</span>
+        ${c.completed_at ? `<span class="chip brand">${esc(t.done)}</span>${rs(c.reward_state)}`
+          : c.enrollment_status === 'suspended' ? `<span class="chip warn">${esc(t.suspended)}</span>`
+          : c.enrolled ? `<label class="chk"><input type="checkbox" data-gnotify="${esc(c.id)}"${c.notify ? ' checked' : ''}> ${esc(t.notify)}</label><button class="ghost" data-gleave="${esc(c.id)}">${esc(t.leave)}</button>`
+          : why.length ? `<span class="muted">${esc(t.cantJoin)}: ${esc(t.why[why[0]] ?? why[0])}</span>`
+          : `<label class="chk"><input type="checkbox" id="gn-${esc(c.id)}"> ${esc(t.notify)}</label><button data-gjoin="${esc(c.id)}">${esc(t.join)}</button>`}</div></div>`; }).join('') : `<p class="muted">${esc(t.none)}</p>`}
+    ${can('events.write') ? `<details class="tech"><summary>Demo: simular actividad del jugador</summary><div class="row"><button class="ghost" data-gsim="profile_completed">Completar perfil</button><button class="ghost" data-gsim="feature_visited">Visitar una sección</button><button class="ghost" data-gsim="bet">Jugar una ronda de casino</button></div><p class="muted">En producción estos eventos llegan del sitio y de la wallet de SS1.</p></details>` : ''}
+    <h2 style="margin:14px 0 4px">${esc(t.mine)}</h2>
+    <div class="gach">${ach.achievements.map((a) => `<div class="gbadge ${a.level ? 'got' : ''}"><div class="gico" aria-hidden="true">${({ trophy: '🏆', compass: '🧭', shield: '🛡️', crown: '👑' })[a.icon] ?? '★'}</div><b>${esc(a.name)}</b><div class="muted">${a.level ? `${esc(a.level.label)} · ${esc(dateL(a.level.at))}` : `${esc(t.toGet)}: ${int(a.value)} ${t.of} ${int(a.next?.threshold ?? a.levels[0].threshold)}`}</div>
+      ${a.level ? `<button class="ghost" data-gshare="${esc(a.id)}" aria-label="${esc(t.share)}: ${esc(a.name)}">${esc(t.share)}</button>` : ''}</div>`).join('')}</div>
+    <div id="gshare"></div>`;
+  bindGam(pid);
+  if (GAM.share) openShare(pid, GAM.share);
+}
+function bindGam(pid) {
+  const P = encodeURIComponent(pid);
+  document.querySelectorAll('[data-gjoin]').forEach((b) => b.onclick = async () => { const id = b.dataset.gjoin; b.disabled = true; try { await api(`/players/${P}/challenges/${encodeURIComponent(id)}/enroll`, { method: 'POST', body: { notify: !!$(`#gn-${CSS.escape(id)}`)?.checked } }); flash('Inscrito en el reto.', 'ok'); renderGam(pid, true); } catch (e) { b.disabled = false; flash(e.message, 'bad'); } });
+  document.querySelectorAll('[data-gleave]').forEach((b) => b.onclick = async () => { try { await api(`/players/${P}/challenges/${encodeURIComponent(b.dataset.gleave)}/leave`, { method: 'POST' }); renderGam(pid, true); } catch (e) { flash(e.message, 'bad'); } });
+  document.querySelectorAll('[data-gnotify]').forEach((b) => b.onchange = async () => { try { await api(`/players/${P}/challenges/${encodeURIComponent(b.dataset.gnotify)}/preferences`, { method: 'POST', body: { notify: b.checked } }); } catch (e) { flash(e.message, 'bad'); } });
+  document.querySelectorAll('[data-gshare]').forEach((b) => b.onclick = () => { GAM.share = b.dataset.gshare; openShare(pid, b.dataset.gshare); });
+  let n = 0;
+  document.querySelectorAll('[data-gsim]').forEach((b) => b.onclick = async () => {
+    const k = b.dataset.gsim; const id = `demo-${pid}-${Date.now()}-${n++}`;
+    const e = k === 'bet' ? { event_type: 'bet.settled', payload: { bet_id: id, stake: { amount_minor: 1000000, currency: 'COP' }, product: 'casino' }, source: 'ss1.wallet' }
+      : { event_type: 'player.activity', payload: { action: k, ...(k === 'feature_visited' ? { feature: ['torneos', 'tienda', 'promociones', 'perfil', 'historial', 'ayuda'][Math.floor(Math.random() * 6)] } : {}) }, source: 'ss1.site' };
+    try { await api('/events', { method: 'POST', body: { event_id: id, schema_version: 1, tenant_id: $('#tenant').value, brand_id: 'rumbawin', player_id: pid, occurred_at: new Date(serverNow()).toISOString(), correlation_id: id, ...e } }); } catch (err) { flash(err.message, 'bad'); }
+  });
+}
+async function openShare(pid, aid) {
+  const box = $('#gshare'); if (!box) return;
+  const P = encodeURIComponent(pid);
+  let card; try { card = await api(`/players/${P}/achievements/${encodeURIComponent(aid)}/card`, { method: 'POST' }); } catch (e) { box.innerHTML = `<p class="bad">${esc(e.message)}</p>`; return; }
+  const ach = await api(`/players/${P}/achievements`);
+  const link = ach.links.filter((l) => l.achievement_id === aid && !l.revoked_at).at(-1);
+  const al = ach.alias;
+  box.innerHTML = `<div class="card gsharebox" role="region" aria-label="Compartir logro"><h3 class="sub">Vista previa</h3>
+    <div class="gcard">${card.svg}</div>
+    <p class="muted">La tarjeta no muestra saldos, depósitos, apuestas ni tus datos. ${card.alias_shown ? 'Muestra tu alias.' : 'No muestra tu nombre: puedes elegir un alias.'}</p>
+    <form id="galias" class="row"><label>Alias <input id="galiasv" value="${esc(al?.alias ?? '')}" size="16" maxlength="16"></label><label class="chk"><input type="checkbox" id="galiasshow"${al?.show_on_cards ? ' checked' : ''}> Mostrarlo en mis tarjetas</label><button type="submit" class="ghost">Guardar alias</button></form>
+    <div class="row"><button type="button" id="gdl">Descargar</button><button type="button" id="gsh">Compartir…</button>${link ? `<button type="button" class="ghost" id="grev">Dejar de compartir el enlace</button>` : ''}<button type="button" class="ghost" id="gclose">Cerrar</button></div>
+    <div id="gconfirm" hidden class="nextact warnb">Vas a crear un enlace público a esta tarjeta. Cualquiera con el enlace podrá verla; puedes revocarlo cuando quieras. <div class="row"><button type="button" id="gyes">Crear enlace y compartir</button><button type="button" class="ghost" id="gno">Cancelar</button></div></div>
+    <div id="gshout" role="status"></div></div>`;
+  $('#galias').onsubmit = async (ev) => { ev.preventDefault(); try { await api(`/players/${P}/alias`, { method: 'POST', body: { alias: $('#galiasv').value, show_on_cards: $('#galiasshow').checked } }); flash('Alias guardado.', 'ok'); openShare(pid, aid); } catch (e) { flash(e.message, 'bad'); } };
+  $('#gclose').onclick = () => { GAM.share = null; box.innerHTML = ''; };
+  $('#gdl').onclick = async () => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([card.svg], { type: 'image/svg+xml' })); a.download = `logro-${aid}.svg`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    api(`/players/${P}/share-events`, { method: 'POST', body: { type: 'download', achievement_id: aid } }).catch(() => {});
+  };
+  $('#gsh').onclick = () => { $('#gconfirm').hidden = false; $('#gyes').focus(); };
+  $('#gno').onclick = () => { $('#gconfirm').hidden = true; };
+  $('#gyes').onclick = async () => {
+    try {
+      api(`/players/${P}/share-events`, { method: 'POST', body: { type: 'share_click', achievement_id: aid } }).catch(() => {});
+      const l = link ?? await api(`/players/${P}/achievements/${encodeURIComponent(aid)}/share-link`, { method: 'POST', body: { confirm: true } });
+      const url = new URL(`/api/public/share/${l.id}`, location.origin.startsWith('http') ? location.origin : 'https://crm.syssoft1.com').toString();
+      if (navigator.share) { try { await navigator.share({ title: card.text, text: card.text, url }); $('#gshout').textContent = 'Listo.'; } catch { $('#gshout').textContent = 'No se compartió.'; } }
+      else { try { await navigator.clipboard.writeText(url); $('#gshout').textContent = 'Enlace copiado: pégalo donde quieras compartirlo.'; } catch { $('#gshout').textContent = url; } }
+      $('#gconfirm').hidden = true; if (!link) openShare(pid, aid);
+    } catch (e) { flash(e.message, 'bad'); }
+  };
+  if ($('#grev')) $('#grev').onclick = async () => { try { await api(`/players/${P}/share-links/${encodeURIComponent(link.id)}/revoke`, { method: 'POST' }); flash('Enlace revocado: ya nadie puede abrirlo.', 'ok'); openShare(pid, aid); } catch (e) { flash(e.message, 'bad'); } };
+}
 let FQ = { brand: '', journey: '', channel: '', status: '', reason: '', from: '', to: '', resolved: false, open: '' };
 async function openFailure(key, focus = true) {
   FQ.open = key;
@@ -1484,6 +1691,41 @@ async function openFailure(key, focus = true) {
   };
 }
 const BIND = {
+  challenges() {
+    if ($('#chf')) $('#chf').onsubmit = (ev) => { ev.preventDefault(); GQ.status = new FormData($('#chf')).get('status') ?? ''; show(); };
+    document.querySelectorAll('[data-cha]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.cid, action = b.dataset.cha;
+      let body = {};
+      if (action === 'close') { const reason = prompt('Motivo del cierre (queda en la auditoría):'); if (reason === null) return; if (!reason.trim()) { flash('Escribe un motivo para cerrar el reto.', 'bad'); return; } body = { reason }; }
+      try { const r = await api(`/challenges/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }); flash(`Reto ${({ submit: 'enviado a aprobación', approve: r.status === 'scheduled' ? 'aprobado y programado' : 'aprobado y activo', pause: 'en pausa', resume: 'reanudado', close: 'cerrado' })[action]}.`, 'ok'); show(); } catch (e) { flash(e.message, 'bad'); }
+    });
+    document.querySelectorAll('[data-chsim]').forEach((b) => b.onclick = async () => {
+      const id = b.dataset.chsim; const row = document.querySelector(`[data-chout="${id}"]`);
+      $('#chsimrow').hidden = false;
+      try {
+        const v = await api(`/challenges/${encodeURIComponent(id)}`); const c = v.versions.at(-1);
+        const events = c.steps.flatMap(sampleEvents);
+        const r = await api(`/challenges/${encodeURIComponent(id)}/simulate`, { method: 'POST', body: { player_id: $('#chsimp').value, events } });
+        row.hidden = false;
+        row.firstElementChild.innerHTML = `<div class="simres" role="status"><b>Simulación con ${esc($('#chsimp').value)}</b> <span class="muted">(sin efectos: no inscribe, no otorga, no avisa)</span>
+          <ol>${r.steps.map((s) => `<li>${esc(s.label)}: ${int(s.value)} de ${int(s.target)} ${s.done ? '<span class="ok">✓</span>' : ''}</li>`).join('')}</ol>
+          <div>${r.completes ? '<span class="ok">Con estos eventos el reto se completa.</span>' : '<span class="warn">Con estos eventos no se completa.</span>'} ${r.ineligible.length ? `<span class="bad">Este jugador no podría participar: ${esc(r.ineligible.join(', '))}</span>` : ''}</div></div>`;
+      } catch (e) { flash(e.message, 'bad'); }
+    });
+    const f = $('#chnew'); if (!f) return;
+    f.name.oninput = () => { if (!f.id.dataset.touched) f.id.value = 'reto_' + f.name.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40); };
+    f.id.oninput = () => { f.id.dataset.touched = '1'; };
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); const d = new FormData(f);
+      const steps = [0, 1, 2].map((i) => d.get(`step${i}`) === '' ? null : { ...CH_STEPS[Number(d.get(`step${i}`))].step, id: `p${i + 1}`, label: CH_STEPS[Number(d.get(`step${i}`))].label, target: Number(d.get(`target${i}`)) || 1 }).filter(Boolean);
+      const tz = String(d.get('timezone') || 'America/Bogota');
+      const body = { id: d.get('id'), brand_id: 'rumbawin', name: d.get('name'), description: d.get('description') || d.get('name'), period: d.get('period'), season: '2026-T4', mode: steps.length === 1 ? 'single' : d.get('mode'), steps,
+        reward: { ...(Number(d.get('xp')) ? { xp: Number(d.get('xp')) } : {}), ...(Number(d.get('coins')) ? { coins: Number(d.get('coins')) } : {}), ...(d.get('reward_id') ? { reward_id: d.get('reward_id') } : {}) },
+        ...(d.get('market') ? { market: d.get('market') } : {}), starts_at: new Date(d.get('starts_at') + 'T00:00:00-05:00').toISOString(), ends_at: new Date(d.get('ends_at') + 'T23:59:59-05:00').toISOString(), timezone: tz };
+      try { const c = await api('/challenges', { method: 'POST', body }); $('#chnewout').innerHTML = `<p class="ok">Borrador «${esc(c.name)}» v${c.version} guardado. Envíalo a aprobación desde la tabla.</p>`; flash('Borrador guardado.', 'ok'); setTimeout(show, 400); }
+      catch (e) { $('#chnewout').innerHTML = `<p class="bad">${esc(e.message)}</p>`; }
+    };
+  },
   failures() {
     const f = $('#fqf');
     if (f) f.onsubmit = (ev) => { ev.preventDefault(); const d = new FormData(f); FQ = { ...FQ, brand: d.get('brand') ?? '', journey: d.get('journey') ?? '', channel: d.get('channel') ?? '', status: d.get('status') ?? '', reason: String(d.get('reason') ?? '').trim(), from: d.get('from') ?? '', to: d.get('to') ?? '', resolved: d.get('resolved') === 'on', open: '' }; show(); };
@@ -1840,6 +2082,8 @@ const BIND = {
         ${can('player.preferences') ? '' : '<p class="muted">Solo soporte o administración pueden cambiarla desde el backoffice.</p>'}</div>`;
       const rid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
       const pid = encodeURIComponent($('#lp').value);
+      GAM.loc = ['es', 'en', 'pt'].includes(d.profile.locale?.value) ? d.profile.locale.value : 'es';
+      renderGam($('#lp').value).then(() => rtStart($('#lp').value));
       document.querySelectorAll('[data-ibread]').forEach((b) => b.onclick = async () => { try { await api(`/players/${pid}/inbox/${encodeURIComponent(b.dataset.ibread)}/read`, { method: 'POST' }); load(); } catch (e) { flash(e.message, 'bad'); } });
       document.querySelectorAll('[data-ibarch]').forEach((b) => b.onclick = async () => { try { await api(`/players/${pid}/inbox/${encodeURIComponent(b.dataset.ibarch)}/archive`, { method: 'POST' }); flash('Mensaje archivado.', 'ok'); load(); } catch (e) { flash(e.message, 'bad'); } });
       if ($('#ibreadall')) $('#ibreadall').onclick = async () => { try { const r = await api(`/players/${pid}/inbox/read-all`, { method: 'POST' }); flash(`${r.marked} mensajes marcados como leídos.`, 'ok'); load(); } catch (e) { flash(e.message, 'bad'); } };

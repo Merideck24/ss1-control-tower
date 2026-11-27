@@ -80,6 +80,12 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
       const out = await route(app, { method: 'GET', path: apiPath, query: url.searchParams, headers: {}, body: {} }, { actor: { id: 'public', tenant_id: '', roles: [] } });
       return json(out.status, out.body, { 'cache-control': 'no-store' });
     }
+    // Tarjeta de logro compartida: pública por diseño (identificador opaco, revocable, sin datos sensibles)
+    if (req.method === 'GET' && apiPath.startsWith('/public/share/')) {
+      const out = await route(app, { method: 'GET', path: apiPath, query: url.searchParams, headers: {}, body: {} }, { actor: { id: 'public', tenant_id: '', roles: [] } });
+      if (out.contentType) { res.writeHead(out.status, { 'content-type': out.contentType, 'cache-control': 'no-store', 'x-robots-tag': 'noindex', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:" }); return res.end(String(out.body)); }
+      return json(out.status, out.body, { 'cache-control': 'no-store' });
+    }
     let actor;
     const bearer = /^Bearer\s+(\S+)$/i.exec(headers.authorization ?? '')?.[1];
     if (bearer?.startsWith('ss1crm_')) {
@@ -99,6 +105,24 @@ export function createHandler(app: App, ask?: AskFn, auth: { identity?: Ss1Ident
     } else if (!auth.devAuth) {
       res.writeHead(401, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ error: 'missing_token', message: 'Abre el CRM desde admin.syssoft1.com o activa CRM_DEV_AUTH=1 para la demo local.' }));
+    }
+    // Tiempo real del jugador por SSE: mismos permisos que GET /players/:id/realtime; reanuda desde Last-Event-ID
+    const stream = req.method === 'GET' ? /^\/players\/([\w-]+)\/stream$/.exec(apiPath) : null;
+    if (stream) {
+      const tenant = actor?.tenant_id ?? headers['x-tenant-id'] ?? '';
+      const after = Number(headers['last-event-id'] ?? url.searchParams.get('after')) || 0;
+      const check = await route(app, { method: 'GET', path: `/players/${stream[1]}/realtime`, query: new URLSearchParams({ after: String(after) }), headers: actor ? { ...headers, 'x-tenant-id': actor.tenant_id } : headers, body: {} }, { actor });
+      if (check.status !== 200) return json(check.status, check.body);
+      res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
+      const send = (e: { id: number; type: string }) => res.write(`id: ${e.id}\nevent: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`);
+      const first = check.body as { events: { id: number; type: string }[]; resync: boolean; last: number };
+      res.write(`retry: 3000\n\n`);
+      if (first.resync) res.write(`event: resync\ndata: {"last":${first.last}}\n\n`);
+      for (const e of first.events) send(e);
+      const off = app.realtime.subscribe(tenant, stream[1], send);
+      const hb = setInterval(() => res.write(': latido\n\n'), 25_000);
+      req.on('close', () => { off(); clearInterval(hb); });
+      return;
     }
     const token = actor ? /^Bearer\s+(\S+)$/i.exec(headers.authorization ?? '')?.[1] : undefined;
     const ss1 = token && auth.identity ? { apiBase: auth.apiBase ?? 'https://api.syssoft1.com', token } : undefined;

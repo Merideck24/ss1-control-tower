@@ -13,6 +13,7 @@ import { DomainError, safeEqual, sha256, type Clock } from '../shared/util.ts';
 export const PERM_SCOPES: Record<string, Scope[]> = {
   'players.read': ['players:read', 'onsite:serve'],
   'player.preferences': ['players:write'],
+  'gamification.player': ['players:write'],
   'events.write': ['events:write'],
   'ingest.csv': ['events:write'],
   'analytics.read': ['analytics:read'],

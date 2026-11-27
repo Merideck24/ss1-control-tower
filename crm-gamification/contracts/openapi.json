@@ -30,6 +30,15 @@
       "name": "Recorridos"
     },
     {
+      "name": "Retos"
+    },
+    {
+      "name": "Logros"
+    },
+    {
+      "name": "Jugador"
+    },
+    {
       "name": "Rendimiento"
     },
     {
@@ -1680,6 +1689,1180 @@
           "journeys.publish",
           "journeys.pause",
           "journeys.close"
+        ]
+      }
+    },
+    "/v1/challenges": {
+      "get": {
+        "tags": [
+          "Retos"
+        ],
+        "summary": "Retos con métricas (elegibles, inscritos, inicio, finalización, recompensas) y definiciones",
+        "operationId": "getChallenges",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      },
+      "post": {
+        "tags": [
+          "Retos"
+        ],
+        "summary": "Guardar borrador de reto (valida salvaguardas de juego responsable)",
+        "operationId": "postChallenges",
+        "description": "Permiso de rol: `journeys.draft` (crm_analyst, tenant_admin). No disponible para llaves de servicio. Cuerpo: `Challenge`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Challenge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.draft"
+        ]
+      }
+    },
+    "/v1/challenges/{challenge_id}": {
+      "get": {
+        "tags": [
+          "Retos"
+        ],
+        "summary": "Versiones de un reto",
+        "operationId": "getChallengesChallengeId",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/challenges/{challenge_id}/{action}": {
+      "post": {
+        "tags": [
+          "Retos"
+        ],
+        "summary": "Ciclo: enviar, aprobar (otra persona), pausar, reanudar, cerrar con motivo",
+        "operationId": "postChallengesChallengeIdAction",
+        "description": "Permiso de rol: `journeys.submit` o `journeys.approve` o `journeys.pause` o `journeys.close` (crm_analyst, tenant_admin, approver, rg_officer). No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "submit",
+                "approve",
+                "pause",
+                "resume",
+                "close"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.submit",
+          "journeys.approve",
+          "journeys.pause",
+          "journeys.close"
+        ]
+      }
+    },
+    "/v1/challenges/{challenge_id}/simulate": {
+      "post": {
+        "tags": [
+          "Retos"
+        ],
+        "summary": "Simular un reto con eventos de ejemplo, sin efectos",
+        "operationId": "postChallengesChallengeIdSimulate",
+        "description": "Permiso de rol: `journeys.simulate` (crm_analyst, approver, tenant_admin). No disponible para llaves de servicio. Cuerpo: `{ player_id, events: [{ event_type, payload }] }`.",
+        "parameters": [
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ player_id, events: [{ event_type, payload }] }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": [
+          "journeys.simulate"
+        ]
+      }
+    },
+    "/v1/achievements/catalog": {
+      "get": {
+        "tags": [
+          "Logros"
+        ],
+        "summary": "Catálogo de logros con niveles y condiciones",
+        "operationId": "getAchievementsCatalog",
+        "description": "Permiso de rol: `gamification.read` (crm_analyst, approver, tenant_admin, auditor, support). Llaves de servicio: alcance `journeys:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "journeys:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "journeys:read",
+        "x-ss1-permission": [
+          "gamification.read"
+        ]
+      }
+    },
+    "/v1/gamification/share-metrics": {
+      "get": {
+        "tags": [
+          "Logros"
+        ],
+        "summary": "Interacciones con tarjetas: clic, descarga, visita atribuida, publicación confirmada",
+        "operationId": "getGamificationShareMetrics",
+        "description": "Permiso de rol: `analytics.read` (crm_analyst, approver, tenant_admin, auditor). Llaves de servicio: alcance `analytics:read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "analytics:read"
+            ]
+          }
+        ],
+        "x-ss1-scope": "analytics:read",
+        "x-ss1-permission": [
+          "analytics.read"
+        ]
+      }
+    },
+    "/v1/public/share/{share_id}": {
+      "get": {
+        "tags": [
+          "Logros"
+        ],
+        "summary": "Tarjeta compartida (pública, identificador opaco, revocable)",
+        "operationId": "getPublicShareShareId",
+        "description": "Cualquier usuario autenticado del tenant. No disponible para llaves de servicio.",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          }
+        ],
+        "x-ss1-scope": null,
+        "x-ss1-permission": []
+      }
+    },
+    "/v1/players/{player_id}/challenges": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Retos del jugador: disponibles, avance, condiciones, vigencia y recompensa",
+        "operationId": "getPlayersPlayerIdChallenges",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/challenges/{challenge_id}/{action}": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Inscribirse (voluntario), salir o cambiar avisos",
+        "operationId": "postPlayersPlayerIdChallengesChallengeIdAction",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`. Cuerpo: `{ notify }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "enroll",
+                "leave",
+                "preferences"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ notify }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/achievements": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "«Mis logros», alias y enlaces compartidos",
+        "operationId": "getPlayersPlayerIdAchievements",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/alias": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Alias público y permiso para mostrarlo en tarjetas",
+        "operationId": "postPlayersPlayerIdAlias",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`. Cuerpo: `{ alias, show_on_cards }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ alias, show_on_cards }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/achievements/{achievement_id}/card": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Vista previa de la tarjeta compartible (SVG)",
+        "operationId": "postPlayersPlayerIdAchievementsAchievementIdCard",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "achievement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/achievements/{achievement_id}/share-link": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Crear enlace público (requiere confirm: true)",
+        "operationId": "postPlayersPlayerIdAchievementsAchievementIdShareLink",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`. Cuerpo: `{ confirm: true }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "achievement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ confirm: true }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/share-links/{share_id}/revoke": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Revocar un enlace público",
+        "operationId": "postPlayersPlayerIdShareLinksShareIdRevoke",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "share_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/share-events": {
+      "post": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Registrar clic en compartir, descarga o publicación con evidencia",
+        "operationId": "postPlayersPlayerIdShareEvents",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`. Cuerpo: `{ type, achievement_id, evidence? }`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "{ type, achievement_id, evidence? }"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Creado"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
+        ]
+      }
+    },
+    "/v1/players/{player_id}/realtime": {
+      "get": {
+        "tags": [
+          "Jugador"
+        ],
+        "summary": "Avisos en tiempo real desde un cursor (respaldo del canal SSE /players/:id/stream)",
+        "operationId": "getPlayersPlayerIdRealtime",
+        "description": "Permiso de rol: `gamification.player` (support, tenant_admin, crm_analyst). Llaves de servicio: alcance `players:write`.",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ss1AdminToken": []
+          },
+          {
+            "serviceKey": [
+              "players:write"
+            ]
+          }
+        ],
+        "x-ss1-scope": "players:write",
+        "x-ss1-permission": [
+          "gamification.player"
         ]
       }
     },

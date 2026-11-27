@@ -57,6 +57,40 @@ export const CRM_ENDPOINTS = {
   getJourneysOverlap: { method: 'GET', path: '/journeys/overlap', params: [] as const, query: [] as const } as Op<{  }>,
   /** Ciclo de aprobación, publicación, pausa y cierre */
   postJourneysJourneyIdAction: { method: 'POST', path: '/journeys/{journey_id}/{action}', params: ['journey_id', 'action'] as const, query: [] as const } as Op<{ journey_id: string; action: 'submit' | 'approve' | 'publish' | 'pause' | 'resume' | 'close' }>,
+  /** Retos con métricas (elegibles, inscritos, inicio, finalización, recompensas) y definiciones · alcance journeys:read */
+  getChallenges: { method: 'GET', path: '/challenges', params: [] as const, query: ['brand', 'status', 'market'] as const } as Op<{  }>,
+  /** Guardar borrador de reto (valida salvaguardas de juego responsable) */
+  postChallenges: { method: 'POST', path: '/challenges', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Versiones de un reto · alcance journeys:read */
+  getChallengesChallengeId: { method: 'GET', path: '/challenges/{challenge_id}', params: ['challenge_id'] as const, query: [] as const } as Op<{ challenge_id: string }>,
+  /** Ciclo: enviar, aprobar (otra persona), pausar, reanudar, cerrar con motivo */
+  postChallengesChallengeIdAction: { method: 'POST', path: '/challenges/{challenge_id}/{action}', params: ['challenge_id', 'action'] as const, query: [] as const } as Op<{ challenge_id: string; action: 'submit' | 'approve' | 'pause' | 'resume' | 'close' }>,
+  /** Simular un reto con eventos de ejemplo, sin efectos */
+  postChallengesChallengeIdSimulate: { method: 'POST', path: '/challenges/{challenge_id}/simulate', params: ['challenge_id'] as const, query: [] as const } as Op<{ challenge_id: string }>,
+  /** Catálogo de logros con niveles y condiciones · alcance journeys:read */
+  getAchievementsCatalog: { method: 'GET', path: '/achievements/catalog', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Interacciones con tarjetas: clic, descarga, visita atribuida, publicación confirmada · alcance analytics:read */
+  getGamificationShareMetrics: { method: 'GET', path: '/gamification/share-metrics', params: [] as const, query: [] as const } as Op<{  }>,
+  /** Tarjeta compartida (pública, identificador opaco, revocable) */
+  getPublicShareShareId: { method: 'GET', path: '/public/share/{share_id}', params: ['share_id'] as const, query: [] as const } as Op<{ share_id: string }>,
+  /** Retos del jugador: disponibles, avance, condiciones, vigencia y recompensa · alcance players:write */
+  getPlayersPlayerIdChallenges: { method: 'GET', path: '/players/{player_id}/challenges', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Inscribirse (voluntario), salir o cambiar avisos · alcance players:write */
+  postPlayersPlayerIdChallengesChallengeIdAction: { method: 'POST', path: '/players/{player_id}/challenges/{challenge_id}/{action}', params: ['player_id', 'challenge_id', 'action'] as const, query: [] as const } as Op<{ player_id: string; challenge_id: string; action: 'enroll' | 'leave' | 'preferences' }>,
+  /** «Mis logros», alias y enlaces compartidos · alcance players:write */
+  getPlayersPlayerIdAchievements: { method: 'GET', path: '/players/{player_id}/achievements', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Alias público y permiso para mostrarlo en tarjetas · alcance players:write */
+  postPlayersPlayerIdAlias: { method: 'POST', path: '/players/{player_id}/alias', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Vista previa de la tarjeta compartible (SVG) · alcance players:write */
+  postPlayersPlayerIdAchievementsAchievementIdCard: { method: 'POST', path: '/players/{player_id}/achievements/{achievement_id}/card', params: ['player_id', 'achievement_id'] as const, query: [] as const } as Op<{ player_id: string; achievement_id: string }>,
+  /** Crear enlace público (requiere confirm: true) · alcance players:write */
+  postPlayersPlayerIdAchievementsAchievementIdShareLink: { method: 'POST', path: '/players/{player_id}/achievements/{achievement_id}/share-link', params: ['player_id', 'achievement_id'] as const, query: [] as const } as Op<{ player_id: string; achievement_id: string }>,
+  /** Revocar un enlace público · alcance players:write */
+  postPlayersPlayerIdShareLinksShareIdRevoke: { method: 'POST', path: '/players/{player_id}/share-links/{share_id}/revoke', params: ['player_id', 'share_id'] as const, query: [] as const } as Op<{ player_id: string; share_id: string }>,
+  /** Registrar clic en compartir, descarga o publicación con evidencia · alcance players:write */
+  postPlayersPlayerIdShareEvents: { method: 'POST', path: '/players/{player_id}/share-events', params: ['player_id'] as const, query: [] as const } as Op<{ player_id: string }>,
+  /** Avisos en tiempo real desde un cursor (respaldo del canal SSE /players/:id/stream) · alcance players:write */
+  getPlayersPlayerIdRealtime: { method: 'GET', path: '/players/{player_id}/realtime', params: ['player_id'] as const, query: ['after'] as const } as Op<{ player_id: string }>,
   /** Cola de fallas de entrega con filtros (marca, recorrido, canal, estado, motivo, fechas) · alcance analytics:read */
   getFailures: { method: 'GET', path: '/failures', params: [] as const, query: ['brand', 'journey', 'channel', 'status', 'reason', 'from', 'to', 'resolved'] as const } as Op<{  }>,
   /** Detalle de una falla con instrucciones e historial de reprocesos · alcance analytics:read */
